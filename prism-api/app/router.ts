@@ -1,0 +1,66 @@
+import { asyncContext } from "remix/async-context-middleware";
+import { compression } from "remix/compression-middleware";
+import {
+  createRouter,
+  type AnyParams,
+  type ContextWithParams,
+  type MiddlewareContext,
+} from "remix/fetch-router";
+import { formData } from "remix/form-data-middleware";
+import { logger } from "remix/logger-middleware";
+
+import { assets } from "./assets.ts";
+import {
+  admin,
+  adminGroups,
+  adminMessages,
+} from "./controllers/admin/controller.tsx";
+import { api, apiClients } from "./controllers/api/controller.ts";
+import { auth, authLogin, authSetup } from "./controllers/auth/controller.tsx";
+import { home } from "./controllers/home.tsx";
+import { loadAuth } from "./middleware/auth.ts";
+import { loadDatabase } from "./middleware/database.ts";
+import { routes } from "./routes.ts";
+
+type RootMiddleware = [
+  ReturnType<typeof compression>,
+  ReturnType<typeof formData>,
+  ReturnType<typeof asyncContext>,
+  ReturnType<typeof loadDatabase>,
+  ReturnType<typeof loadAuth>,
+];
+
+let rootMiddleware: RootMiddleware = [
+  compression(),
+  formData(),
+  asyncContext(),
+  loadDatabase(),
+  loadAuth(),
+];
+
+export type AppContext<params extends AnyParams = AnyParams> =
+  ContextWithParams<MiddlewareContext<RootMiddleware>, params>;
+
+export const router =
+  process.env.NODE_ENV === "development"
+    ? createRouter({ middleware: [logger(), ...rootMiddleware] as const })
+    : createRouter({ middleware: rootMiddleware });
+
+router.get(routes.assets, async ({ request }) => {
+  let response = await assets.fetch(request);
+  return response ?? new Response("Not Found", { status: 404 });
+});
+
+router.map(routes.home, home);
+router.map(routes.auth, auth);
+router.map(routes.auth.login, authLogin);
+router.map(routes.auth.setup, authSetup);
+router.map(routes.admin, admin);
+router.map(routes.admin.groups, adminGroups);
+router.map(routes.admin.messages, adminMessages);
+router.map(routes.api, api);
+router.map(routes.api.clients, apiClients);
+router.get(
+  routes.websocket,
+  () => new Response("Upgrade Required", { status: 426 }),
+);
