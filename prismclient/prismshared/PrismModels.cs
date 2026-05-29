@@ -1,0 +1,127 @@
+namespace prismshared;
+
+public static class PrismConstants
+{
+    public const string ApplicationName = "FamilyPrism";
+    public const string ServiceName = "prismsvc";
+    public const string ServiceDisplayName = "Family Prism Service";
+}
+
+public static class PrismBuildMode
+{
+#if DEBUG
+    public static bool UsesMachineScope => false;
+
+    public static string StorageScopeName => "Debug";
+#else
+    public static bool UsesMachineScope => true;
+
+    public static string StorageScopeName => "Release";
+#endif
+}
+
+public static class PrismPaths
+{
+    public static string UserProfileRoot => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        PrismConstants.ApplicationName,
+        PrismBuildMode.StorageScopeName);
+
+    public static string ProgramDataRoot => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        PrismConstants.ApplicationName);
+
+    public static string StorageRoot => PrismBuildMode.UsesMachineScope
+        ? ProgramDataRoot
+        : UserProfileRoot;
+
+    public static string SecureConfigDirectory => Path.Combine(StorageRoot, "Config");
+
+    public static string StateDirectory => Path.Combine(StorageRoot, "State");
+
+    public static string SecureConfigPath => Path.Combine(SecureConfigDirectory, "agent-config.json");
+
+    public static string StatusPath => Path.Combine(StateDirectory, "agent-status.json");
+
+    public static string PendingSetupDirectory => Path.Combine(UserProfileRoot, "PendingSetup");
+
+    public static string InstalledServiceDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+        PrismConstants.ApplicationName,
+        "Service");
+
+    public static string InstalledServiceExecutablePath => Path.Combine(InstalledServiceDirectory, "prismsvc.exe");
+
+    public static string BundledServiceDirectory => Path.Combine(AppContext.BaseDirectory, "service");
+}
+
+public sealed record PrismRegistrationResult(
+    string ClientId,
+    string ClientName,
+    string Credential,
+    string WebsocketPath);
+
+public sealed record PendingSetupPayload(
+    string ServerBaseUrl,
+    string ClientId,
+    string ClientName,
+    string Credential,
+    string WebsocketPath);
+
+public sealed record PrismStoredConfiguration(
+    string ServerBaseUrl,
+    string ClientId,
+    string ClientName,
+    string ProtectedCredential,
+    string WebsocketPath);
+
+public sealed record PrismConfiguration(
+    string ServerBaseUrl,
+    string ClientId,
+    string ClientName,
+    string Credential,
+    string WebsocketPath);
+
+public enum PrismConnectionState
+{
+    NotConfigured,
+    Configured,
+    Starting,
+    Connecting,
+    Connected,
+    Disconnected,
+    Error
+}
+
+public sealed record PrismStatusSnapshot
+{
+    public bool IsSetupComplete { get; init; }
+
+    public string HostMode { get; init; } = "Tray";
+
+    public PrismConnectionState ConnectionState { get; init; } = PrismConnectionState.NotConfigured;
+
+    public string StatusMessage { get; init; } = "Waiting for setup.";
+
+    public string? ServerBaseUrl { get; init; }
+
+    public string? ClientId { get; init; }
+
+    public string? ClientName { get; init; }
+
+    public string? LastError { get; init; }
+
+    public string? LastMessageId { get; init; }
+
+    public string? LastMessageText { get; init; }
+
+    public DateTimeOffset? LastConnectedAtUtc { get; init; }
+
+    public DateTimeOffset? LastMessageReceivedAtUtc { get; init; }
+
+    public DateTimeOffset UpdatedAtUtc { get; init; } = DateTimeOffset.UtcNow;
+}
+
+public sealed record PrismRegistrationErrorResponse(
+    string? Error,
+    string? Message);

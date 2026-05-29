@@ -8,7 +8,7 @@ public class Program
 
         builder.Services.AddWindowsService(options =>
         {
-            options.ServiceName = "Family Prism Service";
+            options.ServiceName = "prismsvc";
         });
 
         builder.Services.AddHostedService<Worker>();

@@ -8,4 +8,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\prismshared\prismshared.csproj" />
+  </ItemGroup>
+
+  <Target Name="CopyBundledServiceFiles" AfterTargets="Build">
+    <MSBuild Projects="..\prismsvc\prismsvc.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <ItemGroup>
+      <BundledServiceFiles Include="..\prismsvc\bin\$(Configuration)\net10.0-windows\**\*.*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(BundledServiceFiles)"
+      DestinationFiles="@(BundledServiceFiles->'$(OutDir)service\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
