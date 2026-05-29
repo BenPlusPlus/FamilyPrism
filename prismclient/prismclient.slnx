@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="prismagent/prismagent.csproj" />
+  <Project Path="prismsvc/prismsvc.csproj" />
+</Solution>
