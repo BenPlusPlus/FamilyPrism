@@ -130,3 +130,18 @@ export async function listClientsWithGroups(database: Database = db): Promise<Cl
   }))
 }
 
+export async function deleteClient(clientId: string, database: Database = db) {
+  return database.transaction(async (transaction) => {
+    let client = await transaction.find(clients, clientId)
+    if (!client) {
+      return null
+    }
+
+    await transaction.deleteMany(clients, {
+      where: { id: clientId },
+    })
+
+    return client
+  })
+}
+

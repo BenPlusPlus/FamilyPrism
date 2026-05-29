@@ -6,7 +6,11 @@ import { maxLength, minLength } from "remix/data-schema/checks";
 import { redirect } from "remix/response/redirect";
 import type { Handle } from "remix/ui";
 
-import { listClients, listClientsWithGroups } from "../../data/clients.ts";
+import {
+  deleteClient,
+  listClients,
+  listClientsWithGroups,
+} from "../../data/clients.ts";
 import type { AdminIdentity } from "../../data/auth.ts";
 import {
   GroupNameConflictError,
@@ -74,8 +78,20 @@ export const admin = {
         request,
       );
     },
+  },
+} satisfies Controller<typeof routes.admin, AppContext>;
 
-    async clients({ request }) {
+export const adminClients = {
+  middleware: [
+    requireAuth<AdminIdentity>({
+      onFailure() {
+        return redirect(routes.auth.login.index.href());
+      },
+    }),
+    requireAdmin(),
+  ],
+  actions: {
+    async index({ request }) {
       let notice = getNotice(new URL(request.url));
       let clientsWithGroups = await listClientsWithGroups();
 
@@ -84,8 +100,30 @@ export const admin = {
         request,
       );
     },
+
+    async delete({ params, request }) {
+      let client = await deleteClient(params.clientId);
+
+      if (!client) {
+        return redirect(
+          withNotice(request, routes.admin.clients.index.href(), {
+            text: "Client not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      connectionRegistry.disconnectClient(client.id);
+
+      return redirect(
+        withNotice(request, routes.admin.clients.index.href(), {
+          text: `Deleted ${client.name} and revoked its credentials.`,
+          type: "success",
+        }),
+      );
+    },
   },
-} satisfies Controller<typeof routes.admin, AppContext>;
+} satisfies Controller<typeof routes.admin.clients, AppContext>;
 
 export const adminGroups = {
   middleware: [
@@ -192,7 +230,7 @@ export const adminMessages = {
       let parsed = s.parseSafe(messageSchema, get(FormData));
       if (!parsed.success) {
         return redirect(
-          withNotice(request, routes.admin.clients.href(), {
+          withNotice(request, routes.admin.clients.index.href(), {
             text: parsed.issues[0]?.message ?? "Message text is required.",
             type: "error",
           }),
@@ -207,7 +245,7 @@ export const adminMessages = {
         });
 
         return redirect(
-          withNotice(request, routes.admin.clients.href(), {
+          withNotice(request, routes.admin.clients.index.href(), {
             text: `Message sent to 1 client; ${result.deliveredLiveCount} delivered live.`,
             type: "success",
           }),
@@ -215,7 +253,7 @@ export const adminMessages = {
       } catch (error) {
         if (error instanceof MessageTargetNotFoundError) {
           return redirect(
-            withNotice(request, routes.admin.clients.href(), {
+            withNotice(request, routes.admin.clients.index.href(), {
               text: error.message,
               type: "error",
             }),
@@ -286,7 +324,7 @@ function DashboardPage(
           <h2>Clients</h2>
           <p>{handle.props.clientCount} total clients</p>
           <p>{handle.props.connectedClientCount} currently connected</p>
-          <a href={routes.admin.clients.href()}>Manage clients</a>
+          <a href={routes.admin.clients.index.href()}>Manage clients</a>
         </article>
         <article class="card">
           <h2>Groups</h2>
@@ -317,6 +355,7 @@ function ClientsPage(
             <th>Status</th>
             <th>Groups</th>
             <th>Send message</th>
+            <th>Unregister</th>
           </tr>
         </thead>
         <tbody>
@@ -351,6 +390,16 @@ function ClientsPage(
                     required
                   ></textarea>
                   <button type="submit">Send</button>
+                </form>
+              </td>
+              <td>
+                <form
+                  method="post"
+                  action={routes.admin.clients.delete.href({
+                    clientId: client.id,
+                  })}
+                >
+                  <button type="submit">Delete client</button>
                 </form>
               </td>
             </tr>

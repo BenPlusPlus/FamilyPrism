@@ -7,14 +7,18 @@ import { ClientConnectionRegistry } from './registry.ts'
 
 function createSocket() {
   let sent: string[] = []
+  let closeCount = 0
   let socket = {
     readyState: 1,
+    close() {
+      closeCount += 1
+    },
     send(payload: string) {
       sent.push(payload)
     },
   } as unknown as WebSocket
 
-  return { sent, socket }
+  return { closeCount: () => closeCount, sent, socket }
 }
 
 test('registry tracks connection state by client id', () => {
@@ -56,4 +60,20 @@ test('registry reports offline delivery when no socket is connected', () => {
   })
 
   assert.equal(delivered, false)
+})
+
+test('registry disconnects all live sockets for a client', () => {
+  let registry = new ClientConnectionRegistry()
+  let first = createSocket()
+  let second = createSocket()
+
+  registry.register('client-1', first.socket)
+  registry.register('client-1', second.socket)
+
+  let disconnectedCount = registry.disconnectClient('client-1')
+
+  assert.equal(disconnectedCount, 2)
+  assert.equal(first.closeCount(), 1)
+  assert.equal(second.closeCount(), 1)
+  assert.equal(registry.isClientConnected('client-1'), false)
 })

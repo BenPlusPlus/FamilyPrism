@@ -12,6 +12,7 @@ import { logger } from "remix/logger-middleware";
 import { assets } from "./assets.ts";
 import {
   admin,
+  adminClients,
   adminGroups,
   adminMessages,
 } from "./controllers/admin/controller.tsx";
@@ -56,6 +57,7 @@ router.map(routes.auth, auth);
 router.map(routes.auth.login, authLogin);
 router.map(routes.auth.setup, authSetup);
 router.map(routes.admin, admin);
+router.map(routes.admin.clients, adminClients);
 router.map(routes.admin.groups, adminGroups);
 router.map(routes.admin.messages, adminMessages);
 router.map(routes.api, api);

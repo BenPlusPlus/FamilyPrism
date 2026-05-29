@@ -36,6 +36,25 @@ export class ClientConnectionRegistry {
     return (this.#connections.get(clientId)?.size ?? 0) > 0
   }
 
+  disconnectClient(clientId: string) {
+    let sockets = this.#connections.get(clientId)
+    if (!sockets || sockets.size === 0) {
+      return 0
+    }
+
+    this.#connections.delete(clientId)
+
+    for (let socket of sockets) {
+      try {
+        socket.close()
+      } catch {
+        // Let the server-side cleanup handlers dispose any broken sockets.
+      }
+    }
+
+    return sockets.size
+  }
+
   sendDisplayMessage(clientId: string, payload: DisplayMessagePayload) {
     let sockets = this.#connections.get(clientId)
     if (!sockets || sockets.size === 0) {

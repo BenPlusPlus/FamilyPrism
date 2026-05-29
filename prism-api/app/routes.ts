@@ -11,7 +11,10 @@ export const routes = route({
   }),
   admin: route('admin', {
     index: get('/'),
-    clients: get('clients'),
+    clients: route('clients', {
+      index: get('/'),
+      delete: post(':clientId/delete'),
+    }),
     groups: route('groups', {
       index: get('/'),
       create: post('/'),
