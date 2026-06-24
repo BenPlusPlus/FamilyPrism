@@ -16,6 +16,7 @@ export const clients = table({
   name: 'clients',
   columns: {
     id: c.varchar(255).notNull().primaryKey(),
+    last_user: c.varchar(255).nullable(),
     name: c.varchar(255).notNull().unique(),
   },
   timestamps: {
@@ -95,4 +96,3 @@ export const messageDeliveries = table({
     updatedAt: 'updated_at',
   },
 })
-

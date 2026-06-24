@@ -109,6 +109,7 @@ public sealed class PrismAgentRuntime
 
         var websocketUri = BuildWebsocketUri(configuration);
         await websocket.ConnectAsync(websocketUri, cancellationToken);
+        await SendIdentifyMessageAsync(websocket, cancellationToken);
         logInformation?.Invoke($"Connected to {websocketUri}.");
 
         WriteStatus(
@@ -231,6 +232,45 @@ public sealed class PrismAgentRuntime
             LastConnectedAtUtc = lastConnectedAtUtc ?? currentStatus.LastConnectedAtUtc,
             LastMessageReceivedAtUtc = lastMessageReceivedAtUtc ?? currentStatus.LastMessageReceivedAtUtc
         });
+    }
+
+    private static async Task SendIdentifyMessageAsync(
+        ClientWebSocket websocket,
+        CancellationToken cancellationToken)
+    {
+        var payload = JsonSerializer.Serialize(new
+        {
+            type = "identify",
+            windowsUser = GetCurrentWindowsUser()
+        });
+
+        await websocket.SendAsync(
+            Encoding.UTF8.GetBytes(payload),
+            WebSocketMessageType.Text,
+            true,
+            cancellationToken);
+    }
+
+    private static string GetCurrentWindowsUser()
+    {
+        var identityName = System.Security.Principal.WindowsIdentity.GetCurrent()?.Name;
+        if (!string.IsNullOrWhiteSpace(identityName))
+        {
+            var localAccountPrefix = $"{Environment.MachineName}\\";
+            return identityName.StartsWith(localAccountPrefix, StringComparison.OrdinalIgnoreCase)
+                ? Environment.UserName
+                : identityName;
+        }
+
+        if (!string.Equals(
+            Environment.UserDomainName,
+            Environment.MachineName,
+            StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{Environment.UserDomainName}\\{Environment.UserName}";
+        }
+
+        return Environment.UserName;
     }
 
     private static Uri BuildWebsocketUri(PrismConfiguration configuration)

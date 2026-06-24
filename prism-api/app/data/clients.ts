@@ -130,6 +130,16 @@ export async function listClientsWithGroups(database: Database = db): Promise<Cl
   }))
 }
 
+export async function updateClientLastUser(
+  clientId: string,
+  lastUser: string,
+  database: Database = db,
+) {
+  await database.update(clients, clientId, {
+    last_user: lastUser,
+  })
+}
+
 export async function deleteClient(clientId: string, database: Database = db) {
   return database.transaction(async (transaction) => {
     let client = await transaction.find(clients, clientId)
@@ -144,4 +154,3 @@ export async function deleteClient(clientId: string, database: Database = db) {
     return client
   })
 }
-

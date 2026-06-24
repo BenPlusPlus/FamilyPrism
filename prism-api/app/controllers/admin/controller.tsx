@@ -352,6 +352,7 @@ function ClientsPage(
           <tr>
             <th>Name</th>
             <th>Client ID</th>
+            <th>Last user</th>
             <th>Status</th>
             <th>Groups</th>
             <th>Send message</th>
@@ -365,6 +366,7 @@ function ClientsPage(
               <td>
                 <code>{client.id}</code>
               </td>
+              <td>{client.last_user ?? "—"}</td>
               <td>
                 {connectionRegistry.isClientConnected(client.id)
                   ? "Connected"

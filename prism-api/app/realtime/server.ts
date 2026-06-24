@@ -1,14 +1,19 @@
 import type * as http from 'node:http'
 import type { Duplex } from 'node:stream'
 
-import { WebSocketServer, type WebSocket } from 'ws'
+import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 
-import { authenticateClient } from '../data/clients.ts'
+import { authenticateClient, updateClientLastUser } from '../data/clients.ts'
 import { routes } from '../routes.ts'
 import { connectionRegistry } from './registry.ts'
 
 interface ManagedSocket extends WebSocket {
   isAlive?: boolean
+}
+
+interface IdentifyClientMessage {
+  type: 'identify'
+  windowsUser: string
 }
 
 function firstHeaderValue(value: string | string[] | undefined) {
@@ -26,6 +31,66 @@ function rejectUpgrade(socket: Duplex, statusCode: number, message: string) {
   )
   socket.write(body)
   socket.destroy()
+}
+
+function rawDataToString(rawData: RawData) {
+  if (typeof rawData === 'string') {
+    return rawData
+  }
+
+  if (Array.isArray(rawData)) {
+    return Buffer.concat(rawData).toString('utf8')
+  }
+
+  if (Buffer.isBuffer(rawData)) {
+    return rawData.toString('utf8')
+  }
+
+  return Buffer.from(rawData).toString('utf8')
+}
+
+export function parseClientMessage(rawData: RawData): IdentifyClientMessage | null {
+  let payload: unknown
+
+  try {
+    payload = JSON.parse(rawDataToString(rawData))
+  } catch {
+    return null
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  let type = 'type' in payload ? payload.type : null
+  let windowsUser = 'windowsUser' in payload ? payload.windowsUser : null
+  if (type !== 'identify' || typeof windowsUser !== 'string') {
+    return null
+  }
+
+  let normalizedWindowsUser = windowsUser.trim()
+  if (!normalizedWindowsUser) {
+    return null
+  }
+
+  return {
+    type,
+    windowsUser: normalizedWindowsUser,
+  }
+}
+
+export async function handleClientMessage(
+  clientId: string,
+  rawData: RawData,
+  updateLastUser: typeof updateClientLastUser = updateClientLastUser,
+) {
+  let message = parseClientMessage(rawData)
+  if (!message) {
+    return false
+  }
+
+  await updateLastUser(clientId, message.windowsUser)
+  return true
 }
 
 export function attachRealtimeServer(server: http.Server) {
@@ -77,6 +142,16 @@ export function attachRealtimeServer(server: http.Server) {
         managedSocket.isAlive = true
       })
 
+      websocket.on('message', (rawData, isBinary) => {
+        if (isBinary) {
+          return
+        }
+
+        void handleClientMessage(client.id, rawData).catch((error: unknown) => {
+          console.error(`Failed to handle websocket message for client ${client.id}.`, error)
+        })
+      })
+
       let cleanup = () => {
         clearInterval(heartbeat)
         connectionRegistry.unregister(client.id, websocket)
@@ -95,4 +170,3 @@ export function attachRealtimeServer(server: http.Server) {
     })
   })
 }
-
