@@ -6,6 +6,10 @@ export interface DisplayMessagePayload {
   type: 'display-message'
 }
 
+export interface TakeScreenshotPayload {
+  type: 'take-screenshot'
+}
+
 export class ClientConnectionRegistry {
   #connections = new Map<string, Set<WebSocket>>()
 
@@ -55,7 +59,7 @@ export class ClientConnectionRegistry {
     return sockets.size
   }
 
-  sendDisplayMessage(clientId: string, payload: DisplayMessagePayload) {
+  #sendPayload(clientId: string, payload: DisplayMessagePayload | TakeScreenshotPayload) {
     let sockets = this.#connections.get(clientId)
     if (!sockets || sockets.size === 0) {
       return false
@@ -79,7 +83,16 @@ export class ClientConnectionRegistry {
 
     return delivered
   }
+
+  sendDisplayMessage(clientId: string, payload: DisplayMessagePayload) {
+    return this.#sendPayload(clientId, payload)
+  }
+
+  sendTakeScreenshotCommand(clientId: string) {
+    return this.#sendPayload(clientId, {
+      type: 'take-screenshot',
+    })
+  }
 }
 
 export const connectionRegistry = new ClientConnectionRegistry()
-

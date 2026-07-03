@@ -1,5 +1,8 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using prismshared;
 
 namespace prismagent;
@@ -10,8 +13,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly NotifyIcon notifyIcon;
     private readonly ContextMenuStrip contextMenu;
     private readonly System.Windows.Forms.Timer statusTimer;
+    private readonly PrismApiClient apiClient = new();
     private bool exiting;
     private bool initializedMessageTracking;
+    private bool processingScreenshotRequest;
     private string? lastNotifiedMessageId;
 
     public TrayApplicationContext()
@@ -131,6 +136,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 status.LastMessageText,
                 ToolTipIcon.Info);
         }
+
+        StartPendingScreenshotUploadIfNeeded();
     }
 
     private void ShowStatusWindow()
@@ -170,6 +177,67 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ? value
             : value[..maximumLength];
     }
+
+    private void StartPendingScreenshotUploadIfNeeded()
+    {
+        if (processingScreenshotRequest || !PendingScreenshotRequestStore.HasPendingRequest())
+        {
+            return;
+        }
+
+        processingScreenshotRequest = true;
+        _ = ProcessPendingScreenshotRequestAsync();
+    }
+
+    private async Task ProcessPendingScreenshotRequestAsync()
+    {
+        try
+        {
+            var pendingRequest = PendingScreenshotRequestStore.Read();
+            if (pendingRequest is null)
+            {
+                return;
+            }
+
+            var configuration = MachineConfigurationStore.Load();
+            var screenshot = CapturePrimaryScreenAsPng();
+            await apiClient.UploadScreenshotAsync(configuration, screenshot, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            notifyIcon.ShowBalloonTip(
+                5000,
+                "Family Prism",
+                TruncateTooltip($"Screenshot upload failed: {ex.Message}"),
+                ToolTipIcon.Warning);
+        }
+        finally
+        {
+            PendingScreenshotRequestStore.Delete();
+            processingScreenshotRequest = false;
+        }
+    }
+
+    private static byte[] CapturePrimaryScreenAsPng()
+    {
+        var width = GetSystemMetrics(0);
+        var height = GetSystemMetrics(1);
+        if (width <= 0 || height <= 0)
+        {
+            throw new InvalidOperationException("The primary display bounds could not be determined.");
+        }
+
+        using var bitmap = new Bitmap(width, height);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.CopyFromScreen(0, 0, 0, 0, new Size(width, height));
+
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, ImageFormat.Png);
+        return stream.ToArray();
+    }
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
 
     private static void EnsureLocalRuntimeStarted()
     {

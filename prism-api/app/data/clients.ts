@@ -97,6 +97,10 @@ export async function authenticateClient(clientId: string, credential: string, d
   return client
 }
 
+export async function getClient(clientId: string, database: Database = db) {
+  return database.find(clients, clientId)
+}
+
 export async function listClients(database: Database = db) {
   return database.findMany(clients, {
     orderBy: ['name', 'asc'],
@@ -137,6 +141,16 @@ export async function updateClientLastUser(
 ) {
   await database.update(clients, clientId, {
     last_user: lastUser,
+  })
+}
+
+export async function updateClientScreenshotTime(
+  clientId: string,
+  lastScreenshotAt: string,
+  database: Database = db,
+) {
+  await database.update(clients, clientId, {
+    last_screenshot_at: lastScreenshotAt,
   })
 }
 

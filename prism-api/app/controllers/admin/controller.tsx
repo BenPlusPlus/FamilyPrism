@@ -8,6 +8,7 @@ import type { Handle } from "remix/ui";
 
 import {
   deleteClient,
+  getClient,
   listClients,
   listClientsWithGroups,
 } from "../../data/clients.ts";
@@ -24,6 +25,10 @@ import {
   dispatchTextMessageToClient,
   dispatchTextMessageToGroup,
 } from "../../data/messages.ts";
+import {
+  deleteClientScreenshot,
+  readClientScreenshot,
+} from "../../data/screenshots.ts";
 import { requireAdmin } from "../../middleware/admin.ts";
 import { connectionRegistry } from "../../realtime/registry.ts";
 import type { AppContext } from "../../router.ts";
@@ -101,6 +106,40 @@ export const adminClients = {
       );
     },
 
+    async detail({ params, request }) {
+      let client = await getClient(params.clientId);
+      if (!client) {
+        return redirect(
+          withNotice(request, routes.admin.clients.index.href(), {
+            text: "Client not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      return render(
+        <ClientDetailPage
+          client={client}
+          notice={getNotice(new URL(request.url))}
+        />,
+        request,
+      );
+    },
+
+    async screenshot({ params }) {
+      let screenshot = await readClientScreenshot(params.clientId);
+      if (!screenshot) {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      return new Response(new Uint8Array(screenshot), {
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "image/png",
+        },
+      });
+    },
+
     async delete({ params, request }) {
       let client = await deleteClient(params.clientId);
 
@@ -114,6 +153,7 @@ export const adminClients = {
       }
 
       connectionRegistry.disconnectClient(client.id);
+      await deleteClientScreenshot(client.id);
 
       return redirect(
         withNotice(request, routes.admin.clients.index.href(), {
@@ -124,6 +164,50 @@ export const adminClients = {
     },
   },
 } satisfies Controller<typeof routes.admin.clients, AppContext>;
+
+export const adminScreenshots = {
+  middleware: [
+    requireAuth<AdminIdentity>({
+      onFailure() {
+        return redirect(routes.auth.login.index.href());
+      },
+    }),
+    requireAdmin(),
+  ],
+  actions: {
+    async client({ params, request }) {
+      let client = await getClient(params.clientId);
+      if (!client) {
+        return redirect(
+          withNotice(request, routes.admin.clients.index.href(), {
+            text: "Client not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      let redirectedDetailUrl = routes.admin.clients.detail.href({
+        clientId: client.id,
+      });
+
+      if (!connectionRegistry.sendTakeScreenshotCommand(client.id)) {
+        return redirect(
+          withNotice(request, redirectedDetailUrl, {
+            text: "Client is offline.",
+            type: "error",
+          }),
+        );
+      }
+
+      return redirect(
+        withNotice(request, redirectedDetailUrl, {
+          text: "Screenshot requested. It will appear after the client uploads it.",
+          type: "success",
+        }),
+      );
+    },
+  },
+} satisfies Controller<typeof routes.admin.screenshots, AppContext>;
 
 export const adminGroups = {
   middleware: [
@@ -355,6 +439,7 @@ function ClientsPage(
             <th>Last user</th>
             <th>Status</th>
             <th>Groups</th>
+            <th>Details</th>
             <th>Send message</th>
             <th>Unregister</th>
           </tr>
@@ -376,6 +461,15 @@ function ClientsPage(
                 {client.groups.length > 0
                   ? client.groups.map((group) => group.name).join(", ")
                   : "—"}
+              </td>
+              <td>
+                <a
+                  href={routes.admin.clients.detail.href({
+                    clientId: client.id,
+                  })}
+                >
+                  View detail
+                </a>
               </td>
               <td>
                 <form
@@ -408,6 +502,68 @@ function ClientsPage(
           ))}
         </tbody>
       </table>
+    </Layout>
+  );
+}
+
+function ClientDetailPage(
+  handle: Handle<{
+    client: NonNullable<Awaited<ReturnType<typeof getClient>>>;
+    notice: ReturnType<typeof getNotice>;
+  }>,
+) {
+  let screenshotUrl = routes.admin.clients.screenshot.href({
+    clientId: handle.props.client.id,
+  });
+
+  return () => (
+    <Layout title={handle.props.client.name}>
+      <h1>{handle.props.client.name}</h1>
+      <p>
+        <a href={routes.admin.clients.index.href()}>Back to clients</a>
+      </p>
+      {handle.props.notice ? renderNotice(handle.props.notice) : null}
+
+      <section class="card stack">
+        <p>
+          <strong>Client ID:</strong> <code>{handle.props.client.id}</code>
+        </p>
+        <p>
+          <strong>Last user:</strong> {handle.props.client.last_user ?? "—"}
+        </p>
+        <p>
+          <strong>Status:</strong>{" "}
+          {connectionRegistry.isClientConnected(handle.props.client.id)
+            ? "Connected"
+            : "Offline"}
+        </p>
+        <form
+          method="post"
+          action={routes.admin.screenshots.client.href({
+            clientId: handle.props.client.id,
+          })}
+        >
+          <button type="submit">Take screenshot</button>
+        </form>
+      </section>
+
+      <section class="card stack">
+        <h2>Latest screenshot</h2>
+        {handle.props.client.last_screenshot_at ? (
+          <>
+            <p>
+              Captured at{" "}
+              {new Date(handle.props.client.last_screenshot_at).toLocaleString()}.
+            </p>
+            <img
+              src={screenshotUrl}
+              alt={`Latest screenshot from ${handle.props.client.name}`}
+            />
+          </>
+        ) : (
+          <p>No screenshot has been uploaded yet.</p>
+        )}
+      </section>
     </Layout>
   );
 }

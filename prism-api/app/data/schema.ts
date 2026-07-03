@@ -16,6 +16,7 @@ export const clients = table({
   name: 'clients',
   columns: {
     id: c.varchar(255).notNull().primaryKey(),
+    last_screenshot_at: c.varchar(64).nullable(),
     last_user: c.varchar(255).nullable(),
     name: c.varchar(255).notNull().unique(),
   },

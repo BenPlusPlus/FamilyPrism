@@ -50,6 +50,17 @@ test('registry sends display messages to connected clients', () => {
   assert.match(sent[0], /Hello client/)
 })
 
+test('registry sends take-screenshot commands to connected clients', () => {
+  let registry = new ClientConnectionRegistry()
+  let { sent, socket } = createSocket()
+
+  registry.register('client-1', socket)
+  let delivered = registry.sendTakeScreenshotCommand('client-1')
+
+  assert.equal(delivered, true)
+  assert.deepEqual(sent, ['{"type":"take-screenshot"}'])
+})
+
 test('registry reports offline delivery when no socket is connected', () => {
   let registry = new ClientConnectionRegistry()
 

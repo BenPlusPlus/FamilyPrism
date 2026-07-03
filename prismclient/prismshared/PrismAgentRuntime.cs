@@ -194,6 +194,16 @@ public sealed class PrismAgentRuntime
                     lastMessageReceivedAtUtc: DateTimeOffset.UtcNow);
                 break;
 
+            case "take-screenshot":
+                PendingScreenshotRequestStore.Write(new PendingScreenshotRequestPayload(DateTimeOffset.UtcNow));
+                logInformation?.Invoke("Queued a take-screenshot request for the interactive tray session.");
+                WriteStatus(
+                    configuration,
+                    PrismConnectionState.Connected,
+                    "Connected to the server. Screenshot requested.",
+                    lastError: null);
+                break;
+
             default:
                 logInformation?.Invoke($"Received websocket message of type '{type ?? "unknown"}'.");
                 WriteStatus(

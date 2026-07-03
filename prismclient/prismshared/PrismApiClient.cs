@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -52,6 +53,36 @@ public sealed class PrismApiClient
         return (serverBaseUrl, registration);
     }
 
+    public async Task UploadScreenshotAsync(
+        PrismConfiguration configuration,
+        byte[] imageBytes,
+        CancellationToken cancellationToken)
+    {
+        if (imageBytes.Length == 0)
+        {
+            throw new InvalidOperationException("A screenshot image is required.");
+        }
+
+        var endpoint = new Uri(
+            new Uri(configuration.ServerBaseUrl),
+            $"api/clients/{Uri.EscapeDataString(configuration.ClientId)}/screenshot");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.Add("x-client-id", configuration.ClientId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", configuration.Credential);
+        request.Content = new ByteArrayContent(imageBytes);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateApiExceptionAsync(
+                response,
+                cancellationToken,
+                "The screenshot upload failed.");
+        }
+    }
+
     public static string NormalizeServerBaseUrl(string serverInput)
     {
         var trimmed = serverInput.Trim();
@@ -93,25 +124,7 @@ public sealed class PrismApiClient
         HttpResponseMessage response,
         CancellationToken cancellationToken)
     {
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        var errorMessage = body;
-
-        if (!string.IsNullOrWhiteSpace(body))
-        {
-            try
-            {
-                var payload = JsonSerializer.Deserialize<PrismRegistrationErrorResponse>(
-                    body,
-                    new JsonSerializerOptions(JsonSerializerDefaults.Web));
-
-                errorMessage = payload?.Message
-                    ?? payload?.Error
-                    ?? body;
-            }
-            catch (JsonException)
-            {
-            }
-        }
+        var errorMessage = await ReadApiErrorMessageAsync(response, cancellationToken);
 
         var userMessage = response.StatusCode switch
         {
@@ -122,6 +135,47 @@ public sealed class PrismApiClient
         };
 
         return new PrismRegistrationException(userMessage, response.StatusCode);
+    }
+
+    private static async Task<InvalidOperationException> CreateApiExceptionAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken,
+        string fallbackMessage)
+    {
+        var errorMessage = await ReadApiErrorMessageAsync(response, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            return new InvalidOperationException(errorMessage);
+        }
+
+        return new InvalidOperationException(
+            $"{fallbackMessage} The server returned {(int)response.StatusCode} ({response.ReasonPhrase}).");
+    }
+
+    private static async Task<string?> ReadApiErrorMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        try
+        {
+            var payload = JsonSerializer.Deserialize<PrismRegistrationErrorResponse>(
+                body,
+                new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+            return payload?.Message
+                ?? payload?.Error
+                ?? body;
+        }
+        catch (JsonException)
+        {
+            return body;
+        }
     }
 }
 

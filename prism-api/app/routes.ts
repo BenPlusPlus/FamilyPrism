@@ -13,6 +13,8 @@ export const routes = route({
     index: get('/'),
     clients: route('clients', {
       index: get('/'),
+      detail: get(':clientId'),
+      screenshot: get(':clientId/screenshot'),
       delete: post(':clientId/delete'),
     }),
     groups: route('groups', {
@@ -24,11 +26,15 @@ export const routes = route({
       client: post('client/:clientId'),
       group: post('group/:groupId'),
     }),
+    screenshots: route('screenshots', {
+      client: post('client/:clientId'),
+    }),
   }),
   api: route('api', {
     auth: 'auth/*path',
     clients: route('clients', {
       register: post('register'),
+      screenshot: post(':clientId/screenshot'),
     }),
   }),
 })

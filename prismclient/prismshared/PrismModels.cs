@@ -43,6 +43,8 @@ public static class PrismPaths
 
     public static string StatusPath => Path.Combine(StateDirectory, "agent-status.json");
 
+    public static string PendingScreenshotRequestPath => Path.Combine(StateDirectory, "pending-screenshot-request.json");
+
     public static string PendingSetupDirectory => Path.Combine(UserProfileRoot, "PendingSetup");
 
     public static string InstalledServiceDirectory => Path.Combine(
@@ -67,6 +69,9 @@ public sealed record PendingSetupPayload(
     string ClientName,
     string Credential,
     string WebsocketPath);
+
+public sealed record PendingScreenshotRequestPayload(
+    DateTimeOffset RequestedAtUtc);
 
 public sealed record PrismStoredConfiguration(
     string ServerBaseUrl,
