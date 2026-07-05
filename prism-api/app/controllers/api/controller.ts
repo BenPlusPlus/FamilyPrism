@@ -8,6 +8,7 @@ import {
   ClientNameConflictError,
   registerClient,
 } from "../../data/clients.ts";
+import { recordDnsDirectiveResult } from "../../data/dns-directives.ts";
 import { saveClientScreenshot } from "../../data/screenshots.ts";
 import { prismAuth } from "../../data/auth.ts";
 import type { AppContext } from "../../router.ts";
@@ -18,6 +19,11 @@ let env = getEnv();
 let registrationSchema = s.object({
   clientName: s.string().pipe(minLength(1), maxLength(100)),
   registrationPassword: s.string().pipe(minLength(1)),
+});
+
+let dnsResultSchema = s.object({
+  commandId: s.string().pipe(minLength(1), maxLength(255)),
+  status: s.string().pipe(minLength(1), maxLength(16)),
 });
 
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
@@ -171,6 +177,101 @@ export const apiClients = {
       }
 
       await saveClientScreenshot(client.id, screenshot);
+      return new Response(null, { status: 204 });
+    },
+
+    async dnsResult({ params, request }) {
+      let requestClientId = request.headers.get("x-client-id")?.trim();
+      let authorization = request.headers.get("authorization");
+      let credential =
+        authorization && authorization.startsWith("Bearer ")
+          ? authorization.slice("Bearer ".length).trim()
+          : null;
+
+      if (
+        !requestClientId ||
+        requestClientId !== params.clientId ||
+        !credential
+      ) {
+        return Response.json(
+          {
+            message: "Missing client credentials.",
+          },
+          { status: 401 },
+        );
+      }
+
+      let client = await authenticateClient(requestClientId, credential);
+      if (!client) {
+        return Response.json(
+          {
+            message: "Invalid client credentials.",
+          },
+          { status: 401 },
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = await request.json();
+      } catch {
+        return Response.json(
+          {
+            message: "Invalid JSON body.",
+          },
+          { status: 400 },
+        );
+      }
+
+      let parsed = s.parseSafe(dnsResultSchema, payload);
+      if (!parsed.success) {
+        return Response.json(
+          {
+            issues: parsed.issues,
+            message: "Invalid DNS directive result payload.",
+          },
+          { status: 400 },
+        );
+      }
+
+      let error =
+        payload && typeof payload === "object" && "error" in payload
+          ? payload.error
+          : null;
+      if (error !== null && error !== undefined && typeof error !== "string") {
+        return Response.json(
+          {
+            message: "DNS directive error must be a string when provided.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (parsed.value.status !== "applied" && parsed.value.status !== "failed") {
+        return Response.json(
+          {
+            message: "DNS directive status must be applied or failed.",
+          },
+          { status: 400 },
+        );
+      }
+
+      let state = await recordDnsDirectiveResult({
+        clientId: client.id,
+        commandId: parsed.value.commandId,
+        error,
+        status: parsed.value.status,
+      });
+
+      if (!state) {
+        return Response.json(
+          {
+            message: "DNS directive command was not found for this client.",
+          },
+          { status: 404 },
+        );
+      }
+
       return new Response(null, { status: 204 });
     },
   },

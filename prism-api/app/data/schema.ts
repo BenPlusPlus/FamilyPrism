@@ -54,6 +54,58 @@ export const clientGroups = table({
   },
 })
 
+export const dnsProfiles = table({
+  name: 'dns_profiles',
+  columns: {
+    id: c.varchar(255).notNull().primaryKey(),
+    name: c.varchar(100).notNull().unique(),
+    primary_ip: c.varchar(45).notNull(),
+    secondary_ip: c.varchar(45).nullable(),
+  },
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})
+
+export const clientDnsStates = table({
+  name: 'client_dns_states',
+  columns: {
+    client_id: c.varchar(255).notNull().references('clients', 'id').onDelete('cascade'),
+    command_id: c.varchar(255).notNull(),
+    directive_kind: c.enum(['profile', 'reset']).notNull(),
+    profile_name: c.varchar(100).nullable(),
+    primary_ip: c.varchar(45).nullable(),
+    secondary_ip: c.varchar(45).nullable(),
+    status: c.enum(['pending', 'delivered', 'applied', 'failed']).notNull(),
+    error: c.text().nullable(),
+    issued_at: c.varchar(64).notNull(),
+    completed_at: c.varchar(64).nullable(),
+  },
+  primaryKey: 'client_id',
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})
+
+export const pendingDnsDirectives = table({
+  name: 'pending_dns_directives',
+  columns: {
+    client_id: c.varchar(255).notNull().references('clients', 'id').onDelete('cascade'),
+    command_id: c.varchar(255).notNull(),
+    directive_kind: c.enum(['profile', 'reset']).notNull(),
+    profile_name: c.varchar(100).nullable(),
+    primary_ip: c.varchar(45).nullable(),
+    secondary_ip: c.varchar(45).nullable(),
+  },
+  primaryKey: 'client_id',
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})
+
 export const clientGroupMemberships = table({
   name: 'client_group_memberships',
   columns: {

@@ -93,6 +93,7 @@ const APP_STYLES = `
   }
 
   input,
+  select,
   textarea,
   button {
     width: 100%;
@@ -108,6 +109,11 @@ const APP_STYLES = `
     cursor: pointer;
     background: #2563eb;
     border-color: #2563eb;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
   }
 
   table {

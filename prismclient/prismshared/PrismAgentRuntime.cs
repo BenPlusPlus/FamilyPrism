@@ -10,15 +10,21 @@ public sealed class PrismAgentRuntime
     private readonly string hostMode;
     private readonly Action<string>? logInformation;
     private readonly Action<string, Exception?>? logError;
+    private readonly PrismApiClient apiClient;
+    private readonly DnsConfigurationService dnsConfigurationService;
 
     public PrismAgentRuntime(
         string hostMode,
         Action<string>? logInformation = null,
-        Action<string, Exception?>? logError = null)
+        Action<string, Exception?>? logError = null,
+        PrismApiClient? apiClient = null,
+        DnsConfigurationService? dnsConfigurationService = null)
     {
         this.hostMode = hostMode;
         this.logInformation = logInformation;
         this.logError = logError;
+        this.apiClient = apiClient ?? new PrismApiClient();
+        this.dnsConfigurationService = dnsConfigurationService ?? new DnsConfigurationService();
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -141,7 +147,7 @@ public sealed class PrismAgentRuntime
             var payload = Encoding.UTF8.GetString(messageBuffer.GetBuffer(), 0, (int)messageBuffer.Length);
             messageBuffer.SetLength(0);
 
-            ProcessSocketMessage(configuration, payload);
+            ProcessSocketMessage(configuration, payload, cancellationToken);
         }
 
         WriteStatus(
@@ -151,7 +157,10 @@ public sealed class PrismAgentRuntime
             lastError: null);
     }
 
-    private void ProcessSocketMessage(PrismConfiguration configuration, string payload)
+    private void ProcessSocketMessage(
+        PrismConfiguration configuration,
+        string payload,
+        CancellationToken cancellationToken)
     {
         using var json = JsonDocument.Parse(payload);
         var root = json.RootElement;
@@ -204,6 +213,20 @@ public sealed class PrismAgentRuntime
                     lastError: null);
                 break;
 
+            case "apply-dns":
+                var dnsCommand = JsonSerializer.Deserialize<ApplyDnsCommand>(
+                    root.GetRawText(),
+                    new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+                if (dnsCommand is null || string.IsNullOrWhiteSpace(dnsCommand.CommandId))
+                {
+                    logInformation?.Invoke("Received an invalid apply-dns command.");
+                    break;
+                }
+
+                _ = ProcessApplyDnsCommandAsync(configuration, dnsCommand, cancellationToken);
+                break;
+
             default:
                 logInformation?.Invoke($"Received websocket message of type '{type ?? "unknown"}'.");
                 WriteStatus(
@@ -212,6 +235,70 @@ public sealed class PrismAgentRuntime
                     $"Connected to the server. Last message type: {type ?? "unknown"}.",
                     lastError: null);
                 break;
+        }
+    }
+
+    private async Task ProcessApplyDnsCommandAsync(
+        PrismConfiguration configuration,
+        ApplyDnsCommand command,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            DnsConfigurationApplyResult result;
+
+            if (command.ResetToDhcp)
+            {
+                result = dnsConfigurationService.ResetToDhcp();
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(command.PrimaryIp))
+                {
+                    throw new InvalidOperationException("The DNS command did not include a primary DNS server.");
+                }
+
+                result = dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
+            }
+
+            var status = result.Succeeded ? "applied" : "failed";
+            await apiClient.ReportDnsResultAsync(
+                configuration,
+                new DnsDirectiveResult(command.CommandId, status, result.Error),
+                cancellationToken);
+
+            WriteStatus(
+                configuration,
+                PrismConnectionState.Connected,
+                result.Succeeded
+                    ? "Connected to the server. DNS settings applied."
+                    : "Connected to the server. DNS settings failed.",
+                lastError: result.Error);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            logError?.Invoke("The Family Prism DNS command failed.", ex);
+
+            try
+            {
+                await apiClient.ReportDnsResultAsync(
+                    configuration,
+                    new DnsDirectiveResult(command.CommandId, "failed", ex.Message),
+                    CancellationToken.None);
+            }
+            catch (Exception reportEx)
+            {
+                logError?.Invoke("The Family Prism DNS failure report could not be sent.", reportEx);
+            }
+
+            WriteStatus(
+                configuration,
+                PrismConnectionState.Connected,
+                "Connected to the server. DNS settings failed.",
+                lastError: ex.Message);
         }
     }
 

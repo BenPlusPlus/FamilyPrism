@@ -73,6 +73,18 @@ public sealed record PendingSetupPayload(
 public sealed record PendingScreenshotRequestPayload(
     DateTimeOffset RequestedAtUtc);
 
+public sealed record ApplyDnsCommand(
+    string CommandId,
+    bool ResetToDhcp,
+    string? ProfileName,
+    string? PrimaryIp,
+    string? SecondaryIp);
+
+public sealed record DnsDirectiveResult(
+    string CommandId,
+    string Status,
+    string? Error = null);
+
 public sealed record PrismStoredConfiguration(
     string ServerBaseUrl,
     string ClientId,

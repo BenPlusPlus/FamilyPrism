@@ -14,6 +14,12 @@ import {
 } from "../../data/clients.ts";
 import type { AdminIdentity } from "../../data/auth.ts";
 import {
+  getLatestDnsState,
+  issueDnsDirective,
+  DnsDirectiveTargetNotFoundError,
+} from "../../data/dns-directives.ts";
+import { getDnsProfile, listDnsProfiles } from "../../data/dns-profiles.ts";
+import {
   GroupNameConflictError,
   createGroup,
   listGroups,
@@ -44,6 +50,10 @@ let messageSchema = f.object({
 let groupSchema = f.object({
   description: f.field(s.string()),
   name: f.field(s.string().pipe(minLength(1), maxLength(100))),
+});
+
+let applyDnsSchema = f.object({
+  profileId: f.field(s.string().pipe(minLength(1))),
 });
 
 function getCurrentAdminIdentity(context: Pick<AppContext, "get">) {
@@ -107,7 +117,11 @@ export const adminClients = {
     },
 
     async detail({ params, request }) {
-      let client = await getClient(params.clientId);
+      let [client, dnsProfiles, latestDnsState] = await Promise.all([
+        getClient(params.clientId),
+        listDnsProfiles(),
+        getLatestDnsState(params.clientId),
+      ]);
       if (!client) {
         return redirect(
           withNotice(request, routes.admin.clients.index.href(), {
@@ -120,6 +134,8 @@ export const adminClients = {
       return render(
         <ClientDetailPage
           client={client}
+          dnsProfiles={dnsProfiles}
+          latestDnsState={latestDnsState}
           notice={getNotice(new URL(request.url))}
         />,
         request,
@@ -161,6 +177,95 @@ export const adminClients = {
           type: "success",
         }),
       );
+    },
+
+    async applyDns({ get, params, request }) {
+      let parsed = s.parseSafe(applyDnsSchema, get(FormData));
+      let detailUrl = routes.admin.clients.detail.href({
+        clientId: params.clientId,
+      });
+
+      if (!parsed.success) {
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: parsed.issues[0]?.message ?? "Choose a DNS profile.",
+            type: "error",
+          }),
+        );
+      }
+
+      let profile = await getDnsProfile(parsed.value.profileId);
+      if (!profile) {
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: "DNS profile not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      try {
+        let result = await issueDnsDirective({
+          clientId: params.clientId,
+          kind: "profile",
+          primaryIp: profile.primary_ip,
+          profileName: profile.name,
+          secondaryIp: profile.secondary_ip,
+        });
+
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: result.delivered
+              ? `DNS profile ${profile.name} sent to client.`
+              : `DNS profile ${profile.name} queued for the next client connection.`,
+            type: "success",
+          }),
+        );
+      } catch (error) {
+        if (error instanceof DnsDirectiveTargetNotFoundError) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: error.message,
+              type: "error",
+            }),
+          );
+        }
+
+        throw error;
+      }
+    },
+
+    async resetDns({ params, request }) {
+      let detailUrl = routes.admin.clients.detail.href({
+        clientId: params.clientId,
+      });
+
+      try {
+        let result = await issueDnsDirective({
+          clientId: params.clientId,
+          kind: "reset",
+        });
+
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: result.delivered
+              ? "DNS reset sent to client."
+              : "DNS reset queued for the next client connection.",
+            type: "success",
+          }),
+        );
+      } catch (error) {
+        if (error instanceof DnsDirectiveTargetNotFoundError) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: error.message,
+              type: "error",
+            }),
+          );
+        }
+
+        throw error;
+      }
     },
   },
 } satisfies Controller<typeof routes.admin.clients, AppContext>;
@@ -415,6 +520,11 @@ function DashboardPage(
           <p>{handle.props.groupCount} configured groups</p>
           <a href={routes.admin.groups.index.href()}>Manage groups</a>
         </article>
+        <article class="card">
+          <h2>Settings</h2>
+          <p>Configure reusable admin controls, including DNS profiles.</p>
+          <a href={routes.admin.settings.index.href()}>Manage settings</a>
+        </article>
       </div>
     </Layout>
   );
@@ -509,6 +619,8 @@ function ClientsPage(
 function ClientDetailPage(
   handle: Handle<{
     client: NonNullable<Awaited<ReturnType<typeof getClient>>>;
+    dnsProfiles: Awaited<ReturnType<typeof listDnsProfiles>>;
+    latestDnsState: Awaited<ReturnType<typeof getLatestDnsState>>;
     notice: ReturnType<typeof getNotice>;
   }>,
 ) {
@@ -562,6 +674,108 @@ function ClientDetailPage(
           </>
         ) : (
           <p>No screenshot has been uploaded yet.</p>
+        )}
+      </section>
+
+      <section class="card stack">
+        <h2>DNS directive</h2>
+        <p>
+          Apply a named DNS resolver profile to all active IPv4 adapters, or
+          reset the client to DHCP-provided DNS servers.
+        </p>
+        <div class="card-grid">
+          <form
+            method="post"
+            action={routes.admin.clients.applyDns.href({
+              clientId: handle.props.client.id,
+            })}
+            class="stack"
+          >
+            <label>
+              DNS profile
+              <select name="profileId" required>
+                <option value="">Choose a profile</option>
+                {handle.props.dnsProfiles.map((profile) => (
+                  <option value={profile.id}>
+                    {profile.name} ({profile.primary_ip}
+                    {profile.secondary_ip ? `, ${profile.secondary_ip}` : ""})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" disabled={handle.props.dnsProfiles.length === 0}>
+              Apply DNS profile
+            </button>
+            {handle.props.dnsProfiles.length === 0 ? (
+              <p>
+                <a href={routes.admin.settings.dnsProfiles.index.href()}>
+                  Create a DNS profile first
+                </a>
+                .
+              </p>
+            ) : null}
+          </form>
+
+          <form
+            method="post"
+            action={routes.admin.clients.resetDns.href({
+              clientId: handle.props.client.id,
+            })}
+            class="stack"
+          >
+            <h3>Reset to DHCP</h3>
+            <p>Clear static DNS servers and let Windows use DHCP DNS again.</p>
+            <button type="submit">Reset DNS to DHCP</button>
+          </form>
+        </div>
+
+        {handle.props.latestDnsState ? (
+          <div class="card">
+            <p>
+              <strong>Status:</strong> {handle.props.latestDnsState.status}
+            </p>
+            <p>
+              <strong>Command:</strong>{" "}
+              <code>{handle.props.latestDnsState.command_id}</code>
+            </p>
+            <p>
+              <strong>Directive:</strong>{" "}
+              {handle.props.latestDnsState.directive_kind === "reset"
+                ? "Reset to DHCP"
+                : handle.props.latestDnsState.profile_name}
+            </p>
+            {handle.props.latestDnsState.primary_ip ? (
+              <p>
+                <strong>DNS servers:</strong>{" "}
+                <code>{handle.props.latestDnsState.primary_ip}</code>
+                {handle.props.latestDnsState.secondary_ip ? (
+                  <>
+                    {", "}
+                    <code>{handle.props.latestDnsState.secondary_ip}</code>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            <p>
+              <strong>Issued:</strong>{" "}
+              {new Date(handle.props.latestDnsState.issued_at).toLocaleString()}
+            </p>
+            {handle.props.latestDnsState.completed_at ? (
+              <p>
+                <strong>Completed:</strong>{" "}
+                {new Date(
+                  handle.props.latestDnsState.completed_at,
+                ).toLocaleString()}
+              </p>
+            ) : null}
+            {handle.props.latestDnsState.error ? (
+              <p>
+                <strong>Error:</strong> {handle.props.latestDnsState.error}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p>No DNS directive has been issued to this client yet.</p>
         )}
       </section>
     </Layout>

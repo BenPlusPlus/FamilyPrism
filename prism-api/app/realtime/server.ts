@@ -4,6 +4,7 @@ import type { Duplex } from 'node:stream'
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 
 import { authenticateClient, updateClientLastUser } from '../data/clients.ts'
+import { flushPendingDnsDirective } from '../data/dns-directives.ts'
 import { routes } from '../routes.ts'
 import { connectionRegistry } from './registry.ts'
 
@@ -167,6 +168,10 @@ export function attachRealtimeServer(server: http.Server) {
           type: 'connected',
         }),
       )
+
+      void flushPendingDnsDirective(client.id).catch((error: unknown) => {
+        console.error(`Failed to flush pending DNS directive for client ${client.id}.`, error)
+      })
     })
   })
 }

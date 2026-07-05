@@ -10,6 +10,15 @@ export interface TakeScreenshotPayload {
   type: 'take-screenshot'
 }
 
+export interface ApplyDnsPayload {
+  commandId: string
+  primaryIp: string | null
+  profileName: string | null
+  resetToDhcp: boolean
+  secondaryIp: string | null
+  type: 'apply-dns'
+}
+
 export class ClientConnectionRegistry {
   #connections = new Map<string, Set<WebSocket>>()
 
@@ -59,7 +68,10 @@ export class ClientConnectionRegistry {
     return sockets.size
   }
 
-  #sendPayload(clientId: string, payload: DisplayMessagePayload | TakeScreenshotPayload) {
+  #sendPayload(
+    clientId: string,
+    payload: ApplyDnsPayload | DisplayMessagePayload | TakeScreenshotPayload,
+  ) {
     let sockets = this.#connections.get(clientId)
     if (!sockets || sockets.size === 0) {
       return false
@@ -92,6 +104,10 @@ export class ClientConnectionRegistry {
     return this.#sendPayload(clientId, {
       type: 'take-screenshot',
     })
+  }
+
+  sendApplyDnsCommand(clientId: string, payload: ApplyDnsPayload) {
+    return this.#sendPayload(clientId, payload)
   }
 }
 

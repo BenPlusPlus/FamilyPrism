@@ -83,6 +83,32 @@ public sealed class PrismApiClient
         }
     }
 
+    public async Task ReportDnsResultAsync(
+        PrismConfiguration configuration,
+        DnsDirectiveResult result,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = new Uri(
+                new Uri(configuration.ServerBaseUrl),
+                $"api/clients/{Uri.EscapeDataString(configuration.ClientId)}/dns/result");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.Add("x-client-id", configuration.ClientId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", configuration.Credential);
+        request.Content = JsonContent.Create(
+            result,
+            options: new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+                throw await CreateApiExceptionAsync(
+                    response,
+                    cancellationToken,
+                    "The DNS directive result report failed.");
+        }
+    }
+
     public static string NormalizeServerBaseUrl(string serverInput)
     {
         var trimmed = serverInput.Trim();

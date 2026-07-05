@@ -16,6 +16,7 @@ export function Layout() {
           <a href={routes.home.href()}>Home</a>
           <a href={routes.auth.login.index.href()}>Auth</a>
           <a href={routes.admin.index.href()}>Admin</a>
+          <a href={routes.admin.settings.index.href()}>Settings</a>
         </nav>
       </header>
       <main>{children}</main>
