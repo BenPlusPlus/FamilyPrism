@@ -17,7 +17,6 @@ import {
   adminMessages,
   adminScreenshots,
 } from "./controllers/admin/controller.tsx";
-import { adminSettings, adminSettingsDnsProfiles } from "./controllers/admin/settings/controller.tsx";
 import { api, apiClients } from "./controllers/api/controller.ts";
 import { auth, authLogin, authSetup } from "./controllers/auth/controller.tsx";
 import { home } from "./controllers/home.tsx";
@@ -63,8 +62,6 @@ router.map(routes.admin.clients, adminClients);
 router.map(routes.admin.groups, adminGroups);
 router.map(routes.admin.messages, adminMessages);
 router.map(routes.admin.screenshots, adminScreenshots);
-router.map(routes.admin.settings, adminSettings);
-router.map(routes.admin.settings.dnsProfiles, adminSettingsDnsProfiles);
 router.map(routes.api, api);
 router.map(routes.api.clients, apiClients);
 router.get(
