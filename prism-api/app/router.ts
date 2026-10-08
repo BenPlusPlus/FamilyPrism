@@ -17,7 +17,10 @@ import {
   adminMessages,
   adminScreenshots,
 } from "./controllers/admin/controller.tsx";
-import { adminSettings, adminSettingsDnsProfiles } from "./controllers/admin/settings/controller.tsx";
+import {
+  adminSettings,
+  adminSettingsDnsProfiles,
+} from "./controllers/admin/settings/controller.tsx";
 import { api, apiClients } from "./controllers/api/controller.ts";
 import { auth, authLogin, authSetup } from "./controllers/auth/controller.tsx";
 import { home } from "./controllers/home.tsx";
