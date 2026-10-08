@@ -61,6 +61,31 @@ test("registry sends take-screenshot commands to connected clients", () => {
   assert.deepEqual(sent, ['{"type":"take-screenshot"}']);
 });
 
+test("registry sends apply-dns commands to connected clients", () => {
+  let registry = new ClientConnectionRegistry();
+  let { sent, socket } = createSocket();
+
+  registry.register("client-1", socket);
+  let delivered = registry.sendApplyDnsCommand("client-1", {
+    commandId: "dns-1",
+    primaryIp: "1.1.1.1",
+    profileName: "Cloudflare",
+    resetToDhcp: false,
+    secondaryIp: "1.0.0.1",
+    type: "apply-dns",
+  });
+
+  assert.equal(delivered, true);
+  assert.deepEqual(JSON.parse(sent[0]), {
+    commandId: "dns-1",
+    primaryIp: "1.1.1.1",
+    profileName: "Cloudflare",
+    resetToDhcp: false,
+    secondaryIp: "1.0.0.1",
+    type: "apply-dns",
+  });
+});
+
 test("registry reports offline delivery when no socket is connected", () => {
   let registry = new ClientConnectionRegistry();
 

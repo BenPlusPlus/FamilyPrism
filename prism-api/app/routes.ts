@@ -15,6 +15,8 @@ export const routes = route({
       index: get("/"),
       detail: get(":clientId"),
       screenshot: get(":clientId/screenshot"),
+      applyDns: post(":clientId/dns"),
+      resetDns: post(":clientId/dns/reset"),
       delete: post(":clientId/delete"),
     }),
     groups: route("groups", {
@@ -29,12 +31,22 @@ export const routes = route({
     screenshots: route("screenshots", {
       client: post("client/:clientId"),
     }),
+    settings: route("settings", {
+      index: get("/"),
+      dnsProfiles: route("dns-profiles", {
+        index: get("/"),
+        create: post("/"),
+        update: post(":profileId"),
+        delete: post(":profileId/delete"),
+      }),
+    }),
   }),
   api: route("api", {
     auth: "auth/*path",
     clients: route("clients", {
       register: post("register"),
       screenshot: post(":clientId/screenshot"),
+      dnsResult: post(":clientId/dns/result"),
     }),
   }),
 });

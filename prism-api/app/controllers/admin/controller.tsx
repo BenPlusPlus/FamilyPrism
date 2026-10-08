@@ -4,7 +4,6 @@ import * as s from "remix/data-schema";
 import * as f from "remix/data-schema/form-data";
 import { maxLength, minLength } from "remix/data-schema/checks";
 import { redirect } from "remix/response/redirect";
-import type { Handle } from "remix/ui";
 
 import {
   deleteClient,
@@ -13,6 +12,12 @@ import {
   listClientsWithGroups,
 } from "../../data/clients.ts";
 import type { AdminIdentity } from "../../data/auth.ts";
+import {
+  getLatestDnsState,
+  issueDnsDirective,
+  DnsDirectiveTargetNotFoundError,
+} from "../../data/dns-directives.ts";
+import { getDnsProfile, listDnsProfiles } from "../../data/dns-profiles.ts";
 import {
   GroupNameConflictError,
   createGroup,
@@ -33,9 +38,12 @@ import { requireAdmin } from "../../middleware/admin.ts";
 import { connectionRegistry } from "../../realtime/registry.ts";
 import type { AppContext } from "../../router.ts";
 import { routes } from "../../routes.ts";
-import { Layout } from "../../ui/layout.tsx";
 import { getNotice, withNotice } from "../../utils/notice.ts";
 import { render } from "../../utils/render.tsx";
+import { ClientDetailPage } from "./client-detail-page.tsx";
+import { ClientsPage } from "./clients-page.tsx";
+import { DashboardPage } from "./dashboard-page.tsx";
+import { GroupsPage } from "./groups-page.tsx";
 
 let messageSchema = f.object({
   content: f.field(s.string().pipe(minLength(1), maxLength(500))),
@@ -44,6 +52,10 @@ let messageSchema = f.object({
 let groupSchema = f.object({
   description: f.field(s.string()),
   name: f.field(s.string().pipe(minLength(1), maxLength(100))),
+});
+
+let applyDnsSchema = f.object({
+  profileId: f.field(s.string().pipe(minLength(1))),
 });
 
 function getCurrentAdminIdentity(context: Pick<AppContext, "get">) {
@@ -107,7 +119,11 @@ export const adminClients = {
     },
 
     async detail({ params, request }) {
-      let client = await getClient(params.clientId);
+      let [client, dnsProfiles, latestDnsState] = await Promise.all([
+        getClient(params.clientId),
+        listDnsProfiles(),
+        getLatestDnsState(params.clientId),
+      ]);
       if (!client) {
         return redirect(
           withNotice(request, routes.admin.clients.index.href(), {
@@ -120,6 +136,8 @@ export const adminClients = {
       return render(
         <ClientDetailPage
           client={client}
+          dnsProfiles={dnsProfiles}
+          latestDnsState={latestDnsState}
           notice={getNotice(new URL(request.url))}
         />,
         request,
@@ -161,6 +179,95 @@ export const adminClients = {
           type: "success",
         }),
       );
+    },
+
+    async applyDns({ get, params, request }) {
+      let parsed = s.parseSafe(applyDnsSchema, get(FormData));
+      let detailUrl = routes.admin.clients.detail.href({
+        clientId: params.clientId,
+      });
+
+      if (!parsed.success) {
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: parsed.issues[0]?.message ?? "Choose a DNS profile.",
+            type: "error",
+          }),
+        );
+      }
+
+      let profile = await getDnsProfile(parsed.value.profileId);
+      if (!profile) {
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: "DNS profile not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      try {
+        let result = await issueDnsDirective({
+          clientId: params.clientId,
+          kind: "profile",
+          primaryIp: profile.primary_ip,
+          profileName: profile.name,
+          secondaryIp: profile.secondary_ip,
+        });
+
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: result.delivered
+              ? `DNS profile ${profile.name} sent to client.`
+              : `DNS profile ${profile.name} queued for the next client connection.`,
+            type: "success",
+          }),
+        );
+      } catch (error) {
+        if (error instanceof DnsDirectiveTargetNotFoundError) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: error.message,
+              type: "error",
+            }),
+          );
+        }
+
+        throw error;
+      }
+    },
+
+    async resetDns({ params, request }) {
+      let detailUrl = routes.admin.clients.detail.href({
+        clientId: params.clientId,
+      });
+
+      try {
+        let result = await issueDnsDirective({
+          clientId: params.clientId,
+          kind: "reset",
+        });
+
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: result.delivered
+              ? "DNS reset sent to client."
+              : "DNS reset queued for the next client connection.",
+            type: "success",
+          }),
+        );
+      } catch (error) {
+        if (error instanceof DnsDirectiveTargetNotFoundError) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: error.message,
+              type: "error",
+            }),
+          );
+        }
+
+        throw error;
+      }
     },
   },
 } satisfies Controller<typeof routes.admin.clients, AppContext>;
@@ -388,299 +495,3 @@ export const adminMessages = {
     },
   },
 } satisfies Controller<typeof routes.admin.messages, AppContext>;
-
-function DashboardPage(
-  handle: Handle<{
-    adminName: string;
-    clientCount: number;
-    connectedClientCount: number;
-    groupCount: number;
-    notice: ReturnType<typeof getNotice>;
-  }>,
-) {
-  return () => (
-    <Layout title="Admin dashboard">
-      <h1>Admin dashboard</h1>
-      <p>Signed in as {handle.props.adminName}.</p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
-      <div class="card-grid">
-        <article class="card">
-          <h2>Clients</h2>
-          <p>{handle.props.clientCount} total clients</p>
-          <p>{handle.props.connectedClientCount} currently connected</p>
-          <a href={routes.admin.clients.index.href()}>Manage clients</a>
-        </article>
-        <article class="card">
-          <h2>Groups</h2>
-          <p>{handle.props.groupCount} configured groups</p>
-          <a href={routes.admin.groups.index.href()}>Manage groups</a>
-        </article>
-      </div>
-    </Layout>
-  );
-}
-
-function ClientsPage(
-  handle: Handle<{
-    clients: Awaited<ReturnType<typeof listClientsWithGroups>>;
-    notice: ReturnType<typeof getNotice>;
-  }>,
-) {
-  return () => (
-    <Layout title="Clients">
-      <h1>Clients</h1>
-      <p>Send a text message directly to any registered client.</p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Client ID</th>
-            <th>Last user</th>
-            <th>Status</th>
-            <th>Groups</th>
-            <th>Details</th>
-            <th>Send message</th>
-            <th>Unregister</th>
-          </tr>
-        </thead>
-        <tbody>
-          {handle.props.clients.map((client) => (
-            <tr>
-              <td>{client.name}</td>
-              <td>
-                <code>{client.id}</code>
-              </td>
-              <td>{client.last_user ?? "—"}</td>
-              <td>
-                {connectionRegistry.isClientConnected(client.id)
-                  ? "Connected"
-                  : "Offline"}
-              </td>
-              <td>
-                {client.groups.length > 0
-                  ? client.groups.map((group) => group.name).join(", ")
-                  : "—"}
-              </td>
-              <td>
-                <a
-                  href={routes.admin.clients.detail.href({
-                    clientId: client.id,
-                  })}
-                >
-                  View detail
-                </a>
-              </td>
-              <td>
-                <form
-                  method="post"
-                  action={routes.admin.messages.client.href({
-                    clientId: client.id,
-                  })}
-                  class="stack compact"
-                >
-                  <textarea
-                    name="content"
-                    rows={3}
-                    placeholder="Message for display on the client"
-                    required
-                  ></textarea>
-                  <button type="submit">Send</button>
-                </form>
-              </td>
-              <td>
-                <form
-                  method="post"
-                  action={routes.admin.clients.delete.href({
-                    clientId: client.id,
-                  })}
-                >
-                  <button type="submit">Delete client</button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Layout>
-  );
-}
-
-function ClientDetailPage(
-  handle: Handle<{
-    client: NonNullable<Awaited<ReturnType<typeof getClient>>>;
-    notice: ReturnType<typeof getNotice>;
-  }>,
-) {
-  let screenshotUrl = routes.admin.clients.screenshot.href({
-    clientId: handle.props.client.id,
-  });
-
-  return () => (
-    <Layout title={handle.props.client.name}>
-      <h1>{handle.props.client.name}</h1>
-      <p>
-        <a href={routes.admin.clients.index.href()}>Back to clients</a>
-      </p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
-
-      <section class="card stack">
-        <p>
-          <strong>Client ID:</strong> <code>{handle.props.client.id}</code>
-        </p>
-        <p>
-          <strong>Last user:</strong> {handle.props.client.last_user ?? "—"}
-        </p>
-        <p>
-          <strong>Status:</strong>{" "}
-          {connectionRegistry.isClientConnected(handle.props.client.id)
-            ? "Connected"
-            : "Offline"}
-        </p>
-        <form
-          method="post"
-          action={routes.admin.screenshots.client.href({
-            clientId: handle.props.client.id,
-          })}
-        >
-          <button type="submit">Take screenshot</button>
-        </form>
-      </section>
-
-      <section class="card stack">
-        <h2>Latest screenshot</h2>
-        {handle.props.client.last_screenshot_at ? (
-          <>
-            <p>
-              Captured at{" "}
-              {new Date(
-                handle.props.client.last_screenshot_at,
-              ).toLocaleString()}
-              .
-            </p>
-            <img
-              src={screenshotUrl}
-              alt={`Latest screenshot from ${handle.props.client.name}`}
-            />
-          </>
-        ) : (
-          <p>No screenshot has been uploaded yet.</p>
-        )}
-      </section>
-    </Layout>
-  );
-}
-
-function GroupsPage(
-  handle: Handle<{
-    allClients: Awaited<ReturnType<typeof listClients>>;
-    groups: Awaited<ReturnType<typeof listGroupsWithMembers>>;
-    notice: ReturnType<typeof getNotice>;
-  }>,
-) {
-  let groupsCreateAction = routes.admin.groups.create.href();
-
-  return () => (
-    <Layout title="Groups">
-      <h1>Groups</h1>
-      <p>Create groups, manage membership, and send group messages.</p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
-
-      <section class="card">
-        <h2>Create group</h2>
-        <form method="post" action={groupsCreateAction} class="stack">
-          <label>
-            Name
-            <input type="text" name="name" required />
-          </label>
-          <label>
-            Description
-            <textarea name="description" rows={2}></textarea>
-          </label>
-          <fieldset>
-            <legend>Initial members</legend>
-            <div class="checkbox-grid">
-              {handle.props.allClients.map((client) => (
-                <label>
-                  <input type="checkbox" name="clientId" value={client.id} />{" "}
-                  {client.name}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <button type="submit">Create group</button>
-        </form>
-      </section>
-
-      <div class="stack">
-        {handle.props.groups.map((group) => {
-          let memberIds = new Set(group.members.map((member) => member.id));
-
-          return (
-            <section class="card">
-              <h2>{group.name}</h2>
-              <p>{group.description || "No description."}</p>
-              <p>
-                Members:{" "}
-                {group.members.length > 0
-                  ? group.members.map((member) => member.name).join(", ")
-                  : "None"}
-              </p>
-              <div class="card-grid">
-                <form
-                  method="post"
-                  action={routes.admin.groups.members.href({
-                    groupId: group.id,
-                  })}
-                  class="stack"
-                >
-                  <h3>Update membership</h3>
-                  <div class="checkbox-grid">
-                    {handle.props.allClients.map((client) => (
-                      <label>
-                        <input
-                          type="checkbox"
-                          name="clientId"
-                          value={client.id}
-                          checked={memberIds.has(client.id)}
-                        />{" "}
-                        {client.name}
-                      </label>
-                    ))}
-                  </div>
-                  <button type="submit">Save members</button>
-                </form>
-
-                <form
-                  method="post"
-                  action={routes.admin.messages.group.href({
-                    groupId: group.id,
-                  })}
-                  class="stack"
-                >
-                  <h3>Send group message</h3>
-                  <textarea
-                    name="content"
-                    rows={4}
-                    placeholder="Message for every client in this group"
-                    required
-                  ></textarea>
-                  <button type="submit">Send to group</button>
-                </form>
-              </div>
-            </section>
-          );
-        })}
-      </div>
-    </Layout>
-  );
-}
-
-function renderNotice(notice: NonNullable<ReturnType<typeof getNotice>>) {
-  return (
-    <div class={`notice ${notice.type}`}>
-      <strong>{notice.type === "error" ? "Error" : "Success"}:</strong>{" "}
-      {notice.text}
-    </div>
-  );
-}
