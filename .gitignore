@@ -1,6 +1,7 @@
 /**/node_modules/
 .env
 /prism-api/screenshots/
+/prismclient/artifacts/
 
 #Ignore thumbnails created by Windows
 Thumbs.db

@@ -19,8 +19,48 @@
     </ItemGroup>
     <Copy
       SourceFiles="@(BundledServiceFiles)"
-      DestinationFiles="@(BundledServiceFiles->'$(OutDir)service\%(RecursiveDir)%(Filename)%(Extension)')"
+      DestinationFiles="@(BundledServiceFiles->'$(OutDir)Service\%(RecursiveDir)%(Filename)%(Extension)')"
       SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="PublishBundledService" AfterTargets="Publish" Condition="'$(PublishBundledService)' != 'false'">
+    <PropertyGroup>
+      <_ServicePublishDir>$([MSBuild]::EnsureTrailingSlash($(PublishDir)))Service</_ServicePublishDir>
+    </PropertyGroup>
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\prismsvc\prismsvc.csproj"
+      Targets="Restore;Publish"
+      Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(_ServicePublishDir);PublishBundledService=false;PublishInstaller=false;PublishClientZip=false" />
+  </Target>
+
+  <Target
+    Name="PackageClientZip"
+    AfterTargets="PublishBundledService"
+    Condition="'$(PublishClientZip)' != 'false' and '$(RuntimeIdentifier)' != ''">
+    <PropertyGroup>
+      <_ClientZipDir>$([MSBuild]::NormalizeDirectory($(MSBuildThisFileDirectory)..\artifacts))</_ClientZipDir>
+      <_PackageClientZipScript>$([MSBuild]::NormalizePath($(MSBuildThisFileDirectory)..\package-client-zip.ps1))</_PackageClientZipScript>
+      <_PublishDirForZip>$([System.String]::Copy('$(PublishDir)').TrimEnd('\'))</_PublishDirForZip>
+      <_ClientZipPath>$([MSBuild]::NormalizePath($(_ClientZipDir)FamilyPrism-$(Version)-$(RuntimeIdentifier).zip))</_ClientZipPath>
+    </PropertyGroup>
+    <MakeDir Directories="$(_ClientZipDir)" />
+    <Exec
+      StandardOutputImportance="High"
+      Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(_PackageClientZipScript)&quot; -PublishDir &quot;$(_PublishDirForZip)&quot; -ZipPath &quot;$(_ClientZipPath)&quot; -Version &quot;$(Version)&quot;" />
+  </Target>
+
+  <Target
+    Name="BuildInnoInstaller"
+    AfterTargets="PublishBundledService"
+    Condition="'$(Configuration)' == 'Release' and '$(PublishInstaller)' != 'false' and '$(RuntimeIdentifier)' != ''">
+    <PropertyGroup>
+      <_InstallerOutputDir>$([MSBuild]::NormalizeDirectory($(MSBuildThisFileDirectory)..\artifacts\installer))</_InstallerOutputDir>
+      <_CompileInstallerScript>$([MSBuild]::NormalizePath($(MSBuildThisFileDirectory)..\installer\compile.ps1))</_CompileInstallerScript>
+      <_PublishDirForInstaller>$([System.String]::Copy('$(PublishDir)').TrimEnd('\'))</_PublishDirForInstaller>
+      <_InstallerOutputDirForScript>$([System.String]::Copy('$(_InstallerOutputDir)').TrimEnd('\'))</_InstallerOutputDirForScript>
+    </PropertyGroup>
+    <MakeDir Directories="$(_InstallerOutputDir)" />
+    <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(_CompileInstallerScript)&quot; -PublishDir &quot;$(_PublishDirForInstaller)&quot; -OutputDir &quot;$(_InstallerOutputDirForScript)&quot; -Version &quot;$(Version)&quot;" />
   </Target>
 
 </Project>
