@@ -1,6 +1,7 @@
 import type { Handle } from "remix/ui";
 
 import { listClientsWithGroups } from "../../data/clients.ts";
+import type { ClientVersionView } from "../../data/client-package.ts";
 import { connectionRegistry } from "../../realtime/registry.ts";
 import { routes } from "../../routes.ts";
 import { Layout } from "../../ui/layout.tsx";
@@ -9,7 +10,9 @@ import { renderNotice } from "./notice.tsx";
 
 export function ClientsPage(
   handle: Handle<{
-    clients: Awaited<ReturnType<typeof listClientsWithGroups>>;
+    clients: Array<
+      Awaited<ReturnType<typeof listClientsWithGroups>>[number] & ClientVersionView
+    >;
     notice: ReturnType<typeof getNotice>;
   }>,
 ) {
@@ -24,6 +27,7 @@ export function ClientsPage(
             <th>Name</th>
             <th>Client ID</th>
             <th>Last user</th>
+            <th>Version</th>
             <th>Status</th>
             <th>Groups</th>
             <th>Details</th>
@@ -39,6 +43,10 @@ export function ClientsPage(
                 <code>{client.id}</code>
               </td>
               <td>{client.last_user ?? "—"}</td>
+              <td>
+                {client.lastSeenVersion ?? "unknown"}
+                {client.isStale ? <span class="badge stale">Stale</span> : null}
+              </td>
               <td>
                 {connectionRegistry.isClientConnected(client.id)
                   ? "Connected"

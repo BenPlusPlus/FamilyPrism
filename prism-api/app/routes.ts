@@ -47,6 +47,7 @@ export const routes = route({
       register: post("register"),
       screenshot: post(":clientId/screenshot"),
       dnsResult: post(":clientId/dns/result"),
+      update: get(":clientId/update"),
     }),
   }),
 });

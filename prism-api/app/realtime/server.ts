@@ -3,7 +3,8 @@ import type { Duplex } from 'node:stream'
 
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 
-import { authenticateClient, updateClientLastUser } from '../data/clients.ts'
+import { authenticateClient, updateClientLastSeenVersion, updateClientLastUser } from '../data/clients.ts'
+import { normalizeClientVersion } from '../data/client-package.ts'
 import { flushPendingDnsDirective } from '../data/dns-directives.ts'
 import { routes } from '../routes.ts'
 import { connectionRegistry } from './registry.ts'
@@ -14,6 +15,7 @@ interface ManagedSocket extends WebSocket {
 
 interface IdentifyClientMessage {
   type: 'identify'
+  version: string | null
   windowsUser: string
 }
 
@@ -74,8 +76,12 @@ export function parseClientMessage(rawData: RawData): IdentifyClientMessage | nu
     return null
   }
 
+  let rawVersion = 'version' in payload ? payload.version : null
+  let version = typeof rawVersion === 'string' ? normalizeClientVersion(rawVersion) : null
+
   return {
     type,
+    version,
     windowsUser: normalizedWindowsUser,
   }
 }
@@ -84,6 +90,7 @@ export async function handleClientMessage(
   clientId: string,
   rawData: RawData,
   updateLastUser: typeof updateClientLastUser = updateClientLastUser,
+  updateLastSeenVersionFn: typeof updateClientLastSeenVersion = updateClientLastSeenVersion,
 ) {
   let message = parseClientMessage(rawData)
   if (!message) {
@@ -91,6 +98,9 @@ export async function handleClientMessage(
   }
 
   await updateLastUser(clientId, message.windowsUser)
+  if (message.version) {
+    await updateLastSeenVersionFn(clientId, message.version)
+  }
   return true
 }
 

@@ -1,6 +1,7 @@
 import type { Handle } from "remix/ui";
 
 import { getClient } from "../../data/clients.ts";
+import type { ClientVersionView } from "../../data/client-package.ts";
 import { getLatestDnsState } from "../../data/dns-directives.ts";
 import { listDnsProfiles } from "../../data/dns-profiles.ts";
 import { connectionRegistry } from "../../realtime/registry.ts";
@@ -11,7 +12,7 @@ import { renderNotice } from "./notice.tsx";
 
 export function ClientDetailPage(
   handle: Handle<{
-    client: NonNullable<Awaited<ReturnType<typeof getClient>>>;
+    client: NonNullable<Awaited<ReturnType<typeof getClient>>> & ClientVersionView;
     dnsProfiles: Awaited<ReturnType<typeof listDnsProfiles>>;
     latestDnsState: Awaited<ReturnType<typeof getLatestDnsState>>;
     notice: ReturnType<typeof getNotice>;
@@ -35,6 +36,12 @@ export function ClientDetailPage(
         </p>
         <p>
           <strong>Last user:</strong> {handle.props.client.last_user ?? "—"}
+        </p>
+        <p>
+          <strong>Version:</strong> {handle.props.client.lastSeenVersion ?? "unknown"}
+          {handle.props.client.isStale ? (
+            <span class="badge stale">Stale</span>
+          ) : null}
         </p>
         <p>
           <strong>Status:</strong>{" "}
