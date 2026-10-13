@@ -2,9 +2,9 @@ namespace prismshared;
 
 public static class ClientUpdateStateStore
 {
-    public static readonly TimeSpan InitialBackoff = TimeSpan.FromMinutes(15);
+    public static readonly TimeSpan InitialBackoff = ClientUpdateSchedule.InitialBackoff;
 
-    public static readonly TimeSpan MaxBackoff = TimeSpan.FromHours(6);
+    public static readonly TimeSpan MaxBackoff = ClientUpdateSchedule.MaxBackoff;
 
     public static ClientUpdateState Read(string path)
     {
@@ -32,14 +32,9 @@ public static class ClientUpdateStateStore
         return new ClientUpdatePin(state.FailedVersion, state.FailedSha256);
     }
 
-    public static bool IsInBackoff(ClientUpdateState state, ClientUpdatePackage package, DateTimeOffset now)
+    public static bool IsInBackoff(ClientUpdateState state, DateTimeOffset now)
     {
         if (state.LastFailureAtUtc is null || state.NextRetryDelaySeconds <= 0)
-        {
-            return false;
-        }
-
-        if (!IsSamePin(state.BackoffVersion, state.BackoffSha256, package))
         {
             return false;
         }
@@ -51,25 +46,42 @@ public static class ClientUpdateStateStore
         return now < state.LastFailureAtUtc.Value + delay;
     }
 
-    public static ClientUpdateState RecordTransientFailure(ClientUpdateState state, ClientUpdatePackage package)
+    public static ClientUpdateState RecordSuccess(ClientUpdateState state, DateTimeOffset now)
     {
-        var samePin = IsSamePin(state.BackoffVersion, state.BackoffSha256, package);
-        var nextDelay = samePin
-            ? Math.Min(Math.Max(state.NextRetryDelaySeconds * 2, (int)InitialBackoff.TotalSeconds), (int)MaxBackoff.TotalSeconds)
+        return state with
+        {
+            LastSuccessfulCheckAtUtc = now,
+            LastFailureAtUtc = null,
+            NextRetryDelaySeconds = 0,
+            BackoffVersion = null,
+            BackoffSha256 = null
+        };
+    }
+
+    public static ClientUpdateState RecordTransientFailure(
+        ClientUpdateState state,
+        DateTimeOffset now,
+        ClientUpdatePackage? package = null)
+    {
+        var nextDelay = state.NextRetryDelaySeconds > 0
+            ? Math.Min(state.NextRetryDelaySeconds * 2, (int)MaxBackoff.TotalSeconds)
             : (int)InitialBackoff.TotalSeconds;
 
         return state with
         {
-            LastFailureAtUtc = DateTimeOffset.UtcNow,
+            LastFailureAtUtc = now,
             NextRetryDelaySeconds = nextDelay,
-            BackoffVersion = package.Version,
-            BackoffSha256 = package.Sha256
+            BackoffVersion = package?.Version ?? state.BackoffVersion,
+            BackoffSha256 = package?.Sha256 ?? state.BackoffSha256
         };
     }
 
-    public static ClientUpdateState RecordFailedPin(ClientUpdateState state, ClientUpdatePackage package)
+    public static ClientUpdateState RecordFailedPin(
+        ClientUpdateState state,
+        ClientUpdatePackage package,
+        DateTimeOffset? now = null)
     {
-        return RecordTransientFailure(state, package) with
+        return RecordTransientFailure(state, now ?? DateTimeOffset.UtcNow, package) with
         {
             FailedVersion = package.Version,
             FailedSha256 = package.Sha256
@@ -86,11 +98,5 @@ public static class ClientUpdateStateStore
                 plan.Sha256,
                 string.Empty,
                 plan.Version));
-    }
-
-    private static bool IsSamePin(string? version, string? sha256, ClientUpdatePackage package)
-    {
-        return string.Equals(version, package.Version, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(sha256, package.Sha256, StringComparison.OrdinalIgnoreCase);
     }
 }
