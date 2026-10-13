@@ -14,7 +14,7 @@ public interface IProcessLauncher
 
 public sealed class ClientUpdateCoordinator
 {
-    public static readonly TimeSpan PeriodicCheckInterval = TimeSpan.FromHours(6);
+    public static readonly TimeSpan PeriodicCheckInterval = ClientUpdateSchedule.PeriodicCheckInterval;
 
     private readonly PrismApiClient apiClient;
     private readonly ClientUpdatePaths paths;
@@ -25,6 +25,7 @@ public sealed class ClientUpdateCoordinator
     private readonly Action requestStop;
     private readonly Action<string>? logInformation;
     private readonly Action<string, Exception?>? logError;
+    private readonly Func<DateTimeOffset> getUtcNow;
     private readonly SemaphoreSlim gate = new(1, 1);
 
     public ClientUpdateCoordinator(
@@ -36,7 +37,8 @@ public sealed class ClientUpdateCoordinator
         IProcessLauncher processLauncher,
         Action requestStop,
         Action<string>? logInformation = null,
-        Action<string, Exception?>? logError = null)
+        Action<string, Exception?>? logError = null,
+        Func<DateTimeOffset>? getUtcNow = null)
     {
         this.apiClient = apiClient;
         this.paths = paths;
@@ -47,6 +49,7 @@ public sealed class ClientUpdateCoordinator
         this.requestStop = requestStop;
         this.logInformation = logInformation;
         this.logError = logError;
+        this.getUtcNow = getUtcNow ?? (() => DateTimeOffset.UtcNow);
     }
 
     public static ClientUpdateCoordinator CreateDefault(
@@ -70,7 +73,8 @@ public sealed class ClientUpdateCoordinator
 
     public async Task<ClientUpdateOutcome> CheckAsync(
         PrismConfiguration configuration,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ClientUpdateCheckTrigger trigger = ClientUpdateCheckTrigger.Start)
     {
         if (!gate.Wait(0))
         {
@@ -86,8 +90,23 @@ public sealed class ClientUpdateCoordinator
                 return ClientUpdateOutcome.Skipped;
             }
 
-            var localVersion = getLocalVersion();
+            var now = getUtcNow();
             var state = ClientUpdateStateStore.Read(paths.StatePath);
+            if (!ClientUpdateSchedule.ShouldCheck(trigger, state, now))
+            {
+                if (ClientUpdateStateStore.IsInBackoff(state, now))
+                {
+                    logInformation?.Invoke("Client update skipped: waiting to retry after a previous failure.");
+                }
+                else
+                {
+                    logInformation?.Invoke("Client update skipped: last successful check was recent.");
+                }
+
+                return ClientUpdateOutcome.Skipped;
+            }
+
+            var localVersion = getLocalVersion();
             ClientUpdateManifest manifest;
 
             try
@@ -97,6 +116,7 @@ public sealed class ClientUpdateCoordinator
             catch (Exception ex)
             {
                 logError?.Invoke("The client update manifest could not be retrieved.", ex);
+                PersistTransientFailure(state, now);
                 return ClientUpdateOutcome.Failed;
             }
 
@@ -109,16 +129,19 @@ public sealed class ClientUpdateCoordinator
             if (decision is ClientUpdateDecision.Skip skip)
             {
                 logInformation?.Invoke($"Client update skipped: {skip.Reason}.");
+                if (skip.Reason == ClientUpdateSkipReason.FailedPin)
+                {
+                    PersistTransientFailure(state, now);
+                }
+                else
+                {
+                    PersistSuccess(state, now);
+                }
+
                 return ClientUpdateOutcome.Skipped;
             }
 
             var package = ((ClientUpdateDecision.Apply)decision).Package;
-            if (ClientUpdateStateStore.IsInBackoff(state, package, DateTimeOffset.UtcNow))
-            {
-                logInformation?.Invoke("Client update skipped: waiting to retry after a previous failure.");
-                return ClientUpdateOutcome.Skipped;
-            }
-
             paths.EnsureUpdatesDirectory();
 
             try
@@ -128,7 +151,7 @@ public sealed class ClientUpdateCoordinator
             catch (Exception ex)
             {
                 logError?.Invoke("The client update package could not be downloaded.", ex);
-                PersistTransientFailure(state, package);
+                PersistTransientFailure(state, now, package);
                 return ClientUpdateOutcome.Failed;
             }
 
@@ -136,14 +159,14 @@ public sealed class ClientUpdateCoordinator
             if (staged is ClientUpdateStageResult.HashMismatch)
             {
                 logError?.Invoke("The client update package hash did not match the manifest. Staging was deleted.", null);
-                PersistTransientFailure(state, package);
+                PersistTransientFailure(state, now, package);
                 return ClientUpdateOutcome.HashMismatch;
             }
 
             if (!File.Exists(paths.HelperExecutablePath))
             {
                 logError?.Invoke($"The update helper was not found at '{paths.HelperExecutablePath}'.", null);
-                PersistTransientFailure(state, package);
+                PersistTransientFailure(state, now, package);
                 return ClientUpdateOutcome.Failed;
             }
 
@@ -164,6 +187,7 @@ public sealed class ClientUpdateCoordinator
                 paths.HelperExecutablePath,
                 $"--plan \"{paths.PlanPath}\"",
                 paths.UpdatesDirectory);
+            PersistSuccess(state, now);
             logInformation?.Invoke($"Applying client update {package.Version}; stopping the service for the helper swap.");
             requestStop();
             return ClientUpdateOutcome.StagedAndRestarting;
@@ -174,9 +198,17 @@ public sealed class ClientUpdateCoordinator
         }
     }
 
-    private void PersistTransientFailure(ClientUpdateState state, ClientUpdatePackage package)
+    private void PersistSuccess(ClientUpdateState state, DateTimeOffset now)
     {
-        ClientUpdateStateStore.Write(paths.StatePath, ClientUpdateStateStore.RecordTransientFailure(state, package));
+        ClientUpdateStateStore.Write(paths.StatePath, ClientUpdateStateStore.RecordSuccess(state, now));
+    }
+
+    private void PersistTransientFailure(
+        ClientUpdateState state,
+        DateTimeOffset now,
+        ClientUpdatePackage? package = null)
+    {
+        ClientUpdateStateStore.Write(paths.StatePath, ClientUpdateStateStore.RecordTransientFailure(state, now, package));
     }
 }
 

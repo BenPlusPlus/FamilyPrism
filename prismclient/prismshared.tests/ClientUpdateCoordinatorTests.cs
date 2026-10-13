@@ -174,13 +174,235 @@ public class ClientUpdateCoordinatorTests
         Assert.Equal("current", File.ReadAllText(workspace.InstallFile("marker.txt")));
     }
 
+    [Fact]
+    public async Task ReconnectWithin15MinutesDoesNotCallTheManifestEndpoint()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var handler = new CountingHandler(Package(version: "0.1.0"));
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Start);
+        var reconnect = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(ClientUpdateOutcome.Skipped, reconnect);
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task ReconnectAfter15MinutesCallsTheManifestEndpoint()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var handler = new CountingHandler(Package(version: "0.1.0"));
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Start);
+        now = now.Add(ClientUpdateSchedule.ReconnectDebounce);
+        var reconnect = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(2, handler.RequestCount);
+        Assert.Equal(ClientUpdateOutcome.Skipped, reconnect);
+    }
+
+    [Fact]
+    public async Task FailureBackoffDelaysTheNextCheck()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var handler = new CountingHandler(Package(), HttpStatusCode.InternalServerError);
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        var failed = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.Start);
+        var duringBackoff = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(ClientUpdateOutcome.Failed, failed);
+        Assert.Equal(ClientUpdateOutcome.Skipped, duringBackoff);
+        Assert.Equal(1, handler.RequestCount);
+
+        now = now.Add(ClientUpdateSchedule.InitialBackoff);
+        await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(2, handler.RequestCount);
+
+        var immediatelyAfterSecondFailure = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+        now = now.Add(ClientUpdateSchedule.InitialBackoff);
+        var beforeDoubledBackoff = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(ClientUpdateOutcome.Skipped, immediatelyAfterSecondFailure);
+        Assert.Equal(ClientUpdateOutcome.Skipped, beforeDoubledBackoff);
+        Assert.Equal(2, handler.RequestCount);
+
+        now = now.Add(ClientUpdateSchedule.InitialBackoff);
+        await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(3, handler.RequestCount);
+    }
+
+    [Fact]
+    public void TransientFailureBackoffCapsAtSixHours()
+    {
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var state = new ClientUpdateState();
+        var maxSeconds = (int)ClientUpdateSchedule.MaxBackoff.TotalSeconds;
+
+        for (var i = 0; i < 8; i++)
+        {
+            state = ClientUpdateStateStore.RecordTransientFailure(state, now);
+        }
+
+        Assert.Equal(maxSeconds, state.NextRetryDelaySeconds);
+        Assert.True(ClientUpdateStateStore.IsInBackoff(state, now.Add(ClientUpdateSchedule.MaxBackoff).AddSeconds(-1)));
+        Assert.False(ClientUpdateStateStore.IsInBackoff(state, now.Add(ClientUpdateSchedule.MaxBackoff)));
+    }
+
+    [Fact]
+    public async Task StartupCheckIsNotSkippedByTheDebounce()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        ClientUpdateStateStore.Write(
+            workspace.Paths.StatePath,
+            new ClientUpdateState(LastSuccessfulCheckAtUtc: now.AddMinutes(-5)));
+        var handler = new CountingHandler(Package(version: "0.1.0"));
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Start);
+
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task PeriodicCheckIsNotSkippedByReconnectDebounce()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        ClientUpdateStateStore.Write(
+            workspace.Paths.StatePath,
+            new ClientUpdateState(LastSuccessfulCheckAtUtc: now.AddMinutes(-5)));
+        var handler = new CountingHandler(Package(version: "0.1.0"));
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.Periodic);
+
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task PoisonPilledPinIsNotDownloadedAfterBackoffExpiresUntilThePinChanges()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var package = Package();
+        ClientUpdateStateStore.Write(
+            workspace.Paths.StatePath,
+            new ClientUpdateState(FailedVersion: package.Version, FailedSha256: package.Sha256));
+        var downloader = new RecordingDownloader();
+        var handler = new CountingHandler(package);
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            downloader,
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        var start = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.Start);
+        var reconnectDuringBackoff = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(ClientUpdateOutcome.Skipped, start);
+        Assert.Equal(ClientUpdateOutcome.Skipped, reconnectDuringBackoff);
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Equal(0, downloader.DownloadCount);
+
+        now = now.Add(ClientUpdateSchedule.InitialBackoff);
+        var reconnectAfterBackoff = await coordinator.CheckAsync(
+            Configuration(),
+            CancellationToken.None,
+            ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(ClientUpdateOutcome.Skipped, reconnectAfterBackoff);
+        Assert.Equal(2, handler.RequestCount);
+        Assert.Equal(0, downloader.DownloadCount);
+    }
+
     private static ClientUpdateCoordinator CreateCoordinator(
         UpdateTestWorkspace workspace,
         HttpMessageHandler handler,
         IUpdatePackageDownloader downloader,
         IProcessLauncher launcher,
         Action requestStop,
-        ClientUpdateEligibility eligibility)
+        ClientUpdateEligibility eligibility,
+        Func<DateTimeOffset>? getUtcNow = null)
     {
         return new ClientUpdateCoordinator(
             new PrismApiClient(new HttpClient(handler)),
@@ -189,7 +411,8 @@ public class ClientUpdateCoordinatorTests
             () => "0.1.0",
             downloader,
             launcher,
-            requestStop);
+            requestStop,
+            getUtcNow: getUtcNow);
     }
 
     private static PrismConfiguration Configuration()
@@ -212,7 +435,9 @@ public class ClientUpdateCoordinatorTests
             version);
     }
 
-    private sealed class CountingHandler(ClientUpdatePackage? package) : HttpMessageHandler
+    private sealed class CountingHandler(
+        ClientUpdatePackage? package,
+        HttpStatusCode statusCode = HttpStatusCode.OK) : HttpMessageHandler
     {
         public int RequestCount { get; private set; }
 
@@ -221,13 +446,22 @@ public class ClientUpdateCoordinatorTests
             CancellationToken cancellationToken)
         {
             RequestCount++;
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            var response = new HttpResponseMessage(statusCode)
             {
-                Content = JsonContent.Create(
-                    new ClientUpdateManifest(package),
-                    options: new JsonSerializerOptions(JsonSerializerDefaults.Web)),
                 RequestMessage = request
-            });
+            };
+            if (statusCode == HttpStatusCode.OK)
+            {
+                response.Content = JsonContent.Create(
+                    new ClientUpdateManifest(package),
+                    options: new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            }
+            else
+            {
+                response.Content = new StringContent("manifest unavailable");
+            }
+
+            return Task.FromResult(response);
         }
     }
 

@@ -41,78 +41,102 @@ public sealed class PrismAgentRuntime
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         var retryDelay = TimeSpan.FromSeconds(5);
+        var checkedOnStart = false;
+        using var periodicCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var periodicUpdates = RunPeriodicUpdateChecksAsync(periodicCts.Token);
 
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            PrismConfiguration configuration;
-
-            try
+            while (!cancellationToken.IsCancellationRequested)
             {
-                if (!MachineConfigurationStore.HasSecureConfiguration())
+                PrismConfiguration configuration;
+
+                try
                 {
+                    if (!MachineConfigurationStore.HasSecureConfiguration())
+                    {
+                        WriteStatus(
+                            configuration: null,
+                            PrismConnectionState.NotConfigured,
+                            "Waiting for setup.",
+                            lastError: null);
+
+                        await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+                        continue;
+                    }
+
+                    configuration = MachineConfigurationStore.Load();
+                }
+                catch (CryptographicException ex)
+                {
+                    logError?.Invoke("The stored Family Prism credentials could not be decrypted.", ex);
                     WriteStatus(
                         configuration: null,
-                        PrismConnectionState.NotConfigured,
-                        "Waiting for setup.",
-                        lastError: null);
+                        PrismConnectionState.Error,
+                        "Stored credentials could not be read. Run setup again.",
+                        lastError: ex.Message);
 
-                    await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+                    await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    logError?.Invoke("The Family Prism agent could not load its configuration.", ex);
+                    WriteStatus(
+                        configuration: null,
+                        PrismConnectionState.Error,
+                        "The agent configuration could not be loaded.",
+                        lastError: ex.Message);
+
+                    await Task.Delay(retryDelay, cancellationToken);
+                    retryDelay = NextRetryDelay(retryDelay);
                     continue;
                 }
 
-                configuration = MachineConfigurationStore.Load();
-            }
-            catch (CryptographicException ex)
-            {
-                logError?.Invoke("The stored Family Prism credentials could not be decrypted.", ex);
-                WriteStatus(
-                    configuration: null,
-                    PrismConnectionState.Error,
-                    "Stored credentials could not be read. Run setup again.",
-                    lastError: ex.Message);
+                try
+                {
+                    if (!checkedOnStart)
+                    {
+                        checkedOnStart = true;
+                        if (await TryCheckForUpdateAsync(
+                            configuration,
+                            ClientUpdateCheckTrigger.Start,
+                            cancellationToken))
+                        {
+                            break;
+                        }
+                    }
 
-                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
-                continue;
-            }
-            catch (Exception ex)
-            {
-                logError?.Invoke("The Family Prism agent could not load its configuration.", ex);
-                WriteStatus(
-                    configuration: null,
-                    PrismConnectionState.Error,
-                    "The agent configuration could not be loaded.",
-                    lastError: ex.Message);
-
-                await Task.Delay(retryDelay, cancellationToken);
-                retryDelay = NextRetryDelay(retryDelay);
-                continue;
-            }
-
-            try
-            {
-                if (await TryCheckForUpdateAsync(configuration, cancellationToken))
+                    await RunSocketSessionAsync(configuration, cancellationToken);
+                    retryDelay = TimeSpan.FromSeconds(5);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
+                catch (Exception ex)
+                {
+                    logError?.Invoke("The Family Prism websocket connection failed.", ex);
+                    WriteStatus(
+                        configuration,
+                        PrismConnectionState.Error,
+                        "The connection to the server was lost. Retrying...",
+                        lastError: ex.Message);
 
-                await RunSocketSessionAsync(configuration, cancellationToken);
-                retryDelay = TimeSpan.FromSeconds(5);
+                    await Task.Delay(retryDelay, cancellationToken);
+                    retryDelay = NextRetryDelay(retryDelay);
+                }
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        }
+        finally
+        {
+            periodicCts.Cancel();
+            try
             {
-                break;
+                await periodicUpdates;
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                logError?.Invoke("The Family Prism websocket connection failed.", ex);
-                WriteStatus(
-                    configuration,
-                    PrismConnectionState.Error,
-                    "The connection to the server was lost. Retrying...",
-                    lastError: ex.Message);
-
-                await Task.Delay(retryDelay, cancellationToken);
-                retryDelay = NextRetryDelay(retryDelay);
             }
         }
     }
@@ -141,51 +165,37 @@ public sealed class PrismAgentRuntime
             lastError: null,
             lastConnectedAtUtc: DateTimeOffset.UtcNow);
 
-        if (await TryCheckForUpdateAsync(configuration, cancellationToken))
+        if (await TryCheckForUpdateAsync(
+            configuration,
+            ClientUpdateCheckTrigger.WebsocketConnect,
+            cancellationToken))
         {
             return;
         }
 
-        using var periodicCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var periodicUpdates = RunPeriodicUpdateChecksAsync(configuration, periodicCts.Token);
-
         var buffer = new byte[8192];
         using var messageBuffer = new MemoryStream();
 
-        try
+        while (!cancellationToken.IsCancellationRequested && websocket.State == WebSocketState.Open)
         {
-            while (!cancellationToken.IsCancellationRequested && websocket.State == WebSocketState.Open)
+            var result = await websocket.ReceiveAsync(buffer, cancellationToken);
+
+            if (result.MessageType == WebSocketMessageType.Close)
             {
-                var result = await websocket.ReceiveAsync(buffer, cancellationToken);
-
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    break;
-                }
-
-                messageBuffer.Write(buffer, 0, result.Count);
-
-                if (!result.EndOfMessage)
-                {
-                    continue;
-                }
-
-                var payload = Encoding.UTF8.GetString(messageBuffer.GetBuffer(), 0, (int)messageBuffer.Length);
-                messageBuffer.SetLength(0);
-
-                ProcessSocketMessage(configuration, payload, cancellationToken);
+                break;
             }
-        }
-        finally
-        {
-            periodicCts.Cancel();
-            try
+
+            messageBuffer.Write(buffer, 0, result.Count);
+
+            if (!result.EndOfMessage)
             {
-                await periodicUpdates;
+                continue;
             }
-            catch (OperationCanceledException)
-            {
-            }
+
+            var payload = Encoding.UTF8.GetString(messageBuffer.GetBuffer(), 0, (int)messageBuffer.Length);
+            messageBuffer.SetLength(0);
+
+            ProcessSocketMessage(configuration, payload, cancellationToken);
         }
 
         WriteStatus(
@@ -195,25 +205,46 @@ public sealed class PrismAgentRuntime
             lastError: null);
     }
 
-    private async Task RunPeriodicUpdateChecksAsync(PrismConfiguration configuration, CancellationToken cancellationToken)
+    private async Task RunPeriodicUpdateChecksAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(ClientUpdateCoordinator.PeriodicCheckInterval);
+        using var timer = new PeriodicTimer(ClientUpdateSchedule.PeriodicCheckInterval);
         while (await timer.WaitForNextTickAsync(cancellationToken))
         {
-            if (await TryCheckForUpdateAsync(configuration, cancellationToken))
+            try
             {
-                return;
+                if (!MachineConfigurationStore.HasSecureConfiguration())
+                {
+                    continue;
+                }
+
+                var configuration = MachineConfigurationStore.Load();
+                if (await TryCheckForUpdateAsync(
+                    configuration,
+                    ClientUpdateCheckTrigger.Periodic,
+                    cancellationToken))
+                {
+                    return;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logError?.Invoke("The Family Prism client update check failed.", ex);
             }
         }
     }
 
     private async Task<bool> TryCheckForUpdateAsync(
         PrismConfiguration configuration,
+        ClientUpdateCheckTrigger trigger,
         CancellationToken cancellationToken)
     {
         try
         {
-            var outcome = await updateCoordinator.CheckAsync(configuration, cancellationToken);
+            var outcome = await updateCoordinator.CheckAsync(configuration, cancellationToken, trigger);
             if (outcome != ClientUpdateOutcome.StagedAndRestarting)
             {
                 return false;

@@ -104,4 +104,5 @@ public sealed record ClientUpdateState(
     DateTimeOffset? LastFailureAtUtc = null,
     int NextRetryDelaySeconds = 0,
     string? BackoffVersion = null,
-    string? BackoffSha256 = null);
+    string? BackoffSha256 = null,
+    DateTimeOffset? LastSuccessfulCheckAtUtc = null);
