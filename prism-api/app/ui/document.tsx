@@ -139,6 +139,22 @@ const APP_STYLES = `
     border-color: #991b1b;
     background: #450a0a;
   }
+
+  .badge {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    vertical-align: middle;
+  }
+
+  .badge.stale {
+    background: #7c2d12;
+    color: #ffedd5;
+  }
 `
 
 export function Document() {

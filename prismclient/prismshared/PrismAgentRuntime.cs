@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -338,7 +339,8 @@ public sealed class PrismAgentRuntime
         var payload = JsonSerializer.Serialize(new
         {
             type = "identify",
-            windowsUser = GetCurrentWindowsUser()
+            windowsUser = GetCurrentWindowsUser(),
+            version = GetAssemblyVersion()
         });
 
         await websocket.SendAsync(
@@ -346,6 +348,17 @@ public sealed class PrismAgentRuntime
             WebSocketMessageType.Text,
             true,
             cancellationToken);
+    }
+
+    internal static string GetAssemblyVersion()
+    {
+        var assembly = typeof(PrismAgentRuntime).Assembly;
+        var informational = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion;
+        var raw = informational ?? assembly.GetName().Version?.ToString() ?? string.Empty;
+        var plusIndex = raw.IndexOf('+');
+        return plusIndex >= 0 ? raw[..plusIndex] : raw;
     }
 
     private static string GetCurrentWindowsUser()

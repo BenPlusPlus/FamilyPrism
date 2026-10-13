@@ -2,12 +2,14 @@ import type { Controller } from "remix/fetch-router";
 import * as s from "remix/data-schema";
 import { maxLength, minLength } from "remix/data-schema/checks";
 
-import { getEnv } from "../../config/env.ts";
+import { getEnv, readClientPackagePin } from "../../config/env.ts";
 import {
   authenticateClient,
   ClientNameConflictError,
   registerClient,
+  updateClientLastSeenVersion,
 } from "../../data/clients.ts";
+import { serveUpdateManifest } from "../../data/client-package.ts";
 import { recordDnsDirectiveResult } from "../../data/dns-directives.ts";
 import { saveClientScreenshot } from "../../data/screenshots.ts";
 import { prismAuth } from "../../data/auth.ts";
@@ -27,6 +29,13 @@ let dnsResultSchema = s.object({
 });
 
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
+
+function readBearerCredential(request: Request) {
+  let authorization = request.headers.get("authorization");
+  return authorization && authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : null;
+}
 
 export const api = {
   actions: {
@@ -104,11 +113,7 @@ export const apiClients = {
 
     async screenshot({ params, request }) {
       let requestClientId = request.headers.get("x-client-id")?.trim();
-      let authorization = request.headers.get("authorization");
-      let credential =
-        authorization && authorization.startsWith("Bearer ")
-          ? authorization.slice("Bearer ".length).trim()
-          : null;
+      let credential = readBearerCredential(request);
 
       if (
         !requestClientId ||
@@ -182,11 +187,7 @@ export const apiClients = {
 
     async dnsResult({ params, request }) {
       let requestClientId = request.headers.get("x-client-id")?.trim();
-      let authorization = request.headers.get("authorization");
-      let credential =
-        authorization && authorization.startsWith("Bearer ")
-          ? authorization.slice("Bearer ".length).trim()
-          : null;
+      let credential = readBearerCredential(request);
 
       if (
         !requestClientId ||
@@ -273,6 +274,18 @@ export const apiClients = {
       }
 
       return new Response(null, { status: 204 });
+    },
+
+    async update({ params, request }) {
+      return serveUpdateManifest({
+        authenticate: authenticateClient,
+        clientId: request.headers.get("x-client-id"),
+        credential: readBearerCredential(request),
+        expectedClientId: params.clientId,
+        pin: readClientPackagePin(),
+        recordVersion: updateClientLastSeenVersion,
+        reportedVersion: request.headers.get("x-client-version"),
+      });
     },
   },
 } satisfies Controller<typeof routes.api.clients, AppContext>;

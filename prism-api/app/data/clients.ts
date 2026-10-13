@@ -144,6 +144,16 @@ export async function updateClientLastUser(
   })
 }
 
+export async function updateClientLastSeenVersion(
+  clientId: string,
+  lastSeenVersion: string,
+  database: Database = db,
+) {
+  await database.update(clients, clientId, {
+    last_seen_version: lastSeenVersion,
+  })
+}
+
 export async function updateClientScreenshotTime(
   clientId: string,
   lastScreenshotAt: string,

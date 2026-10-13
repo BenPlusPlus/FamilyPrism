@@ -2,6 +2,14 @@ import "dotenv/config";
 
 const DEFAULT_PORT = 44100;
 
+export interface ClientPackagePin {
+  version: string;
+  url: string;
+  sha256: string;
+  kind: string;
+  layoutGeneration: number;
+}
+
 export interface AppEnv {
   betterAuthSecret: string;
   betterAuthUrl: string;
@@ -54,6 +62,42 @@ function readBetterAuthUrl(port: number) {
   }
 
   return readRequiredAbsoluteUrl("BETTER_AUTH_URL", `http://localhost:${port}`);
+}
+
+const DEFAULT_PACKAGE_KIND = "zip";
+const DEFAULT_LAYOUT_GENERATION = 1;
+
+function readLayoutGeneration(raw: string | undefined) {
+  if (!raw?.trim()) {
+    return DEFAULT_LAYOUT_GENERATION;
+  }
+
+  let value = Number.parseInt(raw, 10);
+  if (!Number.isInteger(value) || value < 1) {
+    return DEFAULT_LAYOUT_GENERATION;
+  }
+
+  return value;
+}
+
+export function readClientPackagePin(
+  env: NodeJS.Dict<string> = process.env,
+): ClientPackagePin | null {
+  let version = env.CLIENT_PACKAGE_VERSION?.trim();
+  let url = env.CLIENT_PACKAGE_URL?.trim();
+  let sha256 = env.CLIENT_PACKAGE_SHA256?.trim();
+
+  if (!version || !url || !sha256) {
+    return null;
+  }
+
+  return {
+    version,
+    url,
+    sha256,
+    kind: env.CLIENT_PACKAGE_KIND?.trim() || DEFAULT_PACKAGE_KIND,
+    layoutGeneration: readLayoutGeneration(env.CLIENT_PACKAGE_LAYOUT_GENERATION),
+  };
 }
 
 let cachedEnv: AppEnv | null = null;

@@ -5,12 +5,14 @@ import * as f from "remix/data-schema/form-data";
 import { maxLength, minLength } from "remix/data-schema/checks";
 import { redirect } from "remix/response/redirect";
 
+import { readClientPackagePin } from "../../config/env.ts";
 import {
   deleteClient,
   getClient,
   listClients,
   listClientsWithGroups,
 } from "../../data/clients.ts";
+import { describeClientVersion } from "../../data/client-package.ts";
 import type { AdminIdentity } from "../../data/auth.ts";
 import {
   getLatestDnsState,
@@ -110,10 +112,15 @@ export const adminClients = {
   actions: {
     async index({ request }) {
       let notice = getNotice(new URL(request.url));
+      let pin = readClientPackagePin();
       let clientsWithGroups = await listClientsWithGroups();
+      let clients = clientsWithGroups.map((client) => ({
+        ...client,
+        ...describeClientVersion(client.last_seen_version, pin),
+      }));
 
       return render(
-        <ClientsPage clients={clientsWithGroups} notice={notice} />,
+        <ClientsPage clients={clients} notice={notice} />,
         request,
       );
     },
@@ -135,7 +142,10 @@ export const adminClients = {
 
       return render(
         <ClientDetailPage
-          client={client}
+          client={{
+            ...client,
+            ...describeClientVersion(client.last_seen_version, readClientPackagePin()),
+          }}
           dnsProfiles={dnsProfiles}
           latestDnsState={latestDnsState}
           notice={getNotice(new URL(request.url))}
