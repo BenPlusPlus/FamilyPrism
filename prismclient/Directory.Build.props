@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Company>Family Prism</Company>
+    <Product>Family Prism</Product>
+    <Authors>Family Prism</Authors>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+</Project>
