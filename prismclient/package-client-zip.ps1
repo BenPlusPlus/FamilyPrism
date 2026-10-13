@@ -18,11 +18,15 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $publishDir = (Resolve-Path -LiteralPath $PublishDir).Path.TrimEnd('\')
 $agentExe = Join-Path $publishDir 'prismagent.exe'
 $serviceExe = Join-Path $publishDir 'Service\prismsvc.exe'
+$helperExe = Join-Path $publishDir 'prismupdate.exe'
 if (-not (Test-Path -LiteralPath $agentExe)) {
     throw "Published agent was not found at '$agentExe'."
 }
 if (-not (Test-Path -LiteralPath $serviceExe)) {
     throw "Published service was not found at '$serviceExe'."
+}
+if (-not (Test-Path -LiteralPath $helperExe)) {
+    throw "Published update helper was not found at '$helperExe'."
 }
 
 $zipDirectory = Split-Path -Parent $ZipPath

@@ -83,6 +83,36 @@ public sealed class PrismApiClient
         }
     }
 
+    public async Task<ClientUpdateManifest> GetUpdateManifestAsync(
+        PrismConfiguration configuration,
+        string localVersion,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = new Uri(
+            new Uri(configuration.ServerBaseUrl),
+            $"api/clients/{Uri.EscapeDataString(configuration.ClientId)}/update");
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
+        request.Headers.Add("x-client-id", configuration.ClientId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", configuration.Credential);
+        if (!string.IsNullOrWhiteSpace(localVersion))
+        {
+            request.Headers.Add("x-client-version", localVersion);
+        }
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateApiExceptionAsync(
+                response,
+                cancellationToken,
+                "The client update manifest request failed.");
+        }
+
+        return await response.Content.ReadFromJsonAsync<ClientUpdateManifest>(cancellationToken: cancellationToken)
+            ?? new ClientUpdateManifest(null);
+    }
+
     public async Task ReportDnsResultAsync(
         PrismConfiguration configuration,
         DnsDirectiveResult result,

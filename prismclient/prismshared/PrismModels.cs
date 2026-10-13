@@ -5,6 +5,9 @@ public static class PrismConstants
     public const string ApplicationName = "FamilyPrism";
     public const string ServiceName = "prismsvc";
     public const string ServiceDisplayName = "Family Prism Service";
+    public const string AgentProcessName = "prismagent";
+    public const string LogonTaskName = "Family Prism Agent";
+    public const string UpdateHelperExecutableName = "prismupdate.exe";
 }
 
 public static class PrismBuildMode
@@ -47,14 +50,17 @@ public static class PrismPaths
 
     public static string PendingSetupDirectory => Path.Combine(UserProfileRoot, "PendingSetup");
 
-    public static string InstalledServiceDirectory => Path.Combine(
+    public static string InstalledRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-        PrismConstants.ApplicationName,
-        "Service");
+        PrismConstants.ApplicationName);
+
+    public static string InstalledServiceDirectory => Path.Combine(InstalledRoot, "Service");
 
     public static string InstalledServiceExecutablePath => Path.Combine(InstalledServiceDirectory, "prismsvc.exe");
 
     public static string BundledServiceDirectory => Path.Combine(AppContext.BaseDirectory, "service");
+
+    public static string UpdatesDirectory => Path.Combine(StorageRoot, "Updates");
 }
 
 public sealed record PrismRegistrationResult(
