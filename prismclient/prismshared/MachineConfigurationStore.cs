@@ -1,6 +1,4 @@
-using System.Security.AccessControl;
 using System.Security.Cryptography;
-using System.Security.Principal;
 using System.Text;
 
 namespace prismshared;
@@ -53,7 +51,7 @@ public static class MachineConfigurationStore
         var directory = Directory.CreateDirectory(PrismPaths.StateDirectory);
         if (PrismBuildMode.UsesMachineScope)
         {
-            directory.SetAccessControl(CreateStateDirectorySecurity());
+            directory.SetAccessControl(PrismAcl.CreateStateDirectorySecurity());
         }
     }
 
@@ -61,10 +59,7 @@ public static class MachineConfigurationStore
     {
         Directory.CreateDirectory(PrismPaths.StorageRoot);
         var secureDirectory = Directory.CreateDirectory(PrismPaths.SecureConfigDirectory);
-        if (PrismBuildMode.UsesMachineScope)
-        {
-            secureDirectory.SetAccessControl(CreateSecureDirectorySecurity());
-        }
+        PrismAcl.ApplySystemAndAdministratorsOnly(secureDirectory);
     }
 
     private static byte[] GetEntropy() => Encoding.UTF8.GetBytes($"{PrismConstants.ApplicationName}:{PrismConstants.ServiceName}");
@@ -74,39 +69,5 @@ public static class MachineConfigurationStore
         return PrismBuildMode.UsesMachineScope
             ? DataProtectionScope.LocalMachine
             : DataProtectionScope.CurrentUser;
-    }
-
-    private static DirectorySecurity CreateSecureDirectorySecurity()
-    {
-        var security = new DirectorySecurity();
-        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-        AddFullControlRule(security, WellKnownSidType.LocalSystemSid);
-        AddFullControlRule(security, WellKnownSidType.BuiltinAdministratorsSid);
-        return security;
-    }
-
-    private static DirectorySecurity CreateStateDirectorySecurity()
-    {
-        var security = new DirectorySecurity();
-        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-        AddFullControlRule(security, WellKnownSidType.LocalSystemSid);
-        AddFullControlRule(security, WellKnownSidType.BuiltinAdministratorsSid);
-        security.AddAccessRule(new FileSystemAccessRule(
-            new SecurityIdentifier(WellKnownSidType.BuiltinUsersSid, null),
-            FileSystemRights.Modify | FileSystemRights.Synchronize,
-            InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-            PropagationFlags.None,
-            AccessControlType.Allow));
-        return security;
-    }
-
-    private static void AddFullControlRule(DirectorySecurity security, WellKnownSidType sidType)
-    {
-        security.AddAccessRule(new FileSystemAccessRule(
-            new SecurityIdentifier(sidType, null),
-            FileSystemRights.FullControl,
-            InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-            PropagationFlags.None,
-            AccessControlType.Allow));
     }
 }

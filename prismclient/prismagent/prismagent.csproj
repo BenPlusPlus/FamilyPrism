@@ -14,12 +14,18 @@
 
   <Target Name="CopyBundledServiceFiles" AfterTargets="Build">
     <MSBuild Projects="..\prismsvc\prismsvc.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
+    <MSBuild Projects="..\prismupdate\prismupdate.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
     <ItemGroup>
       <BundledServiceFiles Include="..\prismsvc\bin\$(Configuration)\net10.0-windows\**\*.*" />
+      <UpdateHelperFiles Include="..\prismupdate\bin\$(Configuration)\net10.0-windows\prismupdate.*" />
     </ItemGroup>
     <Copy
       SourceFiles="@(BundledServiceFiles)"
       DestinationFiles="@(BundledServiceFiles->'$(OutDir)Service\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+    <Copy
+      SourceFiles="@(UpdateHelperFiles)"
+      DestinationFolder="$(OutDir)"
       SkipUnchangedFiles="true" />
   </Target>
 
@@ -30,12 +36,46 @@
     <MSBuild
       Projects="$(MSBuildThisFileDirectory)..\prismsvc\prismsvc.csproj"
       Targets="Restore;Publish"
-      Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(_ServicePublishDir);PublishBundledService=false;PublishInstaller=false;PublishClientZip=false" />
+      Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(_ServicePublishDir);PublishBundledService=false;PublishUpdateHelper=false;PublishInstaller=false;PublishClientZip=false" />
+  </Target>
+
+  <Target
+    Name="PublishUpdateHelper"
+    AfterTargets="PublishBundledService"
+    Condition="'$(PublishUpdateHelper)' != 'false' and '$(RuntimeIdentifier)' != ''">
+    <PropertyGroup>
+      <_HelperPublishDir>$([MSBuild]::NormalizeDirectory($([MSBuild]::EnsureTrailingSlash($(PublishDir)))_prismupdate))</_HelperPublishDir>
+    </PropertyGroup>
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)..\prismupdate\prismupdate.csproj"
+      Targets="Restore;Publish"
+      Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishDir=$(_HelperPublishDir);PublishUpdateHelper=false;PublishBundledService=false;PublishInstaller=false;PublishClientZip=false" />
+  </Target>
+
+  <Target
+    Name="CopyPublishedUpdateHelper"
+    AfterTargets="PublishUpdateHelper"
+    Condition="'$(PublishUpdateHelper)' != 'false' and '$(RuntimeIdentifier)' != ''">
+    <PropertyGroup>
+      <_HelperPublishDir>$([MSBuild]::NormalizeDirectory($([MSBuild]::EnsureTrailingSlash($(PublishDir)))_prismupdate))</_HelperPublishDir>
+    </PropertyGroup>
+    <Error
+      Text="Published update helper was not found at '$(_HelperPublishDir)prismupdate.exe'."
+      Condition="!Exists('$(_HelperPublishDir)prismupdate.exe')" />
+    <ItemGroup>
+      <_HelperFiles Include="$(_HelperPublishDir)prismupdate.exe" />
+      <_HelperFiles Include="$(_HelperPublishDir)prismupdate.dll" />
+      <_HelperFiles Include="$(_HelperPublishDir)prismupdate.deps.json" />
+      <_HelperFiles Include="$(_HelperPublishDir)prismupdate.runtimeconfig.json" />
+      <_HelperFiles Include="$(_HelperPublishDir)prismupdate.pdb" Condition="Exists('$(_HelperPublishDir)prismupdate.pdb')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_HelperFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+    <RemoveDir Directories="$(_HelperPublishDir)" />
   </Target>
 
   <Target
     Name="PackageClientZip"
-    AfterTargets="PublishBundledService"
+    AfterTargets="CopyPublishedUpdateHelper"
     Condition="'$(PublishClientZip)' != 'false' and '$(RuntimeIdentifier)' != ''">
     <PropertyGroup>
       <_ClientZipDir>$([MSBuild]::NormalizeDirectory($(MSBuildThisFileDirectory)..\artifacts))</_ClientZipDir>
@@ -51,7 +91,7 @@
 
   <Target
     Name="BuildInnoInstaller"
-    AfterTargets="PublishBundledService"
+    AfterTargets="CopyPublishedUpdateHelper"
     Condition="'$(Configuration)' == 'Release' and '$(PublishInstaller)' != 'false' and '$(RuntimeIdentifier)' != ''">
     <PropertyGroup>
       <_InstallerOutputDir>$([MSBuild]::NormalizeDirectory($(MSBuildThisFileDirectory)..\artifacts\installer))</_InstallerOutputDir>

@@ -60,6 +60,7 @@ Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
 Name: "{commonappdata}\FamilyPrism"
 Name: "{commonappdata}\FamilyPrism\Config"
 Name: "{commonappdata}\FamilyPrism\State"
+Name: "{commonappdata}\FamilyPrism\Updates"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -94,15 +95,18 @@ end;
 
 procedure ApplyDataDirectoryAcls;
 var
-  ConfigDir, StateDir: String;
+  ConfigDir, StateDir, UpdatesDir: String;
 begin
   ConfigDir := ExpandConstant('{commonappdata}\FamilyPrism\Config');
   StateDir := ExpandConstant('{commonappdata}\FamilyPrism\State');
+  UpdatesDir := ExpandConstant('{commonappdata}\FamilyPrism\Updates');
 
   ExecHidden(ExpandConstant('{sys}\icacls.exe'),
     '"' + ConfigDir + '" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" /grant:r "*S-1-5-32-544:(OI)(CI)F"');
   ExecHidden(ExpandConstant('{sys}\icacls.exe'),
     '"' + StateDir + '" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" /grant:r "*S-1-5-32-544:(OI)(CI)F" /grant:r "*S-1-5-32-545:(OI)(CI)M"');
+  ExecHidden(ExpandConstant('{sys}\icacls.exe'),
+    '"' + UpdatesDir + '" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" /grant:r "*S-1-5-32-544:(OI)(CI)F"');
 end;
 
 procedure InstallPrismService;

@@ -13,19 +13,29 @@ public sealed class PrismAgentRuntime
     private readonly Action<string, Exception?>? logError;
     private readonly PrismApiClient apiClient;
     private readonly DnsConfigurationService dnsConfigurationService;
+    private readonly ClientUpdateCoordinator updateCoordinator;
 
     public PrismAgentRuntime(
         string hostMode,
         Action<string>? logInformation = null,
         Action<string, Exception?>? logError = null,
         PrismApiClient? apiClient = null,
-        DnsConfigurationService? dnsConfigurationService = null)
+        DnsConfigurationService? dnsConfigurationService = null,
+        ClientUpdateCoordinator? updateCoordinator = null,
+        Action? requestStop = null)
     {
         this.hostMode = hostMode;
         this.logInformation = logInformation;
         this.logError = logError;
         this.apiClient = apiClient ?? new PrismApiClient();
         this.dnsConfigurationService = dnsConfigurationService ?? new DnsConfigurationService();
+        this.updateCoordinator = updateCoordinator
+            ?? ClientUpdateCoordinator.CreateDefault(
+                hostMode,
+                this.apiClient,
+                requestStop ?? (() => { }),
+                logInformation,
+                logError);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -80,6 +90,11 @@ public sealed class PrismAgentRuntime
 
             try
             {
+                if (await TryCheckForUpdateAsync(configuration, cancellationToken))
+                {
+                    break;
+                }
+
                 await RunSocketSessionAsync(configuration, cancellationToken);
                 retryDelay = TimeSpan.FromSeconds(5);
             }
@@ -126,29 +141,51 @@ public sealed class PrismAgentRuntime
             lastError: null,
             lastConnectedAtUtc: DateTimeOffset.UtcNow);
 
+        if (await TryCheckForUpdateAsync(configuration, cancellationToken))
+        {
+            return;
+        }
+
+        using var periodicCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var periodicUpdates = RunPeriodicUpdateChecksAsync(configuration, periodicCts.Token);
+
         var buffer = new byte[8192];
         using var messageBuffer = new MemoryStream();
 
-        while (!cancellationToken.IsCancellationRequested && websocket.State == WebSocketState.Open)
+        try
         {
-            var result = await websocket.ReceiveAsync(buffer, cancellationToken);
-
-            if (result.MessageType == WebSocketMessageType.Close)
+            while (!cancellationToken.IsCancellationRequested && websocket.State == WebSocketState.Open)
             {
-                break;
+                var result = await websocket.ReceiveAsync(buffer, cancellationToken);
+
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    break;
+                }
+
+                messageBuffer.Write(buffer, 0, result.Count);
+
+                if (!result.EndOfMessage)
+                {
+                    continue;
+                }
+
+                var payload = Encoding.UTF8.GetString(messageBuffer.GetBuffer(), 0, (int)messageBuffer.Length);
+                messageBuffer.SetLength(0);
+
+                ProcessSocketMessage(configuration, payload, cancellationToken);
             }
-
-            messageBuffer.Write(buffer, 0, result.Count);
-
-            if (!result.EndOfMessage)
+        }
+        finally
+        {
+            periodicCts.Cancel();
+            try
             {
-                continue;
+                await periodicUpdates;
             }
-
-            var payload = Encoding.UTF8.GetString(messageBuffer.GetBuffer(), 0, (int)messageBuffer.Length);
-            messageBuffer.SetLength(0);
-
-            ProcessSocketMessage(configuration, payload, cancellationToken);
+            catch (OperationCanceledException)
+            {
+            }
         }
 
         WriteStatus(
@@ -156,6 +193,51 @@ public sealed class PrismAgentRuntime
             PrismConnectionState.Disconnected,
             "Disconnected from the server. Retrying...",
             lastError: null);
+    }
+
+    private async Task RunPeriodicUpdateChecksAsync(PrismConfiguration configuration, CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(ClientUpdateCoordinator.PeriodicCheckInterval);
+        while (await timer.WaitForNextTickAsync(cancellationToken))
+        {
+            if (await TryCheckForUpdateAsync(configuration, cancellationToken))
+            {
+                return;
+            }
+        }
+    }
+
+    private async Task<bool> TryCheckForUpdateAsync(
+        PrismConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var outcome = await updateCoordinator.CheckAsync(configuration, cancellationToken);
+            if (outcome != ClientUpdateOutcome.StagedAndRestarting)
+            {
+                return false;
+            }
+
+            try
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logError?.Invoke("The Family Prism client update check failed.", ex);
+            return false;
+        }
     }
 
     private void ProcessSocketMessage(
