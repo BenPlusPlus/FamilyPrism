@@ -3,95 +3,21 @@ using prismshared;
 
 namespace prismagent;
 
-public sealed class frmRegistration : Form
+public sealed partial class frmRegistration : Form
 {
     private readonly PrismApiClient apiClient = new();
-    private readonly TextBox txtServerName = new();
-    private readonly TextBox txtDeviceName = new();
-    private readonly TextBox txtRegistrationCode = new();
-    private readonly Button btnRegister = new();
-    private readonly Button btnCancel = new();
-    private readonly Label lblStatus = new();
 
     public frmRegistration(PrismStatusSnapshot currentStatus)
     {
-        Text = "Family Prism Setup";
-        StartPosition = FormStartPosition.CenterParent;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MinimizeBox = false;
-        MaximizeBox = false;
-        ShowInTaskbar = false;
-        ClientSize = new Size(520, 250);
+        InitializeComponent();
 
         txtServerName.Text = currentStatus.ServerBaseUrl ?? string.Empty;
         txtDeviceName.Text = currentStatus.ClientName ?? Environment.MachineName;
-        txtRegistrationCode.UseSystemPasswordChar = true;
-
-        btnRegister.Text = "Register";
-        btnRegister.AutoSize = true;
-        btnRegister.Click += btnRegister_Click;
-
-        btnCancel.Text = "Cancel";
-        btnCancel.AutoSize = true;
-        btnCancel.Click += (_, _) => Close();
-
-        lblStatus.AutoSize = true;
-        lblStatus.ForeColor = Color.Firebrick;
-
-        AcceptButton = btnRegister;
-        CancelButton = btnCancel;
-
-        var layout = BuildLayout();
-        Controls.Add(layout);
     }
 
-    private Control BuildLayout()
+    private void btnCancel_Click(object? sender, EventArgs e)
     {
-        var layout = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            Padding = new Padding(12),
-            ColumnCount = 2,
-            RowCount = 5
-        };
-
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
-
-        AddRow(layout, 0, "Server name or URL", txtServerName);
-        AddRow(layout, 1, "Device name", txtDeviceName);
-        AddRow(layout, 2, "Registration code", txtRegistrationCode);
-        layout.Controls.Add(lblStatus, 1, 3);
-
-        var buttonPanel = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.RightToLeft
-        };
-        buttonPanel.Controls.Add(btnCancel);
-        buttonPanel.Controls.Add(btnRegister);
-
-        layout.Controls.Add(buttonPanel, 1, 4);
-        return layout;
-    }
-
-    private static void AddRow(TableLayoutPanel layout, int rowIndex, string labelText, Control control)
-    {
-        var label = new Label
-        {
-            AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            Text = labelText
-        };
-
-        control.Dock = DockStyle.Fill;
-        layout.Controls.Add(label, 0, rowIndex);
-        layout.Controls.Add(control, 1, rowIndex);
+        Close();
     }
 
     private async void btnRegister_Click(object? sender, EventArgs e)
