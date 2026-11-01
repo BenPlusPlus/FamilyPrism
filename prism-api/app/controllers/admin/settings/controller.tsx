@@ -1,10 +1,10 @@
-import type { Controller } from "remix/fetch-router";
-import { Auth, requireAuth } from "remix/auth-middleware";
+import type { Controller } from "remix/router";
+import { Auth, requireAuth } from "remix/middleware/auth";
 import * as s from "remix/data-schema";
 import * as f from "remix/data-schema/form-data";
 import { maxLength, minLength } from "remix/data-schema/checks";
 import { redirect } from "remix/response/redirect";
-import type { Handle } from "remix/ui";
+import type { Handle } from "remix/component";
 
 import type { AdminIdentity } from "../../../data/auth.ts";
 import {
@@ -206,12 +206,12 @@ function SettingsIndexPage(
   );
 }
 
-function DnsProfileFields() {
-  return ({
-    profile,
-  }: {
+function DnsProfileFields(
+  handle: Handle<{
     profile?: { name: string; primary_ip: string; secondary_ip: string | null };
-  }) => (
+  }>,
+) {
+  return () => (
     <>
       <label class="field">
         <span>Name</span>
@@ -220,7 +220,7 @@ function DnsProfileFields() {
           name="name"
           required
           maxlength={100}
-          value={profile?.name ?? ""}
+          value={handle.props.profile?.name ?? ""}
           placeholder="Family filter"
         />
       </label>
@@ -234,7 +234,7 @@ function DnsProfileFields() {
             required
             maxlength={45}
             inputmode="decimal"
-            value={profile?.primary_ip ?? ""}
+            value={handle.props.profile?.primary_ip ?? ""}
             placeholder="1.1.1.3"
           />
         </label>
@@ -246,7 +246,7 @@ function DnsProfileFields() {
             name="secondaryIp"
             maxlength={45}
             inputmode="decimal"
-            value={profile?.secondary_ip ?? ""}
+            value={handle.props.profile?.secondary_ip ?? ""}
             placeholder="Optional"
           />
         </label>

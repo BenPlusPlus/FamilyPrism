@@ -3,12 +3,9 @@ import { createAssetServer } from 'remix/assets'
 export const assets = createAssetServer({
   basePath: '/assets',
   rootDir: process.cwd(),
-  fileMap: {
-    'app/*path': 'app/*path',
-    'node_modules/*path': 'node_modules/*path',
-  },
-  allow: ['app/assets/**', 'app/ui/prompt-button.tsx', 'node_modules/**'],
-  deny: ['app/**/*.server.*'],
+  allowFiles: ['app/assets/**', 'app/ui/prompt-button.tsx', 'app/routes.ts'],
+  allowPackages: ['remix'],
+  denyFiles: ['app/**/*.server.*'],
   sourceMaps: process.env.NODE_ENV === 'development' ? 'external' : undefined,
   scripts: {
     define: {
@@ -16,3 +13,5 @@ export const assets = createAssetServer({
     },
   },
 })
+
+export const scriptEntry = await assets.getScriptEntry('app/assets/entry.ts')

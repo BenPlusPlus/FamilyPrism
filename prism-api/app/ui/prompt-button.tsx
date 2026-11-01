@@ -1,4 +1,4 @@
-import { clientEntry, css, on, type Handle, type SerializableProps } from 'remix/ui'
+import { clientEntry, css, on, type Handle, type SerializableProps } from 'remix/component'
 
 const FADE_MS = 180
 const HOLD_MS = 1200
@@ -10,7 +10,7 @@ interface PromptButtonProps extends SerializableProps {
 }
 
 export const PromptButton = clientEntry(
-  '/assets/app/ui/prompt-button.tsx#PromptButton',
+  import.meta.url,
   function PromptButton(handle: Handle<PromptButtonProps>) {
     let state: CopyState = 'idle'
 

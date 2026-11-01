@@ -1,4 +1,4 @@
-import type { Handle } from "remix/ui";
+import type { Handle } from "remix/component";
 
 import type { getClient } from "../../data/clients.ts";
 import type { ClientVersionView } from "../../data/client-package.ts";

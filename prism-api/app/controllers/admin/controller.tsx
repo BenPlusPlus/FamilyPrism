@@ -1,5 +1,5 @@
-import type { Controller } from "remix/fetch-router";
-import { Auth, requireAuth } from "remix/auth-middleware";
+import type { Controller } from "remix/router";
+import { Auth, requireAuth } from "remix/middleware/auth";
 import * as s from "remix/data-schema";
 import * as f from "remix/data-schema/form-data";
 import { maxLength, minLength } from "remix/data-schema/checks";

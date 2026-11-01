@@ -1,4 +1,4 @@
-import type { RemixNode } from "remix/ui";
+import type { Handle, RemixNode } from "remix/component";
 
 import { routes } from "../routes.ts";
 import { Document } from "./document.tsx";
@@ -24,9 +24,9 @@ export interface LayoutProps {
 }
 
 /** Public pages: home, sign in, setup. */
-export function Layout() {
-  return ({ title, children }: LayoutProps) => (
-    <Document title={title}>{children}</Document>
+export function Layout(handle: Handle<LayoutProps>) {
+  return () => (
+    <Document title={handle.props.title}>{handle.props.children}</Document>
   );
 }
 
@@ -36,20 +36,17 @@ const SAMPLE_TAGS = [
   { id: "sample-c", name: "Study", cls: "c0 away" },
 ];
 
+export interface SoloShellProps {
+  children?: RemixNode;
+  heading: string;
+  lede: string;
+  title: string;
+}
+
 /** Sign in and first-run setup: slate key-rack panel beside the form. */
-export function SoloShell() {
-  return ({
-    children,
-    heading,
-    lede,
-    title,
-  }: {
-    children?: RemixNode;
-    heading: string;
-    lede: string;
-    title: string;
-  }) => (
-    <Document title={title}>
+export function SoloShell(handle: Handle<SoloShellProps>) {
+  return () => (
+    <Document title={handle.props.title}>
       <div class="solo">
         <aside class="solo-side">
           <a class="brand" href={routes.home.href()}>
@@ -67,12 +64,12 @@ export function SoloShell() {
             ))}
           </div>
           <div class="solo-copy">
-            <h1>{heading}</h1>
-            <p>{lede}</p>
+            <h1>{handle.props.heading}</h1>
+            <p>{handle.props.lede}</p>
           </div>
         </aside>
         <main class="solo-main" id="main">
-          <div class="solo-card">{children}</div>
+          <div class="solo-card">{handle.props.children}</div>
         </main>
       </div>
     </Document>
@@ -86,9 +83,9 @@ export interface AdminShellProps {
   title: string;
 }
 
-export function AdminShell() {
-  return ({ active, adminName, children, title }: AdminShellProps) => (
-    <Document title={title}>
+export function AdminShell(handle: Handle<AdminShellProps>) {
+  return () => (
+    <Document title={handle.props.title}>
       <div class="shell">
         <aside class="rail">
           <a class="brand" href={routes.admin.index.href()}>
@@ -100,7 +97,7 @@ export function AdminShell() {
               <a
                 class="rail-link"
                 href={section.href()}
-                aria-current={section.id === active ? "page" : undefined}
+                aria-current={section.id === handle.props.active ? "page" : undefined}
               >
                 <Icon name={section.icon} />
                 {section.label}
@@ -108,9 +105,9 @@ export function AdminShell() {
             ))}
           </nav>
           <div class="rail-foot">
-            {adminName ? (
+            {handle.props.adminName ? (
               <span class="who">
-                Signed in as <strong>{adminName}</strong>
+                Signed in as <strong>{handle.props.adminName}</strong>
               </span>
             ) : null}
             <form method="post" action={routes.auth.logout.href()}>
@@ -121,11 +118,11 @@ export function AdminShell() {
           </div>
         </aside>
         <main class="page" id="main">
-          {children}
+          {handle.props.children}
         </main>
         <nav class="tabbar" aria-label="Admin sections">
           {SECTIONS.map((section) => (
-            <a href={section.href()} aria-current={section.id === active ? "page" : undefined}>
+            <a href={section.href()} aria-current={section.id === handle.props.active ? "page" : undefined}>
               <Icon name={section.icon} />
               {section.id === "dns" ? "DNS" : section.label}
             </a>

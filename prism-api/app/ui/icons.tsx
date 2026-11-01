@@ -1,3 +1,5 @@
+import type { Handle } from "remix/component";
+
 export type IconName =
   | "rack"
   | "monitor"
@@ -27,8 +29,8 @@ const PATHS: Record<IconName, string[]> = {
   plus: ["M12 5v14", "M5 12h14"],
 };
 
-export function Icon() {
-  return ({ name }: { name: IconName }) => (
+export function Icon(handle: Handle<{ name: IconName }>) {
+  return () => (
     <svg
       viewBox="0 0 24 24"
       fill="none"
@@ -39,7 +41,7 @@ export function Icon() {
       aria-hidden="true"
       focusable="false"
     >
-      {PATHS[name].map((d) => (
+      {PATHS[handle.props.name].map((d) => (
         <path d={d} />
       ))}
     </svg>

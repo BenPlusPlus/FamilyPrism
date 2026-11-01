@@ -1,4 +1,4 @@
-import type { Controller } from "remix/fetch-router";
+import type { Controller } from "remix/router";
 import * as s from "remix/data-schema";
 import { maxLength, minLength } from "remix/data-schema/checks";
 

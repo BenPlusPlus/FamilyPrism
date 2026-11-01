@@ -1,19 +1,24 @@
-import { run } from 'remix/ui'
+import {
+  detectMultipleImportMapSupport,
+  importModule,
+  preloadShim,
+} from 'remix/multiple-import-maps-polyfill'
+import { run } from 'remix/component'
 
-run({
+let app = run({
   async loadModule(moduleUrl, exportName) {
-    let mod = await import(moduleUrl)
-    return mod[exportName]
+    let module = await importModule(moduleUrl)
+    let Component = module[exportName]
+    if (typeof Component !== 'function') {
+      throw new Error(`Unknown component: ${moduleUrl}#${exportName}`)
+    }
+    return Component
   },
-  async resolveFrame(src, signal, target) {
-    let headers = new Headers({ accept: 'text/html' })
-    if (target) headers.set('x-remix-target', target)
-
-    let response = await fetch(src, {
-      credentials: 'same-origin',
-      headers,
-      signal,
-    })
-    return response.body ?? response.text()
+  async processClientEntryPreloads(preloads) {
+    if (await detectMultipleImportMapSupport()) return preloads
+    preloadShim(preloads)
+    return []
   },
 })
+
+await app.ready()

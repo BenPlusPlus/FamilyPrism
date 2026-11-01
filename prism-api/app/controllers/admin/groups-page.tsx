@@ -1,4 +1,4 @@
-import type { Handle } from "remix/ui";
+import type { Handle } from "remix/component";
 
 import type { listClients } from "../../data/clients.ts";
 import type { listGroupsWithMembers } from "../../data/groups.ts";
@@ -11,19 +11,19 @@ import type { Notice } from "../../utils/notice.ts";
 
 type PickClient = Pick<Awaited<ReturnType<typeof listClients>>[number], "id" | "name">;
 
-function ClientPicker() {
-  return ({ clients, selected }: { clients: PickClient[]; selected: Set<string> }) =>
-    clients.length === 0 ? (
+function ClientPicker(handle: Handle<{ clients: PickClient[]; selected: Set<string> }>) {
+  return () =>
+    handle.props.clients.length === 0 ? (
       <p class="hint">No PCs registered yet. You can add members later.</p>
     ) : (
       <div class="pick-grid">
-        {clients.map((client) => (
+        {handle.props.clients.map((client) => (
           <label class={`pick ${tagClass(client.id)}`}>
             <input
               type="checkbox"
               name="clientId"
               value={client.id}
-              checked={selected.has(client.id)}
+              checked={handle.props.selected.has(client.id)}
             />
             <span class="swatch" aria-hidden="true"></span>
             <span class="pick-label">{client.name}</span>

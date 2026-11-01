@@ -1,5 +1,5 @@
-import { createAction } from "remix/fetch-router";
-import type { Handle } from "remix/ui";
+import { createAction } from "remix/router";
+import type { Handle } from "remix/component";
 
 import { adminExists } from "../data/admin-users.ts";
 import { getAdminIdentityFromRequest } from "../data/auth.ts";
