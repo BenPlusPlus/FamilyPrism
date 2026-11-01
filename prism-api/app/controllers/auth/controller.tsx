@@ -13,7 +13,8 @@ import {
 import { getAdminIdentityFromRequest } from "../../data/auth.ts";
 import type { AppContext } from "../../router.ts";
 import { routes } from "../../routes.ts";
-import { Layout } from "../../ui/layout.tsx";
+import { SoloShell } from "../../ui/layout.tsx";
+import { ErrorList } from "../../ui/notice.tsx";
 import {
   headersWithAuthCookies,
   signInWithEmail,
@@ -213,89 +214,96 @@ export const authSetup = {
 } satisfies Controller<typeof routes.auth.setup, AppContext>;
 
 function LoginPage(handle: Handle<{ email: string; errors: string[] }>) {
-  let setupHref = routes.auth.setup.index.href();
-  let loginAction = routes.auth.login.action.href();
-
   return () => (
-    <Layout title="Admin sign in">
-      <h1>Admin sign in</h1>
-      <p>Sign in with your Better Auth-backed admin account.</p>
-      {handle.props.errors.length > 0 ? (
-        <div class="notice error">
-          <strong>Sign in failed.</strong>
-          <ul>
-            {handle.props.errors.map((error) => (
-              <li>{error}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      <form method="post" action={loginAction} class="stack">
-        <label>
-          Email
+    <SoloShell
+      title="Sign in"
+      heading="Every family PC, on one rack."
+      lede="See who's home, message a screen, and keep DNS settings in line from your phone or desk."
+    >
+      <h2>Sign in</h2>
+      <ErrorList title="Couldn't sign you in" errors={handle.props.errors} />
+      <form method="post" action={routes.auth.login.action.href()}>
+        <label class="field">
+          <span>Email</span>
           <input
             type="email"
             name="email"
+            autocomplete="username"
             value={handle.props.email}
             required
           />
         </label>
-        <label>
-          Password
-          <input type="password" name="password" required />
+        <label class="field">
+          <span>Password</span>
+          <input type="password" name="password" autocomplete="current-password" required />
         </label>
-        <button type="submit">Sign in</button>
+        <div class="form-foot">
+          <button class="btn" type="submit">
+            Sign in
+          </button>
+        </div>
       </form>
-      <p>
-        Need the first admin account? <a href={setupHref}>Run initial setup</a>.
+      <p class="alt">
+        First time here? <a href={routes.auth.setup.index.href()}>Set up the admin account</a>
       </p>
-    </Layout>
+    </SoloShell>
   );
 }
 
 function SetupPage(
   handle: Handle<{ email: string; errors: string[]; name: string }>,
 ) {
-  let setupAction = routes.auth.setup.action.href();
-  let loginHref = routes.auth.login.index.href();
-
   return () => (
-    <Layout title="Initial admin setup">
-      <h1>Initial admin setup</h1>
-      <p>The first successful signup becomes the initial admin account.</p>
-      {handle.props.errors.length > 0 ? (
-        <div class="notice error">
-          <strong>Setup failed.</strong>
-          <ul>
-            {handle.props.errors.map((error) => (
-              <li>{error}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      <form method="post" action={setupAction} class="stack">
-        <label>
-          Name
-          <input type="text" name="name" value={handle.props.name} required />
+    <SoloShell
+      title="Set up"
+      heading="Hang up the first key."
+      lede="Create the admin account. You can register family PCs right after."
+    >
+      <h2>Create the admin account</h2>
+      <ErrorList title="Couldn't create the account" errors={handle.props.errors} />
+      <form method="post" action={routes.auth.setup.action.href()}>
+        <label class="field">
+          <span>Your name</span>
+          <input
+            type="text"
+            name="name"
+            autocomplete="name"
+            maxlength={100}
+            value={handle.props.name}
+            required
+          />
         </label>
-        <label>
-          Email
+        <label class="field">
+          <span>Email</span>
           <input
             type="email"
             name="email"
+            autocomplete="username"
             value={handle.props.email}
             required
           />
         </label>
-        <label>
-          Password
-          <input type="password" name="password" required />
+        <label class="field">
+          <span>Password</span>
+          <input
+            type="password"
+            name="password"
+            autocomplete="new-password"
+            minlength={8}
+            required
+            aria-describedby="password-hint"
+          />
+          <span class="hint" id="password-hint">At least 8 characters.</span>
         </label>
-        <button type="submit">Create admin account</button>
+        <div class="form-foot">
+          <button class="btn" type="submit">
+            Create account
+          </button>
+        </div>
       </form>
-      <p>
-        Already have an admin account? <a href={loginHref}>Sign in</a>.
+      <p class="alt">
+        Already set up? <a href={routes.auth.login.index.href()}>Sign in</a>
       </p>
-    </Layout>
+    </SoloShell>
   );
 }

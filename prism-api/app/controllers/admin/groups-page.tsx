@@ -1,113 +1,178 @@
 import type { Handle } from "remix/ui";
 
-import { listClients } from "../../data/clients.ts";
-import { listGroupsWithMembers } from "../../data/groups.ts";
+import type { listClients } from "../../data/clients.ts";
+import type { listGroupsWithMembers } from "../../data/groups.ts";
 import { routes } from "../../routes.ts";
-import { Layout } from "../../ui/layout.tsx";
-import { getNotice } from "../../utils/notice.ts";
-import { renderNotice } from "./notice.tsx";
+import { Icon } from "../../ui/icons.tsx";
+import { TagChip, tagClass } from "../../ui/key-tag.tsx";
+import { AdminShell } from "../../ui/layout.tsx";
+import { NoticeBar } from "../../ui/notice.tsx";
+import type { Notice } from "../../utils/notice.ts";
+
+type PickClient = Pick<Awaited<ReturnType<typeof listClients>>[number], "id" | "name">;
+
+function ClientPicker() {
+  return ({ clients, selected }: { clients: PickClient[]; selected: Set<string> }) =>
+    clients.length === 0 ? (
+      <p class="hint">No PCs registered yet. You can add members later.</p>
+    ) : (
+      <div class="pick-grid">
+        {clients.map((client) => (
+          <label class={`pick ${tagClass(client.id)}`}>
+            <input
+              type="checkbox"
+              name="clientId"
+              value={client.id}
+              checked={selected.has(client.id)}
+            />
+            <span class="swatch" aria-hidden="true"></span>
+            <span class="pick-label">{client.name}</span>
+          </label>
+        ))}
+      </div>
+    );
+}
 
 export function GroupsPage(
   handle: Handle<{
-    allClients: Awaited<ReturnType<typeof listClients>>;
+    adminName: string;
+    allClients: PickClient[];
     groups: Awaited<ReturnType<typeof listGroupsWithMembers>>;
-    notice: ReturnType<typeof getNotice>;
+    notice: Notice | null;
   }>,
 ) {
-  let groupsCreateAction = routes.admin.groups.create.href();
+  return () => {
+    let { adminName, allClients, groups, notice } = handle.props;
+    let none = new Set<string>();
 
-  return () => (
-    <Layout title="Groups">
-      <h1>Groups</h1>
-      <p>Create groups, manage membership, and send group messages.</p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
+    return (
+      <AdminShell active="groups" title="Groups" adminName={adminName}>
+        <header class="page-head">
+          <div>
+            <h1>Groups</h1>
+            <p>Bundle PCs together, like "Kids' rooms", to message them all at once.</p>
+          </div>
+        </header>
 
-      <section class="card">
-        <h2>Create group</h2>
-        <form method="post" action={groupsCreateAction} class="stack">
-          <label>
-            Name
-            <input type="text" name="name" required />
-          </label>
-          <label>
-            Description
-            <textarea name="description" rows={2}></textarea>
-          </label>
-          <fieldset>
-            <legend>Initial members</legend>
-            <div class="checkbox-grid">
-              {handle.props.allClients.map((client) => (
-                <label>
-                  <input type="checkbox" name="clientId" value={client.id} />{" "}
-                  {client.name}
-                </label>
-              ))}
+        <NoticeBar notice={notice} />
+
+        <div class="split">
+          <section class="panel" aria-labelledby="groups-title">
+            <div class="panel-head">
+              <h2 id="groups-title">Your groups</h2>
+              <span class="count">{groups.length}</span>
             </div>
-          </fieldset>
-          <button type="submit">Create group</button>
-        </form>
-      </section>
-
-      <div class="stack">
-        {handle.props.groups.map((group) => {
-          let memberIds = new Set(group.members.map((member) => member.id));
-
-          return (
-            <section class="card">
-              <h2>{group.name}</h2>
-              <p>{group.description || "No description."}</p>
-              <p>
-                Members:{" "}
-                {group.members.length > 0
-                  ? group.members.map((member) => member.name).join(", ")
-                  : "None"}
+            {groups.length === 0 ? (
+              <p class="empty">
+                <strong>No groups yet.</strong>
+                Create one to send a single message to several PCs.
               </p>
-              <div class="card-grid">
-                <form
-                  method="post"
-                  action={routes.admin.groups.members.href({
-                    groupId: group.id,
-                  })}
-                  class="stack"
-                >
-                  <h3>Update membership</h3>
-                  <div class="checkbox-grid">
-                    {handle.props.allClients.map((client) => (
-                      <label>
-                        <input
-                          type="checkbox"
-                          name="clientId"
-                          value={client.id}
-                          checked={memberIds.has(client.id)}
-                        />{" "}
-                        {client.name}
+            ) : (
+              groups.map((group) => {
+                let memberIds = new Set(group.members.map((member) => member.id));
+                let messageId = `group-message-${group.id}`;
+                return (
+                  <article class="group">
+                    <div class="group-head">
+                      <h3>{group.name}</h3>
+                      <span class="hint">
+                        {group.members.length} {group.members.length === 1 ? "PC" : "PCs"}
+                      </span>
+                    </div>
+                    {group.description ? <p class="muted">{group.description}</p> : null}
+                    {group.members.length > 0 ? (
+                      <div class="chip-list">
+                        {group.members.map((member) => (
+                          <TagChip
+                            client={member}
+                            href={routes.admin.clients.detail.href({ clientId: member.id })}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p class="hint">No members yet. Add some PCs below.</p>
+                    )}
+                    <p class="hint">Only members that are home get it; messages aren't queued.</p>
+                    <form
+                      class="inline-compose"
+                      method="post"
+                      action={routes.admin.messages.group.href({ groupId: group.id })}
+                    >
+                      <label class="field">
+                        <span class="visually-hidden" id={messageId}>
+                          Message to {group.name}
+                        </span>
+                        <textarea
+                          name="content"
+                          rows={1}
+                          maxlength={500}
+                          required
+                          aria-labelledby={messageId}
+                          placeholder={`Message everyone in ${group.name}`}
+                          disabled={group.members.length === 0}
+                        ></textarea>
                       </label>
-                    ))}
-                  </div>
-                  <button type="submit">Save members</button>
-                </form>
+                      <button class="btn" type="submit" disabled={group.members.length === 0}>
+                        <Icon name="send" />
+                        Send
+                      </button>
+                    </form>
+                    <details class="disclose">
+                      <summary>
+                        <Icon name="chevron" />
+                        Change members
+                      </summary>
+                      <form
+                        class="disclose-body"
+                        method="post"
+                        action={routes.admin.groups.members.href({ groupId: group.id })}
+                      >
+                        <fieldset>
+                          <legend class="visually-hidden">Members of {group.name}</legend>
+                          <ClientPicker clients={allClients} selected={memberIds} />
+                        </fieldset>
+                        <div class="form-foot">
+                          <span class="hint">Unticked PCs leave the group.</span>
+                          <button class="btn secondary" type="submit">
+                            Save members
+                          </button>
+                        </div>
+                      </form>
+                    </details>
+                  </article>
+                );
+              })
+            )}
+          </section>
 
-                <form
-                  method="post"
-                  action={routes.admin.messages.group.href({
-                    groupId: group.id,
-                  })}
-                  class="stack"
-                >
-                  <h3>Send group message</h3>
-                  <textarea
-                    name="content"
-                    rows={4}
-                    placeholder="Message for every client in this group"
-                    required
-                  ></textarea>
-                  <button type="submit">Send to group</button>
-                </form>
+          <section class="panel" aria-labelledby="create-group-title">
+            <div class="panel-head">
+              <h2 id="create-group-title">New group</h2>
+            </div>
+            <form class="panel-body" method="post" action={routes.admin.groups.create.href()}>
+              <label class="field">
+                <span>Name</span>
+                <input type="text" name="name" required maxlength={100} placeholder="Kids' rooms" />
+              </label>
+              <label class="field">
+                <span>Description</span>
+                <input type="text" name="description" placeholder="Optional" />
+              </label>
+              <fieldset>
+                <legend>Members</legend>
+                <ClientPicker clients={allClients} selected={none} />
+              </fieldset>
+              <div class="form-foot">
+                <span></span>
+                <button class="btn" type="submit">
+                  <Icon name="plus" />
+                  Create group
+                </button>
               </div>
-            </section>
-          );
-        })}
-      </div>
-    </Layout>
-  );
+            </form>
+          </section>
+        </div>
+      </AdminShell>
+    );
+  };
 }

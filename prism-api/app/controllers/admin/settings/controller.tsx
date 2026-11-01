@@ -18,8 +18,10 @@ import {
 import { requireAdmin } from "../../../middleware/admin.ts";
 import type { AppContext } from "../../../router.ts";
 import { routes } from "../../../routes.ts";
-import { Layout } from "../../../ui/layout.tsx";
-import { getNotice, withNotice } from "../../../utils/notice.ts";
+import { Icon } from "../../../ui/icons.tsx";
+import { AdminShell } from "../../../ui/layout.tsx";
+import { NoticeBar } from "../../../ui/notice.tsx";
+import { getNotice, withNotice, type Notice } from "../../../utils/notice.ts";
 import { render } from "../../../utils/render.tsx";
 
 let dnsProfileSchema = f.object({
@@ -36,6 +38,11 @@ let adminSettingsMiddleware = [
   }),
   requireAdmin(),
 ];
+
+function adminName(get: AppContext["get"]) {
+  let auth = get(Auth);
+  return auth.ok ? (auth.identity as AdminIdentity).user.name : "";
+}
 
 function dnsProfilesIndexHref() {
   return routes.admin.settings.dnsProfiles.index.href();
@@ -66,9 +73,12 @@ function dnsProfileErrorNotice(error: unknown) {
 export const adminSettings = {
   middleware: adminSettingsMiddleware,
   actions: {
-    async index({ request }) {
+    async index({ get, request }) {
       return render(
-        <SettingsIndexPage notice={getNotice(new URL(request.url))} />,
+        <SettingsIndexPage
+          adminName={adminName(get)}
+          notice={getNotice(new URL(request.url))}
+        />,
         request,
       );
     },
@@ -78,11 +88,12 @@ export const adminSettings = {
 export const adminSettingsDnsProfiles = {
   middleware: adminSettingsMiddleware,
   actions: {
-    async index({ request }) {
+    async index({ get, request }) {
       let profiles = await listDnsProfiles();
 
       return render(
         <DnsProfilesPage
+          adminName={adminName(get)}
           notice={getNotice(new URL(request.url))}
           profiles={profiles}
         />,
@@ -165,147 +176,191 @@ export const adminSettingsDnsProfiles = {
 
 function SettingsIndexPage(
   handle: Handle<{
-    notice: ReturnType<typeof getNotice>;
+    adminName: string;
+    notice: Notice | null;
   }>,
 ) {
   return () => (
-    <Layout title="Settings">
-      <h1>Settings</h1>
-      <p>Configure reusable controls that can be applied to managed clients.</p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
-
-      <section class="card-grid">
-        <article class="card stack">
-          <h2>DNS profiles</h2>
-          <p>
-            Create named IPv4 DNS server profiles, then apply them from a
-            client's detail page.
-          </p>
-          <a href={dnsProfilesIndexHref()}>Manage DNS profiles</a>
-        </article>
+    <AdminShell active="dns" title="Settings" adminName={handle.props.adminName}>
+      <header class="page-head">
+        <div>
+          <h1>Settings</h1>
+          <p>Reusable controls you can apply to any PC.</p>
+        </div>
+      </header>
+      <NoticeBar notice={handle.props.notice} />
+      <section class="panel">
+        <ul class="rows">
+          <li>
+            <a class="row-link" href={dnsProfilesIndexHref()}>
+              DNS profiles
+              <Icon name="chevron" />
+            </a>
+            <span class="muted">
+              Named DNS server pairs, applied from a PC's page.
+            </span>
+          </li>
+        </ul>
       </section>
-    </Layout>
+    </AdminShell>
+  );
+}
+
+function DnsProfileFields() {
+  return ({
+    profile,
+  }: {
+    profile?: { name: string; primary_ip: string; secondary_ip: string | null };
+  }) => (
+    <>
+      <label class="field">
+        <span>Name</span>
+        <input
+          type="text"
+          name="name"
+          required
+          maxlength={100}
+          value={profile?.name ?? ""}
+          placeholder="Family filter"
+        />
+      </label>
+      <div class="form-row">
+        <label class="field">
+          <span>Primary server</span>
+          <input
+            class="mono"
+            type="text"
+            name="primaryIp"
+            required
+            maxlength={45}
+            inputmode="decimal"
+            value={profile?.primary_ip ?? ""}
+            placeholder="1.1.1.3"
+          />
+        </label>
+        <label class="field">
+          <span>Secondary server</span>
+          <input
+            class="mono"
+            type="text"
+            name="secondaryIp"
+            maxlength={45}
+            inputmode="decimal"
+            value={profile?.secondary_ip ?? ""}
+            placeholder="Optional"
+          />
+        </label>
+      </div>
+    </>
   );
 }
 
 function DnsProfilesPage(
   handle: Handle<{
-    notice: ReturnType<typeof getNotice>;
+    adminName: string;
+    notice: Notice | null;
     profiles: Awaited<ReturnType<typeof listDnsProfiles>>;
   }>,
 ) {
-  return () => (
-    <Layout title="DNS profiles">
-      <h1>DNS profiles</h1>
-      <p>
-        Named resolver profiles for client-side DNS directives. Profiles are
-        snapshots when applied, so future edits will not rewrite an already
-        issued command.
-      </p>
-      <p>
-        <a href={routes.admin.settings.index.href()}>Back to settings</a>
-      </p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
+  return () => {
+    let { adminName, notice, profiles } = handle.props;
 
-      <section class="card stack">
-        <h2>Create profile</h2>
-        <form method="post" action={routes.admin.settings.dnsProfiles.create.href()} class="stack">
-          <label>
-            Name
-            <input type="text" name="name" required maxlength={100} />
-          </label>
-          <label>
-            Primary DNS server
-            <input type="text" name="primaryIp" placeholder="1.1.1.1" required />
-          </label>
-          <label>
-            Secondary DNS server
-            <input type="text" name="secondaryIp" placeholder="1.0.0.1" />
-          </label>
-          <button type="submit">Create DNS profile</button>
-        </form>
-      </section>
-
-      <div class="stack">
-        {handle.props.profiles.length === 0 ? (
-          <section class="card">
-            <p>No DNS profiles have been created yet.</p>
-          </section>
-        ) : null}
-
-        {handle.props.profiles.map((profile) => (
-          <section class="card stack">
-            <h2>{profile.name}</h2>
+    return (
+      <AdminShell active="dns" title="DNS profiles" adminName={adminName}>
+        <header class="page-head">
+          <div>
+            <h1>DNS profiles</h1>
             <p>
-              <strong>Primary:</strong> <code>{profile.primary_ip}</code>
-              {profile.secondary_ip ? (
-                <>
-                  {" "}
-                  <strong>Secondary:</strong>{" "}
-                  <code>{profile.secondary_ip}</code>
-                </>
-              ) : null}
+              Named DNS servers you can apply to a PC from its page. Editing a
+              profile doesn't change PCs it was already sent to.
             </p>
-            <div class="card-grid">
-              <form
-                method="post"
-                action={routes.admin.settings.dnsProfiles.update.href({
-                  profileId: profile.id,
-                })}
-                class="stack"
-              >
-                <h3>Edit profile</h3>
-                <label>
-                  Name
-                  <input
-                    type="text"
-                    name="name"
-                    value={profile.name}
-                    required
-                    maxlength={100}
-                  />
-                </label>
-                <label>
-                  Primary DNS server
-                  <input
-                    type="text"
-                    name="primaryIp"
-                    value={profile.primary_ip}
-                    required
-                  />
-                </label>
-                <label>
-                  Secondary DNS server
-                  <input
-                    type="text"
-                    name="secondaryIp"
-                    value={profile.secondary_ip ?? ""}
-                  />
-                </label>
-                <button type="submit">Save profile</button>
-              </form>
+          </div>
+        </header>
 
-              <form
-                method="post"
-                action={routes.admin.settings.dnsProfiles.delete.href({
-                  profileId: profile.id,
-                })}
-              >
-                <button type="submit">Delete profile</button>
-              </form>
+        <NoticeBar notice={notice} />
+
+        <div class="split">
+          <section class="panel" aria-labelledby="profiles-title">
+            <div class="panel-head">
+              <h2 id="profiles-title">Profiles</h2>
+              <span class="count">{profiles.length}</span>
             </div>
+            {profiles.length === 0 ? (
+              <p class="empty">
+                <strong>No profiles yet.</strong>
+                Create one, for example a family-safe filter, then apply it from a PC's page.
+              </p>
+            ) : (
+              profiles.map((profile) => (
+                <article class="group">
+                  <div class="group-head">
+                    <h3>{profile.name}</h3>
+                    <span class="data">
+                      {profile.primary_ip}
+                      {profile.secondary_ip ? `, ${profile.secondary_ip}` : ""}
+                    </span>
+                  </div>
+                  <details class="disclose">
+                    <summary>
+                      <Icon name="chevron" />
+                      Edit or delete
+                    </summary>
+                    <div class="disclose-body stack">
+                      <form
+                        method="post"
+                        action={routes.admin.settings.dnsProfiles.update.href({
+                          profileId: profile.id,
+                        })}
+                      >
+                        <DnsProfileFields profile={profile} />
+                        <div class="form-foot">
+                          <span></span>
+                          <button class="btn secondary" type="submit">
+                            Save changes
+                          </button>
+                        </div>
+                      </form>
+                      <form
+                        method="post"
+                        action={routes.admin.settings.dnsProfiles.delete.href({
+                          profileId: profile.id,
+                        })}
+                      >
+                        <div class="form-foot">
+                          <span class="hint">PCs already using it keep their settings.</span>
+                          <button class="btn danger" type="submit">
+                            Delete {profile.name}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </details>
+                </article>
+              ))
+            )}
           </section>
-        ))}
-      </div>
-    </Layout>
-  );
-}
 
-function renderNotice(notice: NonNullable<ReturnType<typeof getNotice>>) {
-  return (
-    <div class={`notice ${notice.type}`}>
-      <strong>{notice.type === "error" ? "Error" : "Success"}:</strong>{" "}
-      {notice.text}
-    </div>
-  );
+          <section class="panel" aria-labelledby="new-profile-title">
+            <div class="panel-head">
+              <h2 id="new-profile-title">New profile</h2>
+            </div>
+            <form
+              class="panel-body"
+              method="post"
+              action={routes.admin.settings.dnsProfiles.create.href()}
+            >
+              <DnsProfileFields />
+              <div class="form-foot">
+                <span class="hint">IPv4 addresses.</span>
+                <button class="btn" type="submit">
+                  <Icon name="plus" />
+                  Create profile
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      </AdminShell>
+    );
+  };
 }

@@ -3,6 +3,11 @@
 /prism-api/screenshots/
 /prismclient/artifacts/
 
+# Impeccable scratch output (keep design.json and surfaces/)
+/.impeccable/mocks/
+/.impeccable/review/
+/.impeccable/questions/
+
 #Ignore thumbnails created by Windows
 Thumbs.db
 #Ignore files built by Visual Studio

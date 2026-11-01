@@ -1,0 +1,708 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-01T00:43:38.724202+00:00",
+  "title": "Design System: FamilyPrism",
+  "extensions": {
+    "colorMeta": {
+      "rail": {
+        "role": "neutral",
+        "displayName": "Painted Slate",
+        "canonical": "#1e2b2f",
+        "tonalRamp": [
+          "#1e2b2f",
+          "#32474e",
+          "#46646d",
+          "#5f8995",
+          "#82a5b0",
+          "#a8c0c7",
+          "#d0dde1",
+          "#eff4f5"
+        ]
+      },
+      "rail-raised": {
+        "role": "neutral",
+        "displayName": "Raised Slate",
+        "canonical": "#2a3a3f",
+        "tonalRamp": [
+          "#1f2a2e",
+          "#33464c",
+          "#47636b",
+          "#628793",
+          "#85a4ad",
+          "#a9bfc6",
+          "#d1dde0",
+          "#f0f4f5"
+        ]
+      },
+      "rail-line": {
+        "role": "neutral",
+        "displayName": "Slate Seam",
+        "canonical": "#34474c",
+        "tonalRamp": [
+          "#1f2a2d",
+          "#34474c",
+          "#49636a",
+          "#638891",
+          "#86a4ac",
+          "#aabfc5",
+          "#d2dde0",
+          "#f0f4f5"
+        ]
+      },
+      "rail-ink": {
+        "role": "neutral",
+        "displayName": "Rail Chalk",
+        "canonical": "#e3e9e6",
+        "tonalRamp": [
+          "#222b26",
+          "#384740",
+          "#4f6459",
+          "#6c897a",
+          "#8da599",
+          "#afc0b8",
+          "#d4ddd9",
+          "#f1f4f2"
+        ]
+      },
+      "rail-muted": {
+        "role": "neutral",
+        "displayName": "Rail Haze",
+        "canonical": "#a3b2af",
+        "tonalRamp": [
+          "#232a28",
+          "#3a4543",
+          "#51615e",
+          "#708581",
+          "#90a29e",
+          "#b1bebb",
+          "#d5dcdb",
+          "#f1f3f3"
+        ]
+      },
+      "brass": {
+        "role": "primary",
+        "displayName": "Brass Key",
+        "canonical": "#f2b705",
+        "tonalRamp": [
+          "#4b3902",
+          "#7d5e03",
+          "#af8404",
+          "#f0b505",
+          "#fbca37",
+          "#fcda73",
+          "#fdebb4",
+          "#fef8e6"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Cool Plaster",
+        "canonical": "#eef0ec",
+        "tonalRamp": [
+          "#262b22",
+          "#404738",
+          "#59644f",
+          "#7a896c",
+          "#99a58d",
+          "#b8c0af",
+          "#d9ddd4",
+          "#f2f4f1"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#262626",
+          "#404040",
+          "#595959",
+          "#7a7a7a",
+          "#999999",
+          "#b8b8b8",
+          "#d9d9d9",
+          "#f2f2f2"
+        ]
+      },
+      "ink": {
+        "role": "primary",
+        "displayName": "Iron Ink",
+        "canonical": "#15191a",
+        "tonalRamp": [
+          "#22292a",
+          "#394447",
+          "#505f63",
+          "#6d8287",
+          "#8ea0a4",
+          "#b0bcbf",
+          "#d5dbdd",
+          "#f1f3f4"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2",
+        "canonical": "#4b5654",
+        "tonalRamp": [
+          "#242928",
+          "#3b4443",
+          "#535f5d",
+          "#728380",
+          "#92a09d",
+          "#b3bcbb",
+          "#d6dbda",
+          "#f1f3f3"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3",
+        "canonical": "#66716f",
+        "tonalRamp": [
+          "#242827",
+          "#3c4342",
+          "#555e5c",
+          "#74817e",
+          "#949e9c",
+          "#b4bbba",
+          "#d7dbda",
+          "#f2f3f3"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#c9cec9",
+        "tonalRamp": [
+          "#242824",
+          "#3d433d",
+          "#555e55",
+          "#748074",
+          "#949e94",
+          "#b4bbb4",
+          "#d7dbd7",
+          "#f2f3f2"
+        ]
+      },
+      "line-soft": {
+        "role": "neutral",
+        "displayName": "Soft Hairline",
+        "canonical": "#e1e4e0",
+        "tonalRamp": [
+          "#252924",
+          "#3e443b",
+          "#565f53",
+          "#768372",
+          "#95a092",
+          "#b5bdb3",
+          "#d7dbd6",
+          "#f2f3f1"
+        ]
+      },
+      "steel": {
+        "role": "neutral",
+        "displayName": "Hook Steel",
+        "canonical": "#9aa3a6",
+        "tonalRamp": [
+          "#242729",
+          "#3c4244",
+          "#545c5f",
+          "#737e82",
+          "#939c9f",
+          "#b3babc",
+          "#d6dadb",
+          "#f1f3f3"
+        ]
+      },
+      "steel-dark": {
+        "role": "neutral",
+        "displayName": "Dark Steel",
+        "canonical": "#6f797c",
+        "tonalRamp": [
+          "#242728",
+          "#3c4243",
+          "#545c5e",
+          "#747e81",
+          "#939c9f",
+          "#b4babc",
+          "#d7dadb",
+          "#f2f3f3"
+        ]
+      },
+      "tape": {
+        "role": "neutral",
+        "displayName": "Label Tape Black",
+        "canonical": "#121415",
+        "tonalRamp": [
+          "#232729",
+          "#3b4145",
+          "#525c60",
+          "#717e84",
+          "#919ca1",
+          "#b2b9bd",
+          "#d6dadc",
+          "#f1f3f3"
+        ]
+      },
+      "tag-red": {
+        "role": "secondary",
+        "displayName": "Signal Red",
+        "canonical": "#d7263d",
+        "tonalRamp": [
+          "#410b12",
+          "#6c131f",
+          "#981b2b",
+          "#d0253b",
+          "#e05264",
+          "#ea8693",
+          "#f4bec5",
+          "#fbe9ec"
+        ]
+      },
+      "tag-yellow": {
+        "role": "secondary",
+        "displayName": "Label Yellow",
+        "canonical": "#f2b705",
+        "tonalRamp": [
+          "#4b3902",
+          "#7d5e03",
+          "#af8404",
+          "#f0b505",
+          "#fbca37",
+          "#fcda73",
+          "#fdebb4",
+          "#fef8e6"
+        ]
+      },
+      "tag-blue": {
+        "role": "secondary",
+        "displayName": "Workshop Blue",
+        "canonical": "#1f6fd1",
+        "tonalRamp": [
+          "#0a2343",
+          "#103b6f",
+          "#17539b",
+          "#2071d5",
+          "#4d91e5",
+          "#83b2ed",
+          "#bcd6f5",
+          "#e9f1fc"
+        ]
+      },
+      "tag-green": {
+        "role": "secondary",
+        "displayName": "Garden Green",
+        "canonical": "#2e9f5b",
+        "tonalRamp": [
+          "#113b22",
+          "#1d6339",
+          "#288a4f",
+          "#37be6d",
+          "#61d18e",
+          "#90dfb0",
+          "#c4eed4",
+          "#ebf9f1"
+        ]
+      },
+      "tag-orange": {
+        "role": "secondary",
+        "displayName": "Safety Orange",
+        "canonical": "#ee6c2b",
+        "tonalRamp": [
+          "#471b06",
+          "#762e09",
+          "#a5400d",
+          "#e35812",
+          "#f07c42",
+          "#f4a37b",
+          "#f9ceb8",
+          "#fdefe7"
+        ]
+      },
+      "tag-violet": {
+        "role": "secondary",
+        "displayName": "Plum Violet",
+        "canonical": "#7a4fd1",
+        "tonalRamp": [
+          "#1f103d",
+          "#331a65",
+          "#48258e",
+          "#6233c2",
+          "#855dd5",
+          "#a98ee1",
+          "#d1c2ef",
+          "#f0ebfa"
+        ]
+      },
+      "home": {
+        "role": "tertiary",
+        "displayName": "Home Green",
+        "canonical": "#1e7a46",
+        "tonalRamp": [
+          "#0f3d23",
+          "#19663b",
+          "#238f52",
+          "#30c471",
+          "#5bd791",
+          "#8ce3b2",
+          "#c2f0d6",
+          "#ebfaf1"
+        ]
+      },
+      "away": {
+        "role": "tertiary",
+        "displayName": "Away Grey",
+        "canonical": "#66716f",
+        "tonalRamp": [
+          "#242827",
+          "#3c4342",
+          "#555e5c",
+          "#74817e",
+          "#949e9c",
+          "#b4bbba",
+          "#d7dbda",
+          "#f2f3f3"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Update Yellow",
+        "canonical": "#f2b705",
+        "tonalRamp": [
+          "#4b3902",
+          "#7d5e03",
+          "#af8404",
+          "#f0b505",
+          "#fbca37",
+          "#fcda73",
+          "#fdebb4",
+          "#fef8e6"
+        ]
+      },
+      "warn-ink": {
+        "role": "tertiary",
+        "displayName": "Warn Ink",
+        "canonical": "#5c4500",
+        "tonalRamp": [
+          "#4c3900",
+          "#806000",
+          "#b28600",
+          "#f5b800",
+          "#ffcc33",
+          "#ffdb70",
+          "#ffecb2",
+          "#fff9e5"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Brick Danger",
+        "canonical": "#b3261e",
+        "tonalRamp": [
+          "#420e0b",
+          "#6d1712",
+          "#99201a",
+          "#d22d23",
+          "#e25850",
+          "#eb8a85",
+          "#f4c0bd",
+          "#fbeae9"
+        ]
+      },
+      "danger-soft": {
+        "role": "tertiary",
+        "displayName": "Danger Wash",
+        "canonical": "#fbeae8",
+        "tonalRamp": [
+          "#41110b",
+          "#6d1c13",
+          "#98281a",
+          "#d13624",
+          "#e16051",
+          "#ea9085",
+          "#f4c3be",
+          "#fbebe9"
+        ]
+      },
+      "ok-soft": {
+        "role": "tertiary",
+        "displayName": "Mint Wash",
+        "canonical": "#e6f3eb",
+        "tonalRamp": [
+          "#193423",
+          "#29563b",
+          "#3a7952",
+          "#4fa570",
+          "#75bd91",
+          "#9fd1b2",
+          "#cbe6d6",
+          "#eef7f1"
+        ]
+      },
+      "focus": {
+        "role": "tertiary",
+        "displayName": "Focus Blue",
+        "canonical": "#1f6fd1",
+        "tonalRamp": [
+          "#0a2343",
+          "#103b6f",
+          "#17539b",
+          "#2071d5",
+          "#4d91e5",
+          "#83b2ed",
+          "#bcd6f5",
+          "#e9f1fc"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Sign-in side panel headline."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles; 1.5rem under 860px."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel and group headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default copy with tabular numerals; leads capped at 62ch."
+      },
+      "body-small": {
+        "displayName": "Body small",
+        "purpose": "Tables, row lists, facts, status."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, legends, buttons."
+      },
+      "hint": {
+        "displayName": "Hint",
+        "purpose": "Helper text, counts, captions."
+      },
+      "tape": {
+        "displayName": "Tape",
+        "purpose": "Client names on black embossed label tape, uppercase."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "DNS directive status stamps, uppercase."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Versions, IPs, ids, code."
+      }
+    },
+    "shadows": [
+      {
+        "name": "rail-active-bar",
+        "value": "inset 2px 0 0 #f2b705",
+        "purpose": "Brass indicator on the active rail link. Not elevation."
+      },
+      {
+        "name": "input-focus-halo",
+        "value": "0 0 0 3px rgba(31, 111, 209, 0.22)",
+        "purpose": "Focus halo on inputs, selects and textareas."
+      },
+      {
+        "name": "tape-emboss",
+        "value": "0 1px 0 rgba(255, 255, 255, 0.22), 0 -1px 0 rgba(0, 0, 0, 0.55)",
+        "purpose": "Text-shadow embossing on black label tape."
+      },
+      {
+        "name": "tape-warn-emboss",
+        "value": "0 1px 0 rgba(255, 255, 255, 0.45)",
+        "purpose": "Text-shadow embossing on yellow Update due tape."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Single easing for all transitions and the settle swing."
+      },
+      {
+        "name": "tag-settle",
+        "value": "900ms ease-out once; rotate -5deg, 2.5deg, -0.8deg, 0deg from top pivot",
+        "purpose": "One-time swing for home tags in the rack; only under prefers-reduced-motion: no-preference."
+      },
+      {
+        "name": "state-fast",
+        "value": "120-160ms",
+        "purpose": "Colour/border changes on rows, buttons, inputs, rail links."
+      },
+      {
+        "name": "tag-lift",
+        "value": "220ms",
+        "purpose": "Tag plate lowers 2px on hover."
+      },
+      {
+        "name": "press",
+        "value": "80ms",
+        "purpose": "Button nudges down 1px on :active."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "rows-compact",
+        "value": "560px"
+      },
+      {
+        "name": "phone",
+        "value": "860px"
+      },
+      {
+        "name": "split-collapse",
+        "value": "1080px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Iron Ink action button; the main action on a form, e.g. Send.",
+      "html": "<button class=\"ds-btn\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 12l16-7-6.5 15-2.5-6z\"/><path d=\"M11 14l9-9\"/></svg>Send</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 16px; border: 1px solid #15191a; border-radius: 6px; background: #15191a; color: #fff; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 0.875rem; line-height: 1.2; cursor: pointer; transition: background-color 140ms cubic-bezier(0.22,1,0.36,1), border-color 140ms cubic-bezier(0.22,1,0.36,1), transform 80ms cubic-bezier(0.22,1,0.36,1); } .ds-btn svg { width: 18px; height: 18px; } .ds-btn:hover { background: #2c3436; border-color: #2c3436; } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid #1f6fd1; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Paper button for secondary actions such as Refresh.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Refresh</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 16px; border: 1px solid #15191a; border-radius: 6px; background: #15191a; color: #fff; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 0.875rem; line-height: 1.2; cursor: pointer; transition: background-color 140ms cubic-bezier(0.22,1,0.36,1), border-color 140ms cubic-bezier(0.22,1,0.36,1), transform 80ms cubic-bezier(0.22,1,0.36,1); } .ds-btn svg { width: 18px; height: 18px; } .ds-btn:hover { background: #2c3436; border-color: #2c3436; } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid #1f6fd1; outline-offset: 2px; } .ds-btn-secondary { background: #fff; color: #15191a; border-color: #aab2ae; } .ds-btn-secondary:hover { background: #f6f7f5; border-color: #15191a; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action, only inside the danger-zone panel.",
+      "html": "<button class=\"ds-btn ds-btn-danger\">Unregister this PC</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 16px; border: 1px solid #15191a; border-radius: 6px; background: #15191a; color: #fff; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-weight: 600; font-size: 0.875rem; line-height: 1.2; cursor: pointer; transition: background-color 140ms cubic-bezier(0.22,1,0.36,1), border-color 140ms cubic-bezier(0.22,1,0.36,1), transform 80ms cubic-bezier(0.22,1,0.36,1); } .ds-btn svg { width: 18px; height: 18px; } .ds-btn:hover { background: #2c3436; border-color: #2c3436; } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: 2px solid #1f6fd1; outline-offset: 2px; } .ds-btn-danger { background: #b3261e; border-color: #b3261e; } .ds-btn-danger:hover { background: #8f1e18; border-color: #8f1e18; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labelled textarea/input with hint; focus-blue border and halo.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-label\">Message</span><textarea class=\"ds-input\" placeholder=\"Dinner in 10 minutes. Please wrap up.\"></textarea><span class=\"ds-hint\">Only PCs that are home get it; messages aren't queued. Up to 500 characters.</span></label>",
+      "css": ".ds-field { display: grid; gap: 6px; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; color: #15191a; } .ds-label { font-size: 0.875rem; font-weight: 600; } .ds-hint { color: #4b5654; font-size: 0.8125rem; } .ds-input { width: 100%; min-height: 92px; padding: 9px 12px; border: 1px solid #aab2ae; border-radius: 6px; background: #fff; color: #15191a; font: 400 0.9375rem/1.4 Archivo, sans-serif; caret-color: #1f6fd1; transition: border-color 140ms, box-shadow 140ms; } .ds-input::placeholder { color: #6c7775; } .ds-input:hover { border-color: #4b5654; } .ds-input:focus-visible { outline: none; border-color: #1f6fd1; box-shadow: 0 0 0 3px rgba(31,111,209,0.22); }"
+    },
+    {
+      "name": "Slate Rail",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "Desktop navigation rail; active item gets raised slate, brass inset bar and brass icon.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-rail-link\" aria-current=\"page\" href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 6h18\"/><path d=\"M7 6v3\"/><path d=\"M12 6v3\"/><path d=\"M17 6v3\"/><path d=\"M5.5 11h3v8h-3z\"/><path d=\"M10.5 11h3v8h-3z\"/><path d=\"M15.5 11h3v8h-3z\"/></svg>Home</a><a class=\"ds-rail-link\" href=\"#\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 5h17v11h-17z\"/><path d=\"M9 20h6\"/><path d=\"M12 16v4\"/></svg>Clients</a></nav>",
+      "css": ".ds-rail { display: grid; gap: 2px; width: 232px; padding: 16px; background: #1e2b2f; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; } .ds-rail-link { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 6px; color: #a3b2af; font-size: 0.9375rem; font-weight: 500; text-decoration: none; transition: background-color 160ms cubic-bezier(0.22,1,0.36,1), color 160ms cubic-bezier(0.22,1,0.36,1); } .ds-rail-link svg { width: 20px; height: 20px; } .ds-rail-link:hover { background: #2a3a3f; color: #fff; } .ds-rail-link[aria-current='page'] { background: #2a3a3f; color: #fff; box-shadow: inset 2px 0 0 #f2b705; } .ds-rail-link[aria-current='page'] svg { color: #f2b705; } .ds-rail-link:focus-visible { outline: 2px solid #f2b705; outline-offset: 2px; }"
+    },
+    {
+      "name": "Tag Chip",
+      "kind": "chip",
+      "refersTo": "tape",
+      "description": "Steel-rimmed colour dot plus name on embossed tape; identifies a PC in lists.",
+      "html": "<a class=\"ds-chip\" href=\"#\" style=\"--tag:#d7263d\"><span class=\"ds-chip-dot\"></span><span class=\"ds-tape\">Leo's desktop</span></a> <span class=\"ds-tape ds-tape-warn\">Update due</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; } .ds-chip-dot { width: 14px; height: 14px; border: 2px solid #9aa3a6; border-radius: 50%; background: var(--tag); } .ds-chip .ds-tape { font-size: 0.8125rem; padding: 4px 7px 3px; } .ds-chip:hover .ds-tape { background: #2c3436; } .ds-chip:focus-visible { outline: 2px solid #1f6fd1; outline-offset: 2px; } .ds-tape { display: inline-block; padding: 5px 8px 4px; border-radius: 2px; background: #121415; color: #fff; font: 700 0.875rem/1.1 'Archivo Narrow', Archivo, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 0 1px 0 rgba(255,255,255,0.22), 0 -1px 0 rgba(0,0,0,0.55); white-space: nowrap; } .ds-tape-warn { background: #f2b705; color: #15191a; text-shadow: 0 1px 0 rgba(255,255,255,0.45); font-size: 0.75rem; padding: 3px 6px 2px; }"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Paper panel on plaster, 1px hairline, 10px radius, no shadow; inner sections divided by hairlines.",
+      "html": "<section class=\"ds-panel\"><div class=\"ds-panel-head\"><h2>Needs attention</h2><span class=\"ds-count\">3</span></div><div class=\"ds-panel-body\"><p>Not connected, so messages won't reach it.</p></div></section>",
+      "css": ".ds-panel { background: #fff; border: 1px solid #c9cec9; border-radius: 10px; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; color: #15191a; } .ds-panel-head { display: flex; justify-content: space-between; align-items: baseline; padding: 16px 20px 12px; } .ds-panel-head h2 { margin: 0; font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; } .ds-count { color: #66716f; font-size: 0.875rem; } .ds-panel-body { padding: 0 20px 20px; font-size: 0.875rem; } .ds-panel-body p { margin: 0; }"
+    },
+    {
+      "name": "Key Tag",
+      "kind": "custom",
+      "refersTo": "tag-plate",
+      "description": "Signature unit: one per PC. Home tags hang from the hook bar and settle-swing once; offline tags drop lower and desaturate.",
+      "html": "<div class=\"ds-rack\"><a class=\"ds-tag\" href=\"#\" style=\"--tag:#7a4fd1\"><span class=\"ds-ring\"></span><span class=\"ds-plate\"><span class=\"ds-tape\">Maya's laptop</span><span class=\"ds-meta\"><span class=\"ds-status\">Home · <strong>maya</strong></span><span class=\"ds-dim\">v1.4.2</span></span></span></a><a class=\"ds-tag ds-away\" href=\"#\" style=\"--tag:#2e9f5b\"><span class=\"ds-ring\"></span><span class=\"ds-plate\"><span class=\"ds-tape\">Basement</span><span class=\"ds-meta\"><span class=\"ds-status\">Offline · <strong>leo</strong></span><span class=\"ds-dim\">v1.4.2</span></span></span></a></div>",
+      "css": ".ds-rack { position: relative; display: grid; grid-template-columns: repeat(2, 168px); gap: 16px; padding: 10px 12px 12px; background: #eef0ec; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; } .ds-rack::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 10px; background: linear-gradient(180deg, #c4cacc 0%, #9aa3a6 55%, #7f888b 100%); } .ds-tag { position: relative; display: grid; justify-items: center; padding-top: 18px; color: #15191a; text-decoration: none; transform-origin: 50% 0; border-radius: 10px; } .ds-tag::before { content: ''; position: absolute; top: 0; left: 50%; width: 2px; height: 22px; margin-left: -1px; background: #6f797c; } .ds-ring { position: relative; z-index: 1; width: 18px; height: 18px; margin-bottom: -7px; border: 3px solid #9aa3a6; border-radius: 50%; background: #eef0ec; box-sizing: border-box; } .ds-plate { width: 100%; display: grid; gap: 8px; padding: 14px 10px 10px; border: 3px solid #9aa3a6; border-radius: 10px; background: var(--tag); box-sizing: border-box; transition: border-color 160ms cubic-bezier(0.22,1,0.36,1), transform 220ms cubic-bezier(0.22,1,0.36,1); } .ds-plate .ds-tape { justify-self: start; } .ds-meta { display: grid; gap: 1px; padding: 6px 8px; border-radius: 4px; background: rgba(255,255,255,0.92); font-size: 0.8125rem; line-height: 1.35; } .ds-dim { color: #4b5654; } .ds-status { display: inline-flex; align-items: center; gap: 6px; } .ds-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #1e7a46; } .ds-away { padding-top: 40px; } .ds-away::before { display: none; } .ds-away .ds-plate { background: color-mix(in srgb, var(--tag) 22%, #d9ddda); border-color: #b5bcbe; } .ds-away .ds-ring { border-color: #b5bcbe; } .ds-away .ds-status::before { background: transparent; border: 1.5px solid #66716f; } .ds-tag:hover .ds-plate { border-color: #6f797c; transform: translateY(2px); } .ds-tag:focus-visible { outline: 2px solid #1f6fd1; outline-offset: 4px; } @media (prefers-reduced-motion: no-preference) { .ds-tag:not(.ds-away) { animation: ds-tag-settle 900ms cubic-bezier(0.22,1,0.36,1) both; } @keyframes ds-tag-settle { 0% { transform: rotate(-5deg); } 45% { transform: rotate(2.5deg); } 75% { transform: rotate(-0.8deg); } 100% { transform: rotate(0deg); } } } .ds-tape { display: inline-block; padding: 5px 8px 4px; border-radius: 2px; background: #121415; color: #fff; font: 700 0.875rem/1.1 'Archivo Narrow', Archivo, sans-serif; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 0 1px 0 rgba(255,255,255,0.22), 0 -1px 0 rgba(0,0,0,0.55); white-space: nowrap; } .ds-tape-warn { background: #f2b705; color: #15191a; text-shadow: 0 1px 0 rgba(255,255,255,0.45); font-size: 0.75rem; padding: 3px 6px 2px; }"
+    },
+    {
+      "name": "Status Stamp",
+      "kind": "chip",
+      "refersTo": "stamp-applied",
+      "description": "Uppercase narrow stamp for DNS directive state.",
+      "html": "<span class=\"ds-stamp ds-pending\">Pending</span> <span class=\"ds-stamp ds-applied\">Applied</span> <span class=\"ds-stamp ds-failed\">Failed</span>",
+      "css": ".ds-stamp { display: inline-flex; padding: 2px 8px; border: 1.5px solid currentColor; border-radius: 4px; font: 700 0.75rem/1.4 'Archivo Narrow', Archivo, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; } .ds-pending { color: #7a5c00; background: #fff6d6; } .ds-applied { color: #1e7a46; background: #e6f3eb; } .ds-failed { color: #b3261e; background: #fbeae8; }"
+    },
+    {
+      "name": "Notice",
+      "kind": "custom",
+      "refersTo": "notice-success",
+      "description": "Redirect-back success/error bar with icon.",
+      "html": "<div class=\"ds-notice ds-success\" role=\"status\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12.5l4.5 4.5L19 7.5\"/></svg><span>Delivered to 2 of 3 PCs. 1 offline PC won't get it; messages aren't queued.</span></div>",
+      "css": ".ds-notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 16px; border: 1px solid; border-radius: 6px; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-size: 0.9375rem; } .ds-notice svg { width: 20px; height: 20px; flex: none; margin-top: 1px; } .ds-success { background: #e6f3eb; border-color: #a9d2b8; color: #154f2f; } .ds-error { background: #fbeae8; border-color: #eab3ae; color: #7e1a14; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Key Rack",
+    "overview": "**Creative North Star: \"The Key Rack\"**\n\nEvery family PC is a key tag on the hall rack. Each one is a coloured plate with a steel rim, hung from a ring, with its name punched onto black label-maker tape. Connected PCs hang from a brass and steel hook bar. Offline PCs drop lower, lose their hanger wire and fade toward grey. A stale client version gets a strip of yellow \"Update due\" tape. You can read the whole household's state at a glance, the same way you'd check which keys are home.\n\nThe console runs in Operate mode: it's dense, calm and factual. A painted-slate rail carries navigation, and the active item is marked with brass. The working area is cool plaster with white paper panels. Structure comes from 1px hairlines only. There are no drop shadows and no cards inside cards. Colour is reserved for identity (the six tag colours) and state (home green, offline grey, warn yellow, danger red). Chrome stays neutral so the tags carry the screen.\n\nThe world rejects the neutral-sidebar admin template, with its stat tiles and a nine-column table that carries a form in every row. Phones get first-class layouts, not a shrunken desktop: a bottom tab bar replaces the rail, and tables become stacked cards.",
+    "keyCharacteristics": [
+      "Coloured, steel-rimmed key tags with embossed black tape labels, one per PC, with a deterministic colour.",
+      "Position encodes state: home tags hang from the bar, offline tags hang lower and desaturate.",
+      "A slate rail with a brass active indicator and a plaster ground.",
+      "Hairline structure (1px), flat surfaces, and no nested cards.",
+      "Archivo for UI, Archivo Narrow 700 uppercase for tape, system monospace for data.",
+      "One settle swing when tags first appear, and nothing else moves on its own."
+    ],
+    "rules": [
+      {
+        "name": "The Colour Is Identity Rule",
+        "body": "Tag colours identify a PC. They never mean online, offline or error. State uses position, the home/away dot, tape and stamps.",
+        "section": "colors"
+      },
+      {
+        "name": "The Brass Is Rare Rule",
+        "body": "Brass appears only on the active navigation item, focus inside the slate chrome, and selection. Its sibling, warn yellow, appears only as \"Update due\" tape and pending stamps.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tape Is For Names Rule",
+        "body": "Archivo Narrow uppercase tape is reserved for client names and the \"Update due\" flag. Headings and buttons stay in Archivo, in sentence case.",
+        "section": "typography"
+      },
+      {
+        "name": "The Machine Facts Rule",
+        "body": "Versions, IPs and ids are set in the data font. Human copy never is.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "All structure is 1px lines in `line` or `line-soft`. If you need separation, add a rule, not a shadow or a nested card.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Drop Means Away Rule",
+        "body": "Offline tags sit 22px lower (padding-top 40px instead of 18px), lose their hanger wire, and mix their colour to 22% over grey (#d9ddda) with a lighter rim (#b5bcbe). Never show \"offline\" with tag colour alone.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** give every client its tag colour from `tagClass(id)` (c0–c5) and use it everywhere that PC appears: tag, chip and picker swatch.",
+      "**Do** show offline state by dropping the tag, removing its wire, desaturating the plate and using a hollow status ring.",
+      "**Do** mark stale client versions with yellow \"Update due\" tape.",
+      "**Do** separate content with 1px hairlines (`line` between panels and sections, `line-soft` within).",
+      "**Do** say plainly that messages to offline PCs are not queued. Examples: \"Only PCs that are home get it; messages aren't queued.\" and \"Delivered to 2 of 3 PCs. 1 offline PC won't get it; messages aren't queued.\" DNS changes, by contrast, are \"queued for the next client connection\".",
+      "**Do** set versions, IPs and ids in the data font.",
+      "**Do** keep `tag-settle` behind `prefers-reduced-motion: no-preference` and play it once.",
+      "**Do** give phones the bottom tab bar and stacked-card tables under 860px, with 44px touch targets on text-sized controls."
+    ],
+    "donts": [
+      "**Don't** add drop shadows or put cards inside cards.",
+      "**Don't** use tag colours to signal state, or use brass outside active navigation, rail focus and selection.",
+      "**Don't** use tape styling for headings, buttons or anything other than client names and the \"Update due\" flag.",
+      "**Don't** build stat-tile dashboards or wide tables with a form in every row.",
+      "**Don't** imply that a message will reach an offline PC later.",
+      "**Don't** add looping or decorative motion beyond the one-time settle swing."
+    ]
+  }
+}

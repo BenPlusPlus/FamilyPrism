@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { asyncContext } from "remix/async-context-middleware";
 import { compression } from "remix/compression-middleware";
 import {
@@ -28,6 +30,11 @@ import { loadAuth } from "./middleware/auth.ts";
 import { loadDatabase } from "./middleware/database.ts";
 import { routes } from "./routes.ts";
 
+const BUNDLED_FONTS = new Set([
+  "archivo-latin.woff2",
+  "archivo-narrow-700-latin.woff2",
+]);
+
 type RootMiddleware = [
   ReturnType<typeof compression>,
   ReturnType<typeof formData>,
@@ -55,6 +62,24 @@ export const router =
 router.get(routes.assets, async ({ request }) => {
   let response = await assets.fetch(request);
   return response ?? new Response("Not Found", { status: 404 });
+});
+
+router.get(routes.fonts, async ({ params }) => {
+  let font = BUNDLED_FONTS.has(params.file)
+    ? await readFile(new URL(`../public/fonts/${params.file}`, import.meta.url)).catch(
+        () => null,
+      )
+    : null;
+  if (!font) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  return new Response(new Uint8Array(font), {
+    headers: {
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Content-Type": "font/woff2",
+    },
+  });
 });
 
 router.map(routes.home, home);

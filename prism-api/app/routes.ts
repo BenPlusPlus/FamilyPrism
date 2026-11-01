@@ -2,6 +2,7 @@ import { form, get, post, route } from "remix/fetch-router/routes";
 
 export const routes = route({
   assets: get("/assets/*path"),
+  fonts: get("/fonts/:file"),
   home: get("/"),
   websocket: get("/ws"),
   auth: route("auth", {
@@ -25,6 +26,7 @@ export const routes = route({
       members: post(":groupId/members"),
     }),
     messages: route("messages", {
+      compose: post("compose"),
       client: post("client/:clientId"),
       group: post("group/:groupId"),
     }),
