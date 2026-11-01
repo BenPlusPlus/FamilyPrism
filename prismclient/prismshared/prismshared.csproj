@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="prismshared.tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" />
     <PackageReference Include="System.Management" Version="10.0.14" />
   </ItemGroup>
