@@ -1,102 +1,109 @@
 import type { Handle } from "remix/ui";
 
-import { listClientsWithGroups } from "../../data/clients.ts";
+import type { listClientsWithGroups } from "../../data/clients.ts";
 import type { ClientVersionView } from "../../data/client-package.ts";
-import { connectionRegistry } from "../../realtime/registry.ts";
 import { routes } from "../../routes.ts";
-import { Layout } from "../../ui/layout.tsx";
-import { getNotice } from "../../utils/notice.ts";
-import { renderNotice } from "./notice.tsx";
+import { Icon } from "../../ui/icons.tsx";
+import { TagChip } from "../../ui/key-tag.tsx";
+import { AdminShell } from "../../ui/layout.tsx";
+import { NoticeBar } from "../../ui/notice.tsx";
+import type { Notice } from "../../utils/notice.ts";
+
+export type ClientRow = Awaited<ReturnType<typeof listClientsWithGroups>>[number] &
+  ClientVersionView & { connected: boolean };
 
 export function ClientsPage(
   handle: Handle<{
-    clients: Array<
-      Awaited<ReturnType<typeof listClientsWithGroups>>[number] & ClientVersionView
-    >;
-    notice: ReturnType<typeof getNotice>;
+    adminName: string;
+    clients: ClientRow[];
+    notice: Notice | null;
   }>,
 ) {
-  return () => (
-    <Layout title="Clients">
-      <h1>Clients</h1>
-      <p>Send a text message directly to any registered client.</p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Client ID</th>
-            <th>Last user</th>
-            <th>Version</th>
-            <th>Status</th>
-            <th>Groups</th>
-            <th>Details</th>
-            <th>Send message</th>
-            <th>Unregister</th>
-          </tr>
-        </thead>
-        <tbody>
-          {handle.props.clients.map((client) => (
-            <tr>
-              <td>{client.name}</td>
-              <td>
-                <code>{client.id}</code>
-              </td>
-              <td>{client.last_user ?? "—"}</td>
-              <td>
-                {client.lastSeenVersion ?? "unknown"}
-                {client.isStale ? <span class="badge stale">Stale</span> : null}
-              </td>
-              <td>
-                {connectionRegistry.isClientConnected(client.id)
-                  ? "Connected"
-                  : "Offline"}
-              </td>
-              <td>
-                {client.groups.length > 0
-                  ? client.groups.map((group) => group.name).join(", ")
-                  : "—"}
-              </td>
-              <td>
-                <a
-                  href={routes.admin.clients.detail.href({
-                    clientId: client.id,
+  return () => {
+    let { adminName, clients, notice } = handle.props;
+    let home = clients.filter((client) => client.connected).length;
+
+    return (
+      <AdminShell active="clients" title="Clients" adminName={adminName}>
+        <header class="page-head">
+          <div>
+            <h1>Clients</h1>
+            <p>
+              {clients.length === 0
+                ? "No PCs registered yet."
+                : `${clients.length} registered ${clients.length === 1 ? "PC" : "PCs"}, ${home} connected now.`}
+            </p>
+          </div>
+        </header>
+
+        <NoticeBar notice={notice} />
+
+        <section class="panel">
+          {clients.length === 0 ? (
+            <p class="empty">
+              <strong>No PCs registered.</strong>
+              Install the Prism agent on a family PC and register it with the registration
+              password. It shows up here once registered.
+            </p>
+          ) : (
+            <div class="table-wrap">
+              <table class="grid stackable">
+                <thead>
+                  <tr>
+                    <th scope="col">PC</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Last user</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">Groups</th>
+                    <th scope="col">
+                      <span class="visually-hidden">Details</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clients.map((client) => {
+                    let href = routes.admin.clients.detail.href({ clientId: client.id });
+                    return (
+                      <tr>
+                        <td>
+                          <TagChip client={client} href={href} />
+                        </td>
+                        <td data-label="Status">
+                          <span class={`status ${client.connected ? "home" : "away"}`}>
+                            {client.connected ? "Connected" : "Offline"}
+                          </span>
+                        </td>
+                        <td data-label="Last user">{client.last_user ?? <span class="muted">Not reported</span>}</td>
+                        <td data-label="Version">
+                          {client.lastSeenVersion ? (
+                            <span class="data">v{client.lastSeenVersion}</span>
+                          ) : (
+                            <span class="muted">Unknown</span>
+                          )}{" "}
+                          {client.isStale ? <span class="tape warn">Update due</span> : null}
+                        </td>
+                        <td data-label="Groups">
+                          {client.groups.length > 0 ? (
+                            client.groups.map((group) => group.name).join(", ")
+                          ) : (
+                            <span class="muted">None</span>
+                          )}
+                        </td>
+                        <td class="go">
+                          <a class="row-link" href={href} aria-label={`Open ${client.name}`}>
+                            Open
+                            <Icon name="chevron" />
+                          </a>
+                        </td>
+                      </tr>
+                    );
                   })}
-                >
-                  View detail
-                </a>
-              </td>
-              <td>
-                <form
-                  method="post"
-                  action={routes.admin.messages.client.href({
-                    clientId: client.id,
-                  })}
-                  class="stack compact"
-                >
-                  <textarea
-                    name="content"
-                    rows={3}
-                    placeholder="Message for display on the client"
-                    required
-                  ></textarea>
-                  <button type="submit">Send</button>
-                </form>
-              </td>
-              <td>
-                <form
-                  method="post"
-                  action={routes.admin.clients.delete.href({
-                    clientId: client.id,
-                  })}
-                >
-                  <button type="submit">Delete client</button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Layout>
-  );
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </AdminShell>
+    );
+  };
 }

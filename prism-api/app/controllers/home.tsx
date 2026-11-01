@@ -5,6 +5,7 @@ import { adminExists } from "../data/admin-users.ts";
 import { getAdminIdentityFromRequest } from "../data/auth.ts";
 import type { AppContext } from "../router.ts";
 import { routes } from "../routes.ts";
+import { BrandMark } from "../ui/icons.tsx";
 import { Layout } from "../ui/layout.tsx";
 import { render } from "../utils/render.tsx";
 
@@ -27,52 +28,71 @@ export const home = createAction<typeof routes.home, AppContext>(routes.home, {
 
 function HomePage(handle: Handle<{ hasAdminUser: boolean; isAdmin: boolean }>) {
   return () => {
-    let authHref = handle.props.hasAdminUser
-      ? routes.auth.login.index.href()
-      : routes.auth.setup.index.href();
-    let authLabel = handle.props.hasAdminUser
-      ? "Admin sign in"
-      : "Create first admin";
+    let { hasAdminUser, isAdmin } = handle.props;
+    let cta = isAdmin
+      ? { href: routes.admin.index.href(), label: "Open the rack" }
+      : hasAdminUser
+        ? { href: routes.auth.login.index.href(), label: "Sign in" }
+        : { href: routes.auth.setup.index.href(), label: "Set up the admin account" };
 
     return (
-      <Layout title="Prism API">
-        <h1>Prism API</h1>
-        <p>
-          Prism keeps WebSocket connections open to registered clients so
-          authenticated admins can send commands through the web interface.
-        </p>
-        <div class="card-grid">
-          <article class="card">
-            <h2>Admin access</h2>
-            <p>
-              Admin users authenticate with Better Auth and PostgreSQL-backed
-              sessions before they can manage clients or send messages.
-            </p>
-            <a
-              href={handle.props.isAdmin ? routes.admin.index.href() : authHref}
-            >
-              {handle.props.isAdmin ? "Open admin dashboard" : authLabel}
+      <Layout title="Home">
+        <div class="public">
+          <header class="public-top">
+            <span class="brand">
+              <BrandMark />
+              FamilyPrism
+            </span>
+            <a class="btn" href={cta.href}>
+              {cta.label}
             </a>
-          </article>
-          <article class="card">
-            <h2>Client onboarding</h2>
-            <p>
-              Clients register once with a registration password and receive a
-              permanent credential that they use for API traffic and WebSocket
-              connections.
+          </header>
+
+          <main id="main">
+            <h1>The household's PCs, on one rack.</h1>
+            <p class="lead">
+              This server keeps a live connection to each registered family PC, so
+              an admin can see who's home, send a message to a screen, take a
+              screenshot, or switch DNS settings.
             </p>
-            <code>POST /api/clients/register</code>
-          </article>
+          </main>
+
+          <section class="panel" aria-labelledby="connect-title">
+            <div class="panel-head">
+              <h2 id="connect-title">Connecting a PC</h2>
+            </div>
+            <ol class="steps">
+              <li>
+                <span class="n">1</span>
+                <div>
+                  <h3>Register once</h3>
+                  <p>
+                    The Prism agent calls <code class="data">POST /api/clients/register</code>{" "}
+                    with the registration password and gets back a permanent credential.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span class="n">2</span>
+                <div>
+                  <h3>Stay connected</h3>
+                  <p>
+                    It opens a WebSocket to <code class="data">{routes.websocket.href()}</code>{" "}
+                    with its id in <code class="data">x-client-id</code> and{" "}
+                    <code class="data">Authorization: Bearer &lt;credential&gt;</code>.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span class="n">3</span>
+                <div>
+                  <h3>Show up on the rack</h3>
+                  <p>Once connected, the PC appears as home in the admin console.</p>
+                </div>
+              </li>
+            </ol>
+          </section>
         </div>
-        <section class="card">
-          <h2>WebSocket connection requirements</h2>
-          <p>
-            Connect to <code>{routes.websocket.href()}</code> with the client id
-            in the
-            <code> x-client-id</code> header and the permanent credential in the
-            <code> Authorization: Bearer ...</code> header.
-          </p>
-        </section>
       </Layout>
     );
   };

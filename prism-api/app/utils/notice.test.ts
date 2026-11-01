@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { getNotice, withNotice } from './notice.ts'
+import { getNotice, safeAdminReturnTo, withNotice } from './notice.ts'
 
 test('withNotice encodes a success notice into the target URL', () => {
   let href = withNotice(new Request('http://localhost:44100/admin'), '/admin/clients', {
@@ -26,3 +26,13 @@ test('getNotice parses error notices', () => {
   })
 })
 
+
+test('safeAdminReturnTo keeps admin paths and rejects anything else', () => {
+  assert.equal(safeAdminReturnTo('/admin/clients/abc', '/admin'), '/admin/clients/abc')
+  assert.equal(safeAdminReturnTo('/admin', '/fallback'), '/admin')
+  assert.equal(safeAdminReturnTo('//evil.example/admin', '/admin'), '/admin')
+  assert.equal(safeAdminReturnTo('https://evil.example/admin', '/admin'), '/admin')
+  assert.equal(safeAdminReturnTo('/administrator', '/admin'), '/admin')
+  assert.equal(safeAdminReturnTo('/admin/\\evil.example', '/admin'), '/admin')
+  assert.equal(safeAdminReturnTo(null, '/admin'), '/admin')
+})

@@ -1,183 +1,344 @@
 import type { Handle } from "remix/ui";
 
-import { getClient } from "../../data/clients.ts";
+import type { getClient } from "../../data/clients.ts";
 import type { ClientVersionView } from "../../data/client-package.ts";
-import { getLatestDnsState } from "../../data/dns-directives.ts";
-import { listDnsProfiles } from "../../data/dns-profiles.ts";
-import { connectionRegistry } from "../../realtime/registry.ts";
+import type { getLatestDnsState } from "../../data/dns-directives.ts";
+import type { listDnsProfiles } from "../../data/dns-profiles.ts";
 import { routes } from "../../routes.ts";
-import { Layout } from "../../ui/layout.tsx";
-import { getNotice } from "../../utils/notice.ts";
-import { renderNotice } from "./notice.tsx";
+import { Icon } from "../../ui/icons.tsx";
+import { KeyTag } from "../../ui/key-tag.tsx";
+import { AdminShell } from "../../ui/layout.tsx";
+import { NoticeBar } from "../../ui/notice.tsx";
+import type { Notice } from "../../utils/notice.ts";
+
+type DnsState = NonNullable<Awaited<ReturnType<typeof getLatestDnsState>>>;
+
+const DNS_STATUS_LABEL: Record<DnsState["status"], string> = {
+  applied: "Applied",
+  delivered: "Delivered, waiting for result",
+  failed: "Failed",
+  pending: "Queued until the PC connects",
+};
+
+function formatTime(value: string | number | Date) {
+  return new Date(value).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 export function ClientDetailPage(
   handle: Handle<{
+    adminName: string;
     client: NonNullable<Awaited<ReturnType<typeof getClient>>> & ClientVersionView;
+    connected: boolean;
     dnsProfiles: Awaited<ReturnType<typeof listDnsProfiles>>;
     latestDnsState: Awaited<ReturnType<typeof getLatestDnsState>>;
-    notice: ReturnType<typeof getNotice>;
+    notice: Notice | null;
+    pinnedVersion: string | null;
   }>,
 ) {
-  let screenshotUrl = routes.admin.clients.screenshot.href({
-    clientId: handle.props.client.id,
-  });
+  return () => {
+    let { adminName, client, connected, dnsProfiles, latestDnsState, notice, pinnedVersion } =
+      handle.props;
+    let detailHref = routes.admin.clients.detail.href({ clientId: client.id });
+    let screenshotUrl = routes.admin.clients.screenshot.href({ clientId: client.id });
+    let dns = latestDnsState;
 
-  return () => (
-    <Layout title={handle.props.client.name}>
-      <h1>{handle.props.client.name}</h1>
-      <p>
-        <a href={routes.admin.clients.index.href()}>Back to clients</a>
-      </p>
-      {handle.props.notice ? renderNotice(handle.props.notice) : null}
+    return (
+      <AdminShell active="clients" title={client.name} adminName={adminName}>
+        <a class="crumb" href={routes.admin.clients.index.href()}>
+          <Icon name="back" />
+          Clients
+        </a>
 
-      <section class="card stack">
-        <p>
-          <strong>Client ID:</strong> <code>{handle.props.client.id}</code>
-        </p>
-        <p>
-          <strong>Last user:</strong> {handle.props.client.last_user ?? "—"}
-        </p>
-        <p>
-          <strong>Version:</strong> {handle.props.client.lastSeenVersion ?? "unknown"}
-          {handle.props.client.isStale ? (
-            <span class="badge stale">Stale</span>
-          ) : null}
-        </p>
-        <p>
-          <strong>Status:</strong>{" "}
-          {connectionRegistry.isClientConnected(handle.props.client.id)
-            ? "Connected"
-            : "Offline"}
-        </p>
-        <form
-          method="post"
-          action={routes.admin.screenshots.client.href({
-            clientId: handle.props.client.id,
-          })}
-        >
-          <button type="submit">Take screenshot</button>
-        </form>
-      </section>
-
-      <section class="card stack">
-        <h2>Latest screenshot</h2>
-        {handle.props.client.last_screenshot_at ? (
-          <>
-            <p>
-              Captured at{" "}
-              {new Date(handle.props.client.last_screenshot_at).toLocaleString()}.
-            </p>
-            <img
-              src={screenshotUrl}
-              alt={`Latest screenshot from ${handle.props.client.name}`}
-            />
-          </>
-        ) : (
-          <p>No screenshot has been uploaded yet.</p>
-        )}
-      </section>
-
-      <section class="card stack">
-        <h2>DNS directive</h2>
-        <p>
-          Apply a named DNS resolver profile to all active IPv4 adapters, or
-          reset the client to DHCP-provided DNS servers.
-        </p>
-        <div class="card-grid">
-          <form
-            method="post"
-            action={routes.admin.clients.applyDns.href({
-              clientId: handle.props.client.id,
-            })}
-            class="stack"
-          >
-            <label>
-              DNS profile
-              <select name="profileId" required>
-                <option value="">Choose a profile</option>
-                {handle.props.dnsProfiles.map((profile) => (
-                  <option value={profile.id}>
-                    {profile.name} ({profile.primary_ip}
-                    {profile.secondary_ip ? `, ${profile.secondary_ip}` : ""})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit" disabled={handle.props.dnsProfiles.length === 0}>
-              Apply DNS profile
-            </button>
-            {handle.props.dnsProfiles.length === 0 ? (
+        <header class="page-head">
+          <div class="identity">
+            <KeyTag client={client} connected={connected} />
+            <div>
+              <h1>{client.name}</h1>
               <p>
-                <a href={routes.admin.settings.dnsProfiles.index.href()}>
-                  Create a DNS profile first
-                </a>
-                .
+                {connected
+                  ? "Connected now. Commands and messages arrive immediately."
+                  : "Offline. Screenshots and messages need it connected; DNS changes wait until it's back."}
               </p>
-            ) : null}
-          </form>
-
-          <form
-            method="post"
-            action={routes.admin.clients.resetDns.href({
-              clientId: handle.props.client.id,
-            })}
-            class="stack"
-          >
-            <h3>Reset to DHCP</h3>
-            <p>Clear static DNS servers and let Windows use DHCP DNS again.</p>
-            <button type="submit">Reset DNS to DHCP</button>
-          </form>
-        </div>
-
-        {handle.props.latestDnsState ? (
-          <div class="card">
-            <p>
-              <strong>Status:</strong> {handle.props.latestDnsState.status}
-            </p>
-            <p>
-              <strong>Command:</strong>{" "}
-              <code>{handle.props.latestDnsState.command_id}</code>
-            </p>
-            <p>
-              <strong>Directive:</strong>{" "}
-              {handle.props.latestDnsState.directive_kind === "reset"
-                ? "Reset to DHCP"
-                : handle.props.latestDnsState.profile_name}
-            </p>
-            {handle.props.latestDnsState.primary_ip ? (
-              <p>
-                <strong>DNS servers:</strong>{" "}
-                <code>{handle.props.latestDnsState.primary_ip}</code>
-                {handle.props.latestDnsState.secondary_ip ? (
-                  <>
-                    {", "}
-                    <code>{handle.props.latestDnsState.secondary_ip}</code>
-                  </>
-                ) : null}
-              </p>
-            ) : null}
-            <p>
-              <strong>Issued:</strong>{" "}
-              {new Date(handle.props.latestDnsState.issued_at).toLocaleString()}
-            </p>
-            {handle.props.latestDnsState.completed_at ? (
-              <p>
-                <strong>Completed:</strong>{" "}
-                {new Date(
-                  handle.props.latestDnsState.completed_at,
-                ).toLocaleString()}
-              </p>
-            ) : null}
-            {handle.props.latestDnsState.error ? (
-              <p>
-                <strong>Error:</strong> {handle.props.latestDnsState.error}
-              </p>
-            ) : null}
+            </div>
           </div>
-        ) : (
-          <p>No DNS directive has been issued to this client yet.</p>
-        )}
-      </section>
-    </Layout>
-  );
+          <div class="head-actions">
+            <form
+              method="post"
+              action={routes.admin.screenshots.client.href({ clientId: client.id })}
+            >
+              <button class="btn" type="submit" disabled={!connected}>
+                <Icon name="camera" />
+                Take screenshot
+              </button>
+            </form>
+          </div>
+        </header>
+
+        <NoticeBar notice={notice} />
+
+        <div class="split">
+          <div class="stack">
+            <section class="panel" aria-labelledby="screen-title">
+              <div class="panel-head">
+                <h2 id="screen-title">Latest screenshot</h2>
+              </div>
+              <div class="panel-body">
+                {client.last_screenshot_at ? (
+                  <>
+                    <figure class="screen">
+                      <button
+                        type="button"
+                        class="screen-zoom"
+                        popovertarget="screenshot"
+                        aria-label="Enlarge screenshot"
+                      >
+                        <img src={screenshotUrl} alt={`Latest screenshot from ${client.name}`} />
+                      </button>
+                      <figcaption>
+                        Captured {formatTime(client.last_screenshot_at)}
+                        <button type="button" class="btn-link" popovertarget="screenshot">
+                          Enlarge
+                        </button>
+                      </figcaption>
+                    </figure>
+                    <div
+                      class="lightbox"
+                      id="screenshot"
+                      popover="auto"
+                      role="dialog"
+                      aria-label={`Screenshot from ${client.name}`}
+                    >
+                      <button
+                        type="button"
+                        class="lightbox-scrim"
+                        popovertarget="screenshot"
+                        popovertargetaction="hide"
+                        aria-label="Close"
+                        tabindex={-1}
+                      ></button>
+                      <figure class="lightbox-frame">
+                        <img src={screenshotUrl} alt={`Latest screenshot from ${client.name}`} />
+                        <figcaption>
+                          <span>
+                            {client.name} · {formatTime(client.last_screenshot_at)}
+                          </span>
+                          <span class="lightbox-actions">
+                            <a href={screenshotUrl} target="_blank" rel="noopener">
+                              Open original
+                            </a>
+                            <button
+                              type="button"
+                              class="btn secondary"
+                              popovertarget="screenshot"
+                              popovertargetaction="hide"
+                            >
+                              Close
+                            </button>
+                          </span>
+                        </figcaption>
+                      </figure>
+                    </div>
+                  </>
+                ) : (
+                  <div class="screen-empty">
+                    {connected
+                      ? "No screenshot yet. Use Take screenshot to grab the current screen."
+                      : "No screenshot yet. One can be taken once this PC is connected."}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section class="panel" aria-labelledby="message-title">
+              <div class="panel-head">
+                <h2 id="message-title">Send a message</h2>
+              </div>
+              <form
+                class="panel-body"
+                method="post"
+                action={routes.admin.messages.client.href({ clientId: client.id })}
+              >
+                <input type="hidden" name="returnTo" value={detailHref} />
+                <label class="field">
+                  <span class="visually-hidden">Message</span>
+                  <textarea
+                    name="content"
+                    rows={3}
+                    maxlength={500}
+                    required
+                    placeholder={`Shows on ${client.name}'s screen`}
+                  ></textarea>
+                </label>
+                <div class="form-foot">
+                  <span class="hint">
+                    {connected ? "Shows on screen right away." : "It's offline, and messages aren't queued for later."}
+                  </span>
+                  <button class="btn" type="submit">
+                    <Icon name="send" />
+                    Send
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+
+          <div class="stack">
+            <section class="panel" aria-labelledby="facts-title">
+              <div class="panel-head">
+                <h2 id="facts-title">About this PC</h2>
+              </div>
+              <dl class="facts panel-body">
+                <dt>Status</dt>
+                <dd>
+                  <span class={`status ${connected ? "home" : "away"}`}>
+                    {connected ? "Connected" : "Offline"}
+                  </span>
+                </dd>
+                <dt>Last user</dt>
+                <dd>{client.last_user ?? <span class="muted">Not reported</span>}</dd>
+                <dt>Version</dt>
+                <dd>
+                  {client.lastSeenVersion ? (
+                    <span class="data">v{client.lastSeenVersion}</span>
+                  ) : (
+                    <span class="muted">Unknown</span>
+                  )}
+                  {client.isStale ? (
+                    <>
+                      {" "}
+                      <span class="tape warn">Update due</span>
+                      {pinnedVersion ? (
+                        <span class="hint"> Pinned version is v{pinnedVersion}.</span>
+                      ) : null}
+                    </>
+                  ) : null}
+                </dd>
+                <dt>Client ID</dt>
+                <dd class="data">{client.id}</dd>
+              </dl>
+            </section>
+
+            <section class="panel" aria-labelledby="dns-title">
+              <div class="panel-head">
+                <h2 id="dns-title">DNS</h2>
+                {dns ? <span class={`stamp ${dns.status}`}>{DNS_STATUS_LABEL[dns.status]}</span> : null}
+              </div>
+              <div class="panel-body">
+                {dns ? (
+                  <dl class="facts">
+                    <dt>Last change</dt>
+                    <dd>
+                      {dns.directive_kind === "reset"
+                        ? "Reset to automatic (DHCP)"
+                        : `Profile ${dns.profile_name}`}
+                    </dd>
+                    {dns.primary_ip ? (
+                      <>
+                        <dt>Servers</dt>
+                        <dd class="data">
+                          {dns.primary_ip}
+                          {dns.secondary_ip ? `, ${dns.secondary_ip}` : ""}
+                        </dd>
+                      </>
+                    ) : null}
+                    <dt>Sent</dt>
+                    <dd>{formatTime(dns.issued_at)}</dd>
+                    {dns.completed_at ? (
+                      <>
+                        <dt>Finished</dt>
+                        <dd>{formatTime(dns.completed_at)}</dd>
+                      </>
+                    ) : null}
+                    {dns.error ? (
+                      <>
+                        <dt>Error</dt>
+                        <dd>{dns.error}</dd>
+                      </>
+                    ) : null}
+                  </dl>
+                ) : (
+                  <p class="muted">Using whatever DNS Windows already had. No changes sent yet.</p>
+                )}
+
+                <form
+                  method="post"
+                  action={routes.admin.clients.applyDns.href({ clientId: client.id })}
+                >
+                  <label class="field">
+                    <span>Apply a profile</span>
+                    <select name="profileId" required disabled={dnsProfiles.length === 0}>
+                      <option value="">Choose a profile</option>
+                      {dnsProfiles.map((profile) => (
+                        <option value={profile.id}>
+                          {profile.name} ({profile.primary_ip}
+                          {profile.secondary_ip ? `, ${profile.secondary_ip}` : ""})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div class="form-foot">
+                    {dnsProfiles.length === 0 ? (
+                      <a class="hint" href={routes.admin.settings.dnsProfiles.index.href()}>
+                        Create a DNS profile first
+                      </a>
+                    ) : (
+                      <span class="hint">Applies to every active network adapter.</span>
+                    )}
+                    <button class="btn" type="submit" disabled={dnsProfiles.length === 0}>
+                      Apply
+                    </button>
+                  </div>
+                </form>
+
+                <form
+                  method="post"
+                  action={routes.admin.clients.resetDns.href({ clientId: client.id })}
+                >
+                  <div class="form-foot">
+                    <span class="hint">Go back to the router's DNS servers.</span>
+                    <button class="btn secondary" type="submit">
+                      Reset to automatic
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            <section class="panel danger-zone" aria-labelledby="danger-title">
+              <div class="panel-head">
+                <h2 id="danger-title">Unregister</h2>
+              </div>
+              <div class="panel-body">
+                <details class="disclose">
+                  <summary>
+                    <Icon name="chevron" />
+                    Remove {client.name} from FamilyPrism
+                  </summary>
+                  <form
+                    class="disclose-body"
+                    method="post"
+                    action={routes.admin.clients.delete.href({ clientId: client.id })}
+                  >
+                    <p class="muted">
+                      Disconnects the PC, revokes its credential, and deletes its screenshot.
+                      To manage it again, reinstall the agent and register it from scratch.
+                    </p>
+                    <div class="form-foot">
+                      <span></span>
+                      <button class="btn danger" type="submit">
+                        Unregister {client.name}
+                      </button>
+                    </div>
+                  </form>
+                </details>
+              </div>
+            </section>
+          </div>
+        </div>
+      </AdminShell>
+    );
+  };
 }

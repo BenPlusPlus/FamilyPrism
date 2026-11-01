@@ -22,3 +22,10 @@ export function withNotice(request: Request, href: string, notice: Notice) {
   return `${url.pathname}${url.search}`
 }
 
+
+/** Accepts only same-origin admin paths so form `returnTo` fields can't redirect elsewhere. */
+export function safeAdminReturnTo(value: FormDataEntryValue | null, fallback: string) {
+  return typeof value === 'string' && /^\/admin(?:[/?]|$)/.test(value) && !value.includes('\\')
+    ? value
+    : fallback
+}
