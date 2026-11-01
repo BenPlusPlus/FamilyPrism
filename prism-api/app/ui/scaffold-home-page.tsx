@@ -1,5 +1,5 @@
 // Delete this file and put your own home page in app/controllers/home.tsx
-import { css, type RemixNode } from 'remix/ui'
+import { css, type Handle, type RemixNode } from 'remix/component'
 
 import { PromptButton } from './prompt-button.tsx'
 import { routes } from '../routes.ts'
@@ -195,17 +195,17 @@ function CodingWithAiCard() {
         <PromptButton text="I want to build a simple headless Shopify store, what does Remix have available to help scaffold this?" />
         <PromptButton text="Add a sqlite database with a users table and scaffold a signup flow" />
         <PromptButton text="Make a copy to clipboard component that confirms to the user it was copied then resets after a few seconds" />
-        <PromptButton text="Add RMX-01 theme and a page with a remix/ui/select component and remix/ui/button variants" />
+        <PromptButton text="Add RMX-01 theme and a page with a remix/component/select component and remix/component/button variants" />
         <PromptButton text="Add compression middleware" />
       </div>
     </div>
   )
 }
 
-function CardLink() {
-  return ({ href, icon, label }: { href: string; icon: RemixNode; label: string }) => (
+function CardLink(handle: Handle<{ href: string; icon: RemixNode; label: string }>) {
+  return () => (
     <a
-      href={href}
+      href={handle.props.href}
       mix={css({
         display: 'flex',
         gap: '16px',
@@ -223,14 +223,14 @@ function CardLink() {
         },
       })}
     >
-      <IconSlot>{icon}</IconSlot>
-      <span mix={css({ fontSize: '14px', lineHeight: 1.5, whiteSpace: 'nowrap' })}>{label}</span>
+      <IconSlot>{handle.props.icon}</IconSlot>
+      <span mix={css({ fontSize: '14px', lineHeight: 1.5, whiteSpace: 'nowrap' })}>{handle.props.label}</span>
     </a>
   )
 }
 
-function IconSlot() {
-  return ({ children, rotated = false }: { children: RemixNode; rotated?: boolean }) => (
+function IconSlot(handle: Handle<{ children: RemixNode; rotated?: boolean }>) {
+  return () => (
     <span
       aria-hidden="true"
       mix={css({
@@ -238,16 +238,16 @@ function IconSlot() {
         width: '24px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: rotated ? 'center' : 'flex-start',
+        justifyContent: handle.props.rotated ? 'center' : 'flex-start',
         '& svg': {
           width: '20px',
           height: '20px',
           display: 'block',
-          ...(rotated ? { transform: 'rotate(180deg)' } : {}),
+          ...(handle.props.rotated ? { transform: 'rotate(180deg)' } : {}),
         },
       })}
     >
-      {children}
+      {handle.props.children}
     </span>
   )
 }

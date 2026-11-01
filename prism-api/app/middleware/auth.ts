@@ -1,4 +1,4 @@
-import { auth } from 'remix/auth-middleware'
+import { auth } from 'remix/middleware/auth'
 
 import { getAdminIdentityFromRequest, type AdminIdentity } from '../data/auth.ts'
 

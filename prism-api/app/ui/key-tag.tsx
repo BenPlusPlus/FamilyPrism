@@ -1,3 +1,5 @@
+import type { Handle } from "remix/component";
+
 export interface TagClient {
   id: string;
   name: string;
@@ -22,16 +24,13 @@ function shortUser(user: string | null) {
   return user.slice(user.lastIndexOf("\\") + 1);
 }
 
-export function KeyTag() {
-  return ({
-    client,
-    connected,
-    href,
-  }: {
-    client: TagClient;
-    connected: boolean;
-    href?: string;
-  }) => {
+export function KeyTag(handle: Handle<{
+  client: TagClient;
+  connected: boolean;
+  href?: string;
+}>) {
+  return () => {
+    let { client, connected, href } = handle.props;
     let className = `tag ${connected ? "home" : "away"} ${tagClass(client.id)}`;
     let label = `${client.name}, ${connected ? "connected" : "offline"}${
       client.last_user ? `, last used by ${client.last_user}` : ""
@@ -67,8 +66,9 @@ export function KeyTag() {
   };
 }
 
-export function TagChip() {
-  return ({ client, href }: { client: Pick<TagClient, "id" | "name">; href?: string }) => {
+export function TagChip(handle: Handle<{ client: Pick<TagClient, "id" | "name">; href?: string }>) {
+  return () => {
+    let { client, href } = handle.props;
     let inner = (
       <>
         <span class="chip-dot" aria-hidden="true"></span>

@@ -1,9 +1,9 @@
-import type { Controller } from "remix/fetch-router";
+import type { Controller } from "remix/router";
 import * as s from "remix/data-schema";
 import * as f from "remix/data-schema/form-data";
 import { email, maxLength, minLength } from "remix/data-schema/checks";
 import { redirect } from "remix/response/redirect";
-import type { Handle } from "remix/ui";
+import type { Handle } from "remix/component";
 
 import {
   adminExists,

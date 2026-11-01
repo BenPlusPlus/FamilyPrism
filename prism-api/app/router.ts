@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
 
-import { asyncContext } from "remix/async-context-middleware";
-import { compression } from "remix/compression-middleware";
+import { asyncContext } from "remix/middleware/async-context";
+import { compression } from "remix/middleware/compression";
 import {
   createRouter,
   type AnyParams,
   type ContextWithParams,
   type MiddlewareContext,
-} from "remix/fetch-router";
-import { formData } from "remix/form-data-middleware";
-import { logger } from "remix/logger-middleware";
+} from "remix/router";
+import { formData } from "remix/middleware/form-data";
+import { logger } from "remix/middleware/logger";
 
 import { assets } from "./assets.ts";
 import {

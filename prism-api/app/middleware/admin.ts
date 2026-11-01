@@ -1,5 +1,5 @@
-import type { Middleware } from "remix/fetch-router";
-import { Auth } from "remix/auth-middleware";
+import type { Middleware } from "remix/router";
+import { Auth } from "remix/middleware/auth";
 
 import type { AdminIdentity } from "../data/auth.ts";
 

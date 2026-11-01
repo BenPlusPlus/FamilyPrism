@@ -2,7 +2,6 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 import { getMigrations } from 'better-auth/db/migration'
-import { createMigrationRunner } from 'remix/data-table/migrations'
 import { loadMigrations } from 'remix/data-table/migrations/node'
 
 import { prismAuth } from './auth.ts'
@@ -15,8 +14,7 @@ async function runDatabaseMigrations() {
   await authMigrations.runMigrations()
 
   let appMigrations = await loadMigrations(path.resolve(process.cwd(), 'db', 'migrations'))
-  let runner = createMigrationRunner(db.adapter, appMigrations)
-  await runner.up()
+  await db.migrate(appMigrations)
 }
 
 export function ensureDatabaseReady() {
