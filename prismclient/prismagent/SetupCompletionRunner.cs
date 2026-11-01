@@ -18,6 +18,11 @@ internal static class SetupCompletionRunner
             var payload = PendingSetupStore.Read(pendingSetupPath);
 
             MachineConfigurationStore.Save(payload);
+
+#if !DEBUG
+            WindowsServiceInstaller.InstallOrUpdate();
+#endif
+
             PrismStatusStore.Save(new PrismStatusSnapshot
             {
                 IsSetupComplete = true,
@@ -39,11 +44,7 @@ internal static class SetupCompletionRunner
                 ClientName = payload.ClientName
             });
 
-#if !DEBUG
-            WindowsServiceInstaller.InstallOrUpdate();
-#endif
-
-            PendingSetupStore.Delete(pendingSetupPath);
+            PendingSetupStore.DeleteAll();
             return 0;
         }
         catch (Exception ex)
