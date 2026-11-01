@@ -52,23 +52,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void RunStartupFlow()
     {
-        if (!PrismStatusStore.IsSetupComplete())
+        var setupIsComplete = PrismStatusStore.IsSetupComplete();
+        var hasPendingSetup = PendingSetupStore.HasPendingSetup();
+
+        if (SetupFlow.ShouldCompletePending(SetupInvocation.Startup, setupIsComplete, hasPendingSetup))
         {
-            if (PendingSetupStore.HasPendingSetup())
+            if (!TryCompletePendingSetup())
             {
-                if (!TryCompletePendingSetup())
-                {
-                    return;
-                }
+                return;
             }
-            else
+        }
+        else if (SetupFlow.ShouldShowRegistrationForm(SetupInvocation.Startup, setupIsComplete, hasPendingSetup))
+        {
+            var completed = ShowSetupDialog();
+            if (!completed && !PrismStatusStore.IsSetupComplete())
             {
-                var completed = ShowSetupDialog();
-                if (!completed && !PrismStatusStore.IsSetupComplete())
-                {
-                    ExitApplication();
-                    return;
-                }
+                ExitApplication();
+                return;
             }
         }
 
@@ -96,7 +96,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void RunSetup()
     {
-        if (PendingSetupStore.HasPendingSetup())
+        var setupIsComplete = PrismStatusStore.IsSetupComplete();
+        var hasPendingSetup = PendingSetupStore.HasPendingSetup();
+
+        if (SetupFlow.ShouldCompletePending(SetupInvocation.TrayMenu, setupIsComplete, hasPendingSetup))
         {
             if (TryCompletePendingSetup())
             {
@@ -105,6 +108,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
             return;
         }
+
+        PendingSetupStore.DeleteAll();
 
         if (ShowSetupDialog())
         {

@@ -30,6 +30,21 @@ public static class PendingSetupStore
         }
     }
 
+    public static void DeleteAll() => DeleteAll(PrismPaths.PendingSetupDirectory);
+
+    internal static void DeleteAll(string directory)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return;
+        }
+
+        foreach (var path in Directory.GetFiles(directory, "pending-setup-*.json", SearchOption.TopDirectoryOnly))
+        {
+            File.Delete(path);
+        }
+    }
+
     public static string? GetMostRecentPendingSetupPath()
     {
         if (!Directory.Exists(PrismPaths.PendingSetupDirectory))

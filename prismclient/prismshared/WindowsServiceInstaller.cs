@@ -17,7 +17,14 @@ public static class WindowsServiceInstaller
             StopServiceIfRunning();
         }
 
-        CopyServiceFiles();
+        WaitUntilServiceProcessExits();
+
+        if (!IsSamePath(PrismPaths.BundledServiceDirectory, PrismPaths.InstalledServiceDirectory))
+        {
+            CopyServiceFiles(
+                PrismPaths.BundledServiceDirectory,
+                PrismPaths.InstalledServiceDirectory);
+        }
 
         var quotedServicePath = $"\"{PrismPaths.InstalledServiceExecutablePath}\"";
 
@@ -44,18 +51,38 @@ public static class WindowsServiceInstaller
         return result.ExitCode == 0;
     }
 
-    private static void CopyServiceFiles()
+    internal static bool IsSamePath(string left, string right)
     {
-        Directory.CreateDirectory(PrismPaths.InstalledServiceDirectory);
+        var leftFull = Path.GetFullPath(left)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var rightFull = Path.GetFullPath(right)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        foreach (var sourcePath in Directory.GetFiles(PrismPaths.BundledServiceDirectory, "*", SearchOption.AllDirectories))
+        return string.Equals(leftFull, rightFull, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static void CopyServiceFiles(string sourceDirectory, string destinationDirectory)
+    {
+        if (IsSamePath(sourceDirectory, destinationDirectory))
         {
-            var relativePath = Path.GetRelativePath(PrismPaths.BundledServiceDirectory, sourcePath);
-            var destinationPath = Path.Combine(PrismPaths.InstalledServiceDirectory, relativePath);
-            var destinationDirectory = Path.GetDirectoryName(destinationPath)
+            return;
+        }
+
+        Directory.CreateDirectory(destinationDirectory);
+
+        foreach (var sourcePath in Directory.GetFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, sourcePath);
+            var destinationPath = Path.Combine(destinationDirectory, relativePath);
+            if (IsSamePath(sourcePath, destinationPath))
+            {
+                continue;
+            }
+
+            var destinationFileDirectory = Path.GetDirectoryName(destinationPath)
                 ?? throw new InvalidOperationException("The destination directory could not be determined.");
 
-            Directory.CreateDirectory(destinationDirectory);
+            Directory.CreateDirectory(destinationFileDirectory);
             File.Copy(sourcePath, destinationPath, overwrite: true);
         }
     }
@@ -75,13 +102,31 @@ public static class WindowsServiceInstaller
     private static void StopServiceIfRunning()
     {
         var queryOutput = RunScCommand($"query {PrismConstants.ServiceName}", throwOnError: false).StandardOutput;
-        if (!queryOutput.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
+        if (queryOutput.Contains("STOPPED", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
         RunScCommand($"stop {PrismConstants.ServiceName}", throwOnError: false);
         WaitForState("STOPPED");
+    }
+
+    private static void WaitUntilServiceProcessExits()
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (Process.GetProcessesByName(PrismConstants.ServiceName).Length == 0)
+            {
+                return;
+            }
+
+            Thread.Sleep(250);
+        }
+
+        throw new InvalidOperationException(
+            $"The {PrismConstants.ServiceName} process did not exit in time.");
     }
 
     private static void WaitForState(string expectedState)
