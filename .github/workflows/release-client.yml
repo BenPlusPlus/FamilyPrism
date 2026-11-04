@@ -1,0 +1,143 @@
+name: Release Windows client
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: SemVer bump for prismclient/Directory.Build.props
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+concurrency:
+  group: client-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      RAILWAY_SERVICE: FamilyPrism
+    steps:
+      - name: Require master
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -ne 'refs/heads/master') {
+            throw "Client releases must run from master (got $($env:GITHUB_REF)). Re-run the workflow on master."
+          }
+
+      - name: Check Railway token
+        shell: pwsh
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if (-not $env:RAILWAY_TOKEN) {
+            throw 'Repository secret RAILWAY_TOKEN is missing. Add a Railway project token for production.'
+          }
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Bump client version
+        id: version
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File prismclient/bump-client-version.ps1 -SelfTest
+          pwsh -NoProfile -File prismclient/bump-client-version.ps1 -Bump '${{ inputs.bump }}'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test
+        shell: pwsh
+        run: |
+          dotnet test prismclient/prismshared.tests/prismshared.tests.csproj -c Release --nologo
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Publish zip and installer
+        shell: pwsh
+        run: pwsh -NoProfile -File prismclient/publish-client.ps1
+
+      - name: Commit version, tag, and push
+        id: artifacts
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $version = $env:VERSION
+          if (-not $version) {
+            throw 'Version output from the bump step was empty.'
+          }
+          $tag = "v$version"
+          if (git rev-parse -q --verify "refs/tags/$tag") {
+            throw "Tag $tag already exists."
+          }
+
+          $zip = "prismclient/artifacts/FamilyPrism-$version-win-x64.zip"
+          $setup = "prismclient/artifacts/installer/FamilyPrismSetup-$version.exe"
+          foreach ($path in @($zip, $setup)) {
+            if (-not (Test-Path -LiteralPath $path)) {
+              throw "Missing artifact '$path'."
+            }
+          }
+
+          $sha256 = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/FamilyPrism-$version-win-x64.zip"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- prismclient/Directory.Build.props prismclient/installer/FamilyPrism.iss
+          git commit -m "Release Windows client $version"
+          git pull --rebase origin master
+          git tag $tag
+          git push origin HEAD:master
+          git push origin $tag
+
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "tag=$tag"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "sha256=$sha256"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "url=$url"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.artifacts.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: pwsh
+        run: |
+          $zip = "prismclient/artifacts/FamilyPrism-$($env:VERSION)-win-x64.zip"
+          $setup = "prismclient/artifacts/installer/FamilyPrismSetup-$($env:VERSION).exe"
+          gh release create $env:TAG $zip $setup `
+            --title "Windows client $($env:VERSION)" `
+            --generate-notes `
+            --verify-tag
+
+      - name: Install Railway CLI
+        shell: pwsh
+        run: npm install -g @railway/cli
+
+      - name: Pin package on Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          URL: ${{ steps.artifacts.outputs.url }}
+          SHA256: ${{ steps.artifacts.outputs.sha256 }}
+        shell: pwsh
+        run: |
+          railway variable set `
+            "CLIENT_PACKAGE_VERSION=$env:VERSION" `
+            "CLIENT_PACKAGE_URL=$env:URL" `
+            "CLIENT_PACKAGE_SHA256=$env:SHA256" `
+            --service $env:RAILWAY_SERVICE
