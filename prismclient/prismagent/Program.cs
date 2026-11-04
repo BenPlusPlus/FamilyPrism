@@ -1,3 +1,5 @@
+using prismshared;
+
 namespace prismagent;
 
 internal static class Program
@@ -11,7 +13,15 @@ internal static class Program
             return;
         }
 
-        ApplicationConfiguration.Initialize();
-        Application.Run(new TrayApplicationContext());
+        if (!TraySessionMutex.TryAcquire(out var sessionMutex))
+        {
+            return;
+        }
+
+        using (sessionMutex)
+        {
+            ApplicationConfiguration.Initialize();
+            Application.Run(new TrayApplicationContext());
+        }
     }
 }
