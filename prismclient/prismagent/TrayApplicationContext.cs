@@ -27,8 +27,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         contextMenu = new ContextMenuStrip();
         contextMenu.Items.Add("Open Status", null, (_, _) => ShowStatusWindow());
         contextMenu.Items.Add("Run Setup", null, (_, _) => RunSetup());
+#if DEBUG
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Exit", null, (_, _) => ExitApplication());
+#endif
 
         notifyIcon = new NotifyIcon
         {

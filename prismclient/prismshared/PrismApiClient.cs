@@ -132,10 +132,10 @@ public sealed class PrismApiClient
         using var response = await httpClient.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-                throw await CreateApiExceptionAsync(
-                    response,
-                    cancellationToken,
-                    "The DNS directive result report failed.");
+            throw await CreateApiExceptionAsync(
+                response,
+                cancellationToken,
+                "The DNS directive result report failed.");
         }
     }
 
