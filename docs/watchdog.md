@@ -13,7 +13,7 @@ See `CONTEXT.md` for Tray, Service, Watchdog, Interactive session, Standard user
 ## Out of scope
 
 - Stopping, crashing, or tampering with the Service. A Standard user cannot do that without elevation.
-- DEBUG and portable runs. They keep Exit and have no Watchdog.
+- DEBUG and portable runs. They have no Watchdog. Exit is DEBUG-only; portable Release has no Exit.
 - Hiding the notify icon, the process, or the ONLOGON task.
 - New console UI, websocket fields, or status stamps for a missing Tray.
 - Replacing the ONLOGON task `Family Prism Agent`. It still starts the Tray at logon and is what auto-update runs after a swap.
@@ -31,7 +31,7 @@ While the Watchdog is armed:
 
 The interactive Tray takes a per-session mutex `Local\FamilyPrism.prismagent`. A second instance exits. `--complete-setup` does not take the mutex. While that helper is running, a `prismagent` in the session may cause the Watchdog to skip; it starts the Tray on the next pass after setup exits.
 
-Installed Release Tray has no Exit menu. Any death (Task Manager, crash, leftover Exit from an old build) is relaunched. A Windows administrator who wants the Tray gone stops the Service or uninstalls.
+Exit is DEBUG-only. Installed Release and portable Release have no Exit menu. Any death (Task Manager, crash, leftover Exit from an old build) is relaunched on installed Release by the Watchdog. A Windows administrator who wants the Tray gone stops the Service or uninstalls. Portable Release has no Watchdog; Task Manager is the quit path.
 
 The notify icon and status window stay visible.
 

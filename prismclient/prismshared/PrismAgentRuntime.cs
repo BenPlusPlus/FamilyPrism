@@ -14,6 +14,7 @@ public sealed class PrismAgentRuntime
     private readonly PrismApiClient apiClient;
     private readonly DnsConfigurationService dnsConfigurationService;
     private readonly ClientUpdateCoordinator updateCoordinator;
+    private readonly TrayWatchdog trayWatchdog;
 
     public PrismAgentRuntime(
         string hostMode,
@@ -22,7 +23,8 @@ public sealed class PrismAgentRuntime
         PrismApiClient? apiClient = null,
         DnsConfigurationService? dnsConfigurationService = null,
         ClientUpdateCoordinator? updateCoordinator = null,
-        Action? requestStop = null)
+        Action? requestStop = null,
+        TrayWatchdog? trayWatchdog = null)
     {
         this.hostMode = hostMode;
         this.logInformation = logInformation;
@@ -36,6 +38,7 @@ public sealed class PrismAgentRuntime
                 requestStop ?? (() => { }),
                 logInformation,
                 logError);
+        this.trayWatchdog = trayWatchdog ?? TrayWatchdog.CreateDefault(hostMode, logInformation, logError);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -44,6 +47,7 @@ public sealed class PrismAgentRuntime
         var checkedOnStart = false;
         using var periodicCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var periodicUpdates = RunPeriodicUpdateChecksAsync(periodicCts.Token);
+        var watchdog = trayWatchdog.RunAsync(periodicCts.Token);
 
         try
         {
@@ -134,6 +138,14 @@ public sealed class PrismAgentRuntime
             try
             {
                 await periodicUpdates;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            try
+            {
+                await watchdog;
             }
             catch (OperationCanceledException)
             {
