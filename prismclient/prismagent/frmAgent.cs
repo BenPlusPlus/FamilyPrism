@@ -8,6 +8,9 @@ public partial class frmAgent : Form
 
     private readonly string trayVersion = PrismAgentRuntime.GetAssemblyVersion();
     private DateTimeOffset? updateCheckRequestedAtUtc;
+
+    /// <summary>Wrapping values grow with their text up to this many lines (see FitHeight).</summary>
+    private readonly Dictionary<TextBox, int> maxLines;
     private bool showingNoResponseNotice;
     private DateTimeOffset? noResponseNoticeStatusAt;
 
@@ -15,7 +18,14 @@ public partial class frmAgent : Form
     {
         InitializeComponent();
 
-        foreach (var textBox in new[] { txtLastUpdateCheck, txtLastMessage, txtLastError })
+        maxLines = new Dictionary<TextBox, int>
+        {
+            [txtLastUpdateCheck] = 2,
+            [txtLastMessage] = 3,
+            [txtLastError] = 3
+        };
+
+        foreach (var textBox in maxLines.Keys)
         {
             FitHeight(textBox);
             textBox.SizeChanged += (_, _) => FitHeight(textBox);
@@ -101,10 +111,10 @@ public partial class frmAgent : Form
         FitHeight(textBox);
     }
 
-    /// <summary>Sizes a wrapping value to its text, between one line and the maximum in its Tag.</summary>
-    private static void FitHeight(TextBox textBox)
+    /// <summary>Sizes a wrapping value to its text, between one line and its maximum.</summary>
+    private void FitHeight(TextBox textBox)
     {
-        if (!textBox.Multiline || textBox.Tag is not int maxLines)
+        if (!maxLines.TryGetValue(textBox, out var limit))
         {
             return;
         }
@@ -119,7 +129,7 @@ public partial class frmAgent : Form
             textBox.Font,
             new Size(width, int.MaxValue),
             flags);
-        var lines = Math.Clamp((int)Math.Ceiling(measured.Height / (double)lineHeight), 1, maxLines);
+        var lines = Math.Clamp((int)Math.Ceiling(measured.Height / (double)lineHeight), 1, limit);
         var height = (lines * lineHeight) + 2;
         if (textBox.Height != height)
         {
