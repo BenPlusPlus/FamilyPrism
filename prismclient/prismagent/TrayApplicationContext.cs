@@ -13,7 +13,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly NotifyIcon notifyIcon;
     private readonly ContextMenuStrip contextMenu;
     private readonly System.Windows.Forms.Timer statusTimer;
-    private readonly PrismApiClient apiClient = new();
     private bool exiting;
     private bool initializedMessageTracking;
     private bool processingScreenshotRequest;
@@ -144,7 +143,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 ToolTipIcon.Info);
         }
 
-        StartPendingScreenshotUploadIfNeeded();
+        StartPendingScreenshotCaptureIfNeeded();
     }
 
     private void ShowStatusWindow()
@@ -185,7 +184,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             : value[..maximumLength];
     }
 
-    private void StartPendingScreenshotUploadIfNeeded()
+    private void StartPendingScreenshotCaptureIfNeeded()
     {
         if (processingScreenshotRequest || !PendingScreenshotRequestStore.HasPendingRequest())
         {
@@ -193,35 +192,39 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
 
         processingScreenshotRequest = true;
-        _ = ProcessPendingScreenshotRequestAsync();
+        try
+        {
+            ProcessPendingScreenshotRequest();
+        }
+        finally
+        {
+            processingScreenshotRequest = false;
+        }
     }
 
-    private async Task ProcessPendingScreenshotRequestAsync()
+    private void ProcessPendingScreenshotRequest()
     {
         try
         {
-            var pendingRequest = PendingScreenshotRequestStore.Read();
-            if (pendingRequest is null)
+            if (PendingScreenshotRequestStore.Read() is null)
             {
                 return;
             }
 
-            var configuration = MachineConfigurationStore.Load();
             var screenshot = CapturePrimaryScreenAsPng();
-            await apiClient.UploadScreenshotAsync(configuration, screenshot, CancellationToken.None);
+            PendingScreenshotImageStore.Write(screenshot);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             notifyIcon.ShowBalloonTip(
                 5000,
                 "Family Prism",
-                TruncateTooltip($"Screenshot upload failed: {ex.Message}"),
+                "Screenshot capture failed.",
                 ToolTipIcon.Warning);
         }
         finally
         {
             PendingScreenshotRequestStore.Delete();
-            processingScreenshotRequest = false;
         }
     }
 
