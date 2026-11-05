@@ -54,6 +54,8 @@ public static class PrismPaths
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
         PrismConstants.ApplicationName);
 
+    public static string InstalledAgentExecutablePath => Path.Combine(InstalledRoot, "prismagent.exe");
+
     public static string InstalledServiceDirectory => Path.Combine(InstalledRoot, "Service");
 
     public static string InstalledServiceExecutablePath => Path.Combine(InstalledServiceDirectory, "prismsvc.exe");
