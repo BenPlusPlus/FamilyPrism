@@ -13,6 +13,15 @@
   </ItemGroup>
 
   <Target Name="CopyBundledServiceFiles" AfterTargets="Build">
+    <!--
+      prismsvc and prismupdate are not ProjectReferences, so the implicit restore of this
+      project does not cover them. Restore them explicitly (in a separate evaluation, via a
+      unique MSBuildRestoreSessionId) so a clean checkout builds without a prior restore.
+    -->
+    <MSBuild
+      Projects="..\prismsvc\prismsvc.csproj;..\prismupdate\prismupdate.csproj"
+      Targets="Restore"
+      Properties="Configuration=$(Configuration);MSBuildRestoreSessionId=$([System.Guid]::NewGuid())" />
     <MSBuild Projects="..\prismsvc\prismsvc.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
     <MSBuild Projects="..\prismupdate\prismupdate.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
     <ItemGroup>
