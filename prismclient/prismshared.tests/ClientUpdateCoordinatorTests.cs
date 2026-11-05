@@ -395,6 +395,111 @@ public class ClientUpdateCoordinatorTests
         Assert.Equal(0, downloader.DownloadCount);
     }
 
+    [Fact]
+    public async Task ManualCheckIgnoresTheFailureBackoff()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        ClientUpdateStateStore.Write(
+            workspace.Paths.StatePath,
+            ClientUpdateStateStore.RecordTransientFailure(new ClientUpdateState(), now.AddMinutes(-1)));
+        var handler = new CountingHandler(Package(version: "0.1.0"));
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Manual);
+
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Equal("Up to date (version 0.1.0).", coordinator.LastReport?.Summary);
+    }
+
+    [Fact]
+    public async Task RetryRunsOnlyAfterAFailureOnceTheBackoffExpires()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var handler = new CountingHandler(Package(version: "0.1.0"));
+        var coordinator = CreateCoordinator(
+            workspace,
+            handler,
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        // No failure on record: a retry tick does nothing.
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Retry);
+        Assert.Equal(0, handler.RequestCount);
+
+        ClientUpdateStateStore.Write(
+            workspace.Paths.StatePath,
+            ClientUpdateStateStore.RecordTransientFailure(new ClientUpdateState(), now));
+
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Retry);
+        Assert.Equal(0, handler.RequestCount);
+
+        now = now.Add(ClientUpdateSchedule.InitialBackoff);
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Retry);
+        Assert.Equal(1, handler.RequestCount);
+
+        // The successful retry cleared the failure, so the next tick is quiet again.
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Retry);
+        Assert.Equal(1, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task ScheduleSkipsDoNotReplaceTheLastReport()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+        var coordinator = CreateCoordinator(
+            workspace,
+            new CountingHandler(Package(), HttpStatusCode.InternalServerError),
+            new RecordingDownloader(),
+            new RecordingLauncher(),
+            () => { },
+            Eligible,
+            () => now);
+
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.Start);
+        var failedReport = coordinator.LastReport;
+        await coordinator.CheckAsync(Configuration(), CancellationToken.None, ClientUpdateCheckTrigger.WebsocketConnect);
+
+        Assert.Equal(ClientUpdateOutcome.Failed, failedReport?.Outcome);
+        Assert.StartsWith("Could not reach the server", failedReport?.Summary);
+        Assert.Same(failedReport, coordinator.LastReport);
+    }
+
+    [Fact]
+    public void UpdateCheckRequestIsConsumedOnceAndStaleRequestsAreIgnored()
+    {
+        using var workspace = new UpdateTestWorkspace();
+        var path = Path.Combine(workspace.Root, "update-check-request.json");
+        var now = new DateTimeOffset(2026, 10, 13, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.False(UpdateCheckRequestStore.TryTake(path, now));
+
+        File.WriteAllText(path, JsonSerializer.Serialize(
+            new UpdateCheckRequestPayload(now.AddSeconds(-3)),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        Assert.True(UpdateCheckRequestStore.TryTake(path, now));
+        Assert.False(File.Exists(path));
+        Assert.False(UpdateCheckRequestStore.TryTake(path, now));
+
+        File.WriteAllText(path, JsonSerializer.Serialize(
+            new UpdateCheckRequestPayload(now - UpdateCheckRequestStore.MaxRequestAge - TimeSpan.FromSeconds(1)),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        Assert.False(UpdateCheckRequestStore.TryTake(path, now));
+        Assert.False(File.Exists(path));
+    }
+
     private static ClientUpdateCoordinator CreateCoordinator(
         UpdateTestWorkspace workspace,
         HttpMessageHandler handler,

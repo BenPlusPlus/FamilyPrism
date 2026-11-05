@@ -15,6 +15,17 @@ public sealed class PrismAgentRuntime
     private readonly DnsConfigurationService dnsConfigurationService;
     private readonly ClientUpdateCoordinator updateCoordinator;
     private readonly TrayWatchdog trayWatchdog;
+    private readonly string agentVersion = GetAssemblyVersion();
+    private readonly object reportLock = new();
+    private ClientUpdateCheckReport? publishedReport;
+
+    // The startup check usually runs before the network is up at boot. If it fails, it stays
+    // outstanding and the next websocket connect runs it again (ignoring the failure backoff)
+    // instead of leaving the PC to wait for the next periodic check.
+    private volatile bool startupCheckOutstanding = true;
+
+    /// <summary>How often the service looks for a check-for-updates request from the tray.</summary>
+    internal static readonly TimeSpan UpdateRequestPollInterval = TimeSpan.FromSeconds(2);
 
     public PrismAgentRuntime(
         string hostMode,
@@ -48,6 +59,7 @@ public sealed class PrismAgentRuntime
         using var periodicCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var periodicUpdates = RunPeriodicUpdateChecksAsync(periodicCts.Token);
         var watchdog = trayWatchdog.RunAsync(periodicCts.Token);
+        var manualUpdates = RunManualUpdateRequestsAsync(periodicCts.Token);
 
         try
         {
@@ -150,6 +162,14 @@ public sealed class PrismAgentRuntime
             catch (OperationCanceledException)
             {
             }
+
+            try
+            {
+                await manualUpdates;
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
     }
 
@@ -179,7 +199,7 @@ public sealed class PrismAgentRuntime
 
         if (await TryCheckForUpdateAsync(
             configuration,
-            ClientUpdateCheckTrigger.WebsocketConnect,
+            startupCheckOutstanding ? ClientUpdateCheckTrigger.Start : ClientUpdateCheckTrigger.WebsocketConnect,
             cancellationToken))
         {
             return;
@@ -219,7 +239,10 @@ public sealed class PrismAgentRuntime
 
     private async Task RunPeriodicUpdateChecksAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(ClientUpdateSchedule.PeriodicCheckInterval);
+        // Wake every RetryPollInterval so a failed check is retried once its backoff expires,
+        // but only run a full periodic check every PeriodicCheckInterval.
+        using var timer = new PeriodicTimer(ClientUpdateSchedule.RetryPollInterval);
+        var lastPeriodicAtUtc = DateTimeOffset.UtcNow;
         while (await timer.WaitForNextTickAsync(cancellationToken))
         {
             try
@@ -229,11 +252,16 @@ public sealed class PrismAgentRuntime
                     continue;
                 }
 
+                var now = DateTimeOffset.UtcNow;
+                var trigger = ClientUpdateCheckTrigger.Retry;
+                if (now - lastPeriodicAtUtc >= ClientUpdateSchedule.PeriodicCheckInterval)
+                {
+                    trigger = ClientUpdateCheckTrigger.Periodic;
+                    lastPeriodicAtUtc = now;
+                }
+
                 var configuration = MachineConfigurationStore.Load();
-                if (await TryCheckForUpdateAsync(
-                    configuration,
-                    ClientUpdateCheckTrigger.Periodic,
-                    cancellationToken))
+                if (await TryCheckForUpdateAsync(configuration, trigger, cancellationToken))
                 {
                     return;
                 }
@@ -249,6 +277,51 @@ public sealed class PrismAgentRuntime
         }
     }
 
+    private async Task RunManualUpdateRequestsAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(UpdateRequestPollInterval);
+        while (await timer.WaitForNextTickAsync(cancellationToken))
+        {
+            try
+            {
+                if (!UpdateCheckRequestStore.TryTake(DateTimeOffset.UtcNow))
+                {
+                    continue;
+                }
+
+                logInformation?.Invoke("Update check requested from the tray.");
+                if (!MachineConfigurationStore.HasSecureConfiguration())
+                {
+                    PublishUpdateResult(DateTimeOffset.UtcNow, "Finish setup before checking for updates.");
+                    continue;
+                }
+
+                PublishUpdateResult(DateTimeOffset.UtcNow, UpdateCheckRequestStore.InProgressMessage);
+                var reportBefore = updateCoordinator.LastReport;
+                var configuration = MachineConfigurationStore.Load();
+                if (await TryCheckForUpdateAsync(configuration, ClientUpdateCheckTrigger.Manual, cancellationToken))
+                {
+                    return;
+                }
+
+                if (ReferenceEquals(reportBefore, updateCoordinator.LastReport))
+                {
+                    // The check did not run, most likely because another check held the gate.
+                    PublishUpdateResult(DateTimeOffset.UtcNow, "Another update check was already running. Try again shortly.");
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logError?.Invoke("The requested client update check failed.", ex);
+                PublishUpdateResult(DateTimeOffset.UtcNow, $"The update check failed: {ex.Message}");
+            }
+        }
+    }
+
     private async Task<bool> TryCheckForUpdateAsync(
         PrismConfiguration configuration,
         ClientUpdateCheckTrigger trigger,
@@ -257,6 +330,12 @@ public sealed class PrismAgentRuntime
         try
         {
             var outcome = await updateCoordinator.CheckAsync(configuration, cancellationToken, trigger);
+            if (trigger == ClientUpdateCheckTrigger.Start && outcome != ClientUpdateOutcome.Failed)
+            {
+                startupCheckOutstanding = false;
+            }
+
+            PublishLatestReport();
             if (outcome != ClientUpdateOutcome.StagedAndRestarting)
             {
                 return false;
@@ -280,6 +359,39 @@ public sealed class PrismAgentRuntime
         {
             logError?.Invoke("The Family Prism client update check failed.", ex);
             return false;
+        }
+    }
+
+    private void PublishLatestReport()
+    {
+        var report = updateCoordinator.LastReport;
+        lock (reportLock)
+        {
+            if (report is null || ReferenceEquals(report, publishedReport))
+            {
+                return;
+            }
+
+            publishedReport = report;
+        }
+
+        PublishUpdateResult(report.CheckedAtUtc, report.Summary);
+    }
+
+    private void PublishUpdateResult(DateTimeOffset checkedAtUtc, string summary)
+    {
+        try
+        {
+            PrismStatusStore.Update(current => current with
+            {
+                AgentVersion = agentVersion,
+                LastUpdateCheckAtUtc = checkedAtUtc,
+                LastUpdateCheckResult = summary
+            });
+        }
+        catch (Exception ex)
+        {
+            logError?.Invoke("The update check result could not be written to the status file.", ex);
         }
     }
 
@@ -438,10 +550,9 @@ public sealed class PrismAgentRuntime
         DateTimeOffset? lastConnectedAtUtc = null,
         DateTimeOffset? lastMessageReceivedAtUtc = null)
     {
-        var currentStatus = PrismStatusStore.ReadOrDefault();
-
-        PrismStatusStore.Save(currentStatus with
+        PrismStatusStore.Update(currentStatus => currentStatus with
         {
+            AgentVersion = agentVersion,
             IsSetupComplete = configuration is not null,
             HostMode = hostMode,
             ConnectionState = connectionState,
@@ -475,7 +586,7 @@ public sealed class PrismAgentRuntime
             cancellationToken);
     }
 
-    internal static string GetAssemblyVersion()
+    public static string GetAssemblyVersion()
     {
         var assembly = typeof(PrismAgentRuntime).Assembly;
         var informational = assembly

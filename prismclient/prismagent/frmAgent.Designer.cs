@@ -26,6 +26,12 @@ partial class frmAgent
     private TextBox txtLastMessage;
     private TextBox txtLastError;
     private TextBox txtLastUpdated;
+    private Label lblAgentVersion;
+    private TableLayoutPanel versionPanel;
+    private TextBox txtAgentVersion;
+    private Button btnCheckForUpdates;
+    private Label lblLastUpdateCheck;
+    private TextBox txtLastUpdateCheck;
 
     protected override void Dispose(bool disposing)
     {
@@ -63,7 +69,14 @@ partial class frmAgent
         txtLastError = new TextBox();
         lblLastUpdated = new Label();
         txtLastUpdated = new TextBox();
+        lblAgentVersion = new Label();
+        versionPanel = new TableLayoutPanel();
+        txtAgentVersion = new TextBox();
+        btnCheckForUpdates = new Button();
+        lblLastUpdateCheck = new Label();
+        txtLastUpdateCheck = new TextBox();
         layoutPanel.SuspendLayout();
+        versionPanel.SuspendLayout();
         SuspendLayout();
         // 
         // layoutPanel
@@ -93,11 +106,15 @@ partial class frmAgent
         layoutPanel.Controls.Add(txtLastError, 1, 9);
         layoutPanel.Controls.Add(lblLastUpdated, 0, 10);
         layoutPanel.Controls.Add(txtLastUpdated, 1, 10);
+        layoutPanel.Controls.Add(lblAgentVersion, 0, 11);
+        layoutPanel.Controls.Add(versionPanel, 1, 11);
+        layoutPanel.Controls.Add(lblLastUpdateCheck, 0, 12);
+        layoutPanel.Controls.Add(txtLastUpdateCheck, 1, 12);
         layoutPanel.Dock = DockStyle.Fill;
         layoutPanel.Location = new Point(0, 0);
         layoutPanel.Name = "layoutPanel";
         layoutPanel.Padding = new Padding(12);
-        layoutPanel.RowCount = 11;
+        layoutPanel.RowCount = 13;
         layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
         layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
         layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
@@ -109,7 +126,9 @@ partial class frmAgent
         layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 90F));
         layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 90F));
         layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-        layoutPanel.Size = new Size(760, 560);
+        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F));
+        layoutPanel.Size = new Size(760, 650);
         layoutPanel.TabIndex = 0;
         // 
         // lblSetupComplete
@@ -348,16 +367,80 @@ partial class frmAgent
         txtLastUpdated.ReadOnly = true;
         txtLastUpdated.Size = new Size(580, 23);
         txtLastUpdated.TabIndex = 21;
+        //
+        // lblAgentVersion
+        //
+        lblAgentVersion.Anchor = AnchorStyles.Left;
+        lblAgentVersion.AutoSize = true;
+        lblAgentVersion.Name = "lblAgentVersion";
+        lblAgentVersion.TabIndex = 22;
+        lblAgentVersion.Text = "Agent version";
+        //
+        // versionPanel
+        //
+        versionPanel.ColumnCount = 2;
+        versionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        versionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        versionPanel.Controls.Add(txtAgentVersion, 0, 0);
+        versionPanel.Controls.Add(btnCheckForUpdates, 1, 0);
+        versionPanel.Dock = DockStyle.Fill;
+        versionPanel.Margin = new Padding(0);
+        versionPanel.Name = "versionPanel";
+        versionPanel.RowCount = 1;
+        versionPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        versionPanel.TabIndex = 23;
+        //
+        // txtAgentVersion
+        //
+        txtAgentVersion.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        txtAgentVersion.BackColor = SystemColors.Window;
+        txtAgentVersion.BorderStyle = BorderStyle.FixedSingle;
+        txtAgentVersion.Name = "txtAgentVersion";
+        txtAgentVersion.ReadOnly = true;
+        txtAgentVersion.TabIndex = 0;
+        //
+        // btnCheckForUpdates
+        //
+        btnCheckForUpdates.Anchor = AnchorStyles.Right;
+        btnCheckForUpdates.AutoSize = true;
+        btnCheckForUpdates.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        btnCheckForUpdates.Name = "btnCheckForUpdates";
+        btnCheckForUpdates.Padding = new Padding(6, 0, 6, 0);
+        btnCheckForUpdates.TabIndex = 1;
+        btnCheckForUpdates.Text = "Check for updates";
+        btnCheckForUpdates.UseVisualStyleBackColor = true;
+        btnCheckForUpdates.Click += btnCheckForUpdates_Click;
+        //
+        // lblLastUpdateCheck
+        //
+        lblLastUpdateCheck.Anchor = AnchorStyles.Left;
+        lblLastUpdateCheck.AutoSize = true;
+        lblLastUpdateCheck.Name = "lblLastUpdateCheck";
+        lblLastUpdateCheck.TabIndex = 24;
+        lblLastUpdateCheck.Text = "Last update check";
+        //
+        // txtLastUpdateCheck
+        //
+        txtLastUpdateCheck.BackColor = SystemColors.Window;
+        txtLastUpdateCheck.BorderStyle = BorderStyle.FixedSingle;
+        txtLastUpdateCheck.Dock = DockStyle.Fill;
+        txtLastUpdateCheck.Multiline = true;
+        txtLastUpdateCheck.Name = "txtLastUpdateCheck";
+        txtLastUpdateCheck.ReadOnly = true;
+        txtLastUpdateCheck.ScrollBars = ScrollBars.Vertical;
+        txtLastUpdateCheck.TabIndex = 25;
         // 
         // frmAgent
         // 
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(760, 560);
+        ClientSize = new Size(760, 650);
         Controls.Add(layoutPanel);
-        MinimumSize = new Size(760, 560);
+        MinimumSize = new Size(760, 650);
         Name = "frmAgent";
         Text = "Family Prism Agent";
+        versionPanel.ResumeLayout(false);
+        versionPanel.PerformLayout();
         layoutPanel.ResumeLayout(false);
         layoutPanel.PerformLayout();
         ResumeLayout(false);

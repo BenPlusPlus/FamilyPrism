@@ -28,6 +28,12 @@ public sealed class ClientUpdateCoordinator
     private readonly Func<DateTimeOffset> getUtcNow;
     private readonly SemaphoreSlim gate = new(1, 1);
 
+    /// <summary>
+    /// The result of the most recent check that actually ran (not one skipped by the schedule
+    /// or because another check was already in progress). Null until a check runs.
+    /// </summary>
+    public ClientUpdateCheckReport? LastReport { get; private set; }
+
     public ClientUpdateCoordinator(
         PrismApiClient apiClient,
         ClientUpdatePaths paths,
@@ -87,6 +93,7 @@ public sealed class ClientUpdateCoordinator
             if (!eligibility.CanCheck)
             {
                 logInformation?.Invoke("Client update check skipped: install is not an eligible machine-scope service.");
+                Report(ClientUpdateOutcome.Skipped, "Updates are only applied by the installed Family Prism service.");
                 return ClientUpdateOutcome.Skipped;
             }
 
@@ -117,6 +124,7 @@ public sealed class ClientUpdateCoordinator
             {
                 logError?.Invoke("The client update manifest could not be retrieved.", ex);
                 PersistTransientFailure(state, now);
+                Report(ClientUpdateOutcome.Failed, $"Could not reach the server: {ex.Message}");
                 return ClientUpdateOutcome.Failed;
             }
 
@@ -129,6 +137,7 @@ public sealed class ClientUpdateCoordinator
             if (decision is ClientUpdateDecision.Skip skip)
             {
                 logInformation?.Invoke($"Client update skipped: {skip.Reason}.");
+                Report(ClientUpdateOutcome.Skipped, DescribeSkip(skip.Reason, localVersion, manifest));
                 if (skip.Reason == ClientUpdateSkipReason.FailedPin)
                 {
                     PersistTransientFailure(state, now);
@@ -152,6 +161,7 @@ public sealed class ClientUpdateCoordinator
             {
                 logError?.Invoke("The client update package could not be downloaded.", ex);
                 PersistTransientFailure(state, now, package);
+                Report(ClientUpdateOutcome.Failed, $"Version {package.Version} could not be downloaded: {ex.Message}");
                 return ClientUpdateOutcome.Failed;
             }
 
@@ -160,6 +170,7 @@ public sealed class ClientUpdateCoordinator
             {
                 logError?.Invoke("The client update package hash did not match the manifest. Staging was deleted.", null);
                 PersistTransientFailure(state, now, package);
+                Report(ClientUpdateOutcome.HashMismatch, $"Version {package.Version} failed verification and was discarded.");
                 return ClientUpdateOutcome.HashMismatch;
             }
 
@@ -167,6 +178,7 @@ public sealed class ClientUpdateCoordinator
             {
                 logError?.Invoke($"The update helper was not found at '{paths.HelperExecutablePath}'.", null);
                 PersistTransientFailure(state, now, package);
+                Report(ClientUpdateOutcome.Failed, $"Version {package.Version} is missing its update helper.");
                 return ClientUpdateOutcome.Failed;
             }
 
@@ -189,6 +201,7 @@ public sealed class ClientUpdateCoordinator
                 paths.UpdatesDirectory);
             PersistSuccess(state, now);
             logInformation?.Invoke($"Applying client update {package.Version}; stopping the service for the helper swap.");
+            Report(ClientUpdateOutcome.StagedAndRestarting, $"Installing version {package.Version}. The agent will restart.");
             requestStop();
             return ClientUpdateOutcome.StagedAndRestarting;
         }
@@ -196,6 +209,31 @@ public sealed class ClientUpdateCoordinator
         {
             gate.Release();
         }
+    }
+
+    private void Report(ClientUpdateOutcome outcome, string summary)
+    {
+        LastReport = new ClientUpdateCheckReport(getUtcNow(), outcome, summary);
+    }
+
+    private static string DescribeSkip(
+        ClientUpdateSkipReason reason,
+        string localVersion,
+        ClientUpdateManifest manifest)
+    {
+        var remoteVersion = manifest.Package?.Version;
+        return reason switch
+        {
+            ClientUpdateSkipReason.VersionNotGreater => $"Up to date (version {localVersion}).",
+            ClientUpdateSkipReason.NoPackage => "Up to date. The server has no update published.",
+            ClientUpdateSkipReason.FailedPin =>
+                $"Version {remoteVersion} failed to start on this PC earlier and was rolled back. Waiting for a newer release.",
+            ClientUpdateSkipReason.KindNotSupported or ClientUpdateSkipReason.LayoutGenerationTooNew =>
+                $"Version {remoteVersion} cannot be applied automatically. Install it manually.",
+            ClientUpdateSkipReason.Unconfigured => "Finish setup before checking for updates.",
+            ClientUpdateSkipReason.AlreadyInProgress => "An update is already in progress.",
+            _ => "Updates are only applied by the installed Family Prism service."
+        };
     }
 
     private void PersistSuccess(ClientUpdateState state, DateTimeOffset now)
