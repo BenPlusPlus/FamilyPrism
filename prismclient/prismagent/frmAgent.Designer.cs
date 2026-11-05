@@ -4,34 +4,34 @@ partial class frmAgent
 {
     private System.ComponentModel.IContainer components = null;
     private TableLayoutPanel layoutPanel;
-    private Label lblSetupComplete;
-    private Label lblHostMode;
-    private Label lblConnectionState;
-    private Label lblStatusMessage;
-    private Label lblServer;
-    private Label lblClientName;
-    private Label lblClientId;
-    private Label lblLastConnected;
-    private Label lblLastMessage;
-    private Label lblLastError;
-    private Label lblLastUpdated;
-    private TextBox txtSetupComplete;
-    private TextBox txtHostMode;
-    private TextBox txtConnectionState;
+    private Label lblClientNameHeader;
+    private Label lblConnectionBadge;
     private TextBox txtStatusMessage;
+    private Label lblConnectionSection;
+    private Label lblServer;
     private TextBox txtServer;
-    private TextBox txtClientName;
+    private Label lblClientId;
     private TextBox txtClientId;
+    private Label lblLastConnected;
     private TextBox txtLastConnected;
-    private TextBox txtLastMessage;
-    private TextBox txtLastError;
+    private Label lblSetupComplete;
+    private TextBox txtSetupComplete;
+    private Label lblHostMode;
+    private TextBox txtHostMode;
+    private Label lblLastUpdated;
     private TextBox txtLastUpdated;
+    private Label lblVersionSection;
     private Label lblAgentVersion;
-    private TableLayoutPanel versionPanel;
     private TextBox txtAgentVersion;
     private Button btnCheckForUpdates;
     private Label lblLastUpdateCheck;
     private TextBox txtLastUpdateCheck;
+    private Label lblActivitySection;
+    private Label lblLastMessage;
+    private TextBox txtLastMessage;
+    private Label lblLastError;
+    private TextBox txtLastError;
+    private ToolTip toolTip;
 
     protected override void Dispose(bool disposing)
     {
@@ -46,404 +46,242 @@ partial class frmAgent
 
     private void InitializeComponent()
     {
+        components = new System.ComponentModel.Container();
         layoutPanel = new TableLayoutPanel();
-        lblSetupComplete = new Label();
-        txtSetupComplete = new TextBox();
-        lblHostMode = new Label();
-        txtHostMode = new TextBox();
-        lblConnectionState = new Label();
-        txtConnectionState = new TextBox();
-        lblStatusMessage = new Label();
+        lblClientNameHeader = new Label();
+        lblConnectionBadge = new Label();
         txtStatusMessage = new TextBox();
+        lblConnectionSection = new Label();
         lblServer = new Label();
         txtServer = new TextBox();
-        lblClientName = new Label();
-        txtClientName = new TextBox();
         lblClientId = new Label();
         txtClientId = new TextBox();
         lblLastConnected = new Label();
         txtLastConnected = new TextBox();
-        lblLastMessage = new Label();
-        txtLastMessage = new TextBox();
-        lblLastError = new Label();
-        txtLastError = new TextBox();
+        lblSetupComplete = new Label();
+        txtSetupComplete = new TextBox();
+        lblHostMode = new Label();
+        txtHostMode = new TextBox();
         lblLastUpdated = new Label();
         txtLastUpdated = new TextBox();
+        lblVersionSection = new Label();
         lblAgentVersion = new Label();
-        versionPanel = new TableLayoutPanel();
         txtAgentVersion = new TextBox();
         btnCheckForUpdates = new Button();
         lblLastUpdateCheck = new Label();
         txtLastUpdateCheck = new TextBox();
+        lblActivitySection = new Label();
+        lblLastMessage = new Label();
+        txtLastMessage = new TextBox();
+        lblLastError = new Label();
+        txtLastError = new TextBox();
+        toolTip = new ToolTip(components);
         layoutPanel.SuspendLayout();
-        versionPanel.SuspendLayout();
         SuspendLayout();
-        // 
+        //
         // layoutPanel
-        // 
-        layoutPanel.ColumnCount = 2;
-        layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
-        layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        layoutPanel.Controls.Add(lblSetupComplete, 0, 0);
-        layoutPanel.Controls.Add(txtSetupComplete, 1, 0);
-        layoutPanel.Controls.Add(lblHostMode, 0, 1);
-        layoutPanel.Controls.Add(txtHostMode, 1, 1);
-        layoutPanel.Controls.Add(lblConnectionState, 0, 2);
-        layoutPanel.Controls.Add(txtConnectionState, 1, 2);
-        layoutPanel.Controls.Add(lblStatusMessage, 0, 3);
-        layoutPanel.Controls.Add(txtStatusMessage, 1, 3);
-        layoutPanel.Controls.Add(lblServer, 0, 4);
-        layoutPanel.Controls.Add(txtServer, 1, 4);
-        layoutPanel.Controls.Add(lblClientName, 0, 5);
-        layoutPanel.Controls.Add(txtClientName, 1, 5);
-        layoutPanel.Controls.Add(lblClientId, 0, 6);
-        layoutPanel.Controls.Add(txtClientId, 1, 6);
-        layoutPanel.Controls.Add(lblLastConnected, 0, 7);
-        layoutPanel.Controls.Add(txtLastConnected, 1, 7);
-        layoutPanel.Controls.Add(lblLastMessage, 0, 8);
-        layoutPanel.Controls.Add(txtLastMessage, 1, 8);
-        layoutPanel.Controls.Add(lblLastError, 0, 9);
-        layoutPanel.Controls.Add(txtLastError, 1, 9);
-        layoutPanel.Controls.Add(lblLastUpdated, 0, 10);
-        layoutPanel.Controls.Add(txtLastUpdated, 1, 10);
-        layoutPanel.Controls.Add(lblAgentVersion, 0, 11);
-        layoutPanel.Controls.Add(versionPanel, 1, 11);
-        layoutPanel.Controls.Add(lblLastUpdateCheck, 0, 12);
-        layoutPanel.Controls.Add(txtLastUpdateCheck, 1, 12);
-        layoutPanel.Dock = DockStyle.Fill;
-        layoutPanel.Location = new Point(0, 0);
+        //
+        // Four columns: label | value | label | value. Full-width values span columns 1-3.
+        layoutPanel.ColumnCount = 4;
+        layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96F));
+        layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 64F));
+        layoutPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+        layoutPanel.AutoSize = true;
+        layoutPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        layoutPanel.Dock = DockStyle.Top;
         layoutPanel.Name = "layoutPanel";
-        layoutPanel.Padding = new Padding(12);
-        layoutPanel.RowCount = 13;
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 70F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 33F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 31F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 90F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 90F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-        layoutPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 50F));
-        layoutPanel.Size = new Size(760, 650);
+        layoutPanel.Padding = new Padding(14, 10, 14, 12);
+        layoutPanel.RowCount = 14;
+        for (var row = 0; row < layoutPanel.RowCount; row++)
+        {
+            layoutPanel.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        }
         layoutPanel.TabIndex = 0;
-        // 
-        // lblSetupComplete
-        // 
-        lblSetupComplete.Anchor = AnchorStyles.Left;
-        lblSetupComplete.AutoSize = true;
-        lblSetupComplete.Location = new Point(15, 20);
-        lblSetupComplete.Name = "lblSetupComplete";
-        lblSetupComplete.Size = new Size(90, 15);
-        lblSetupComplete.TabIndex = 0;
-        lblSetupComplete.Text = "Setup complete";
-        // 
-        // txtSetupComplete
-        // 
-        txtSetupComplete.BackColor = SystemColors.Window;
-        txtSetupComplete.BorderStyle = BorderStyle.FixedSingle;
-        txtSetupComplete.Dock = DockStyle.Fill;
-        txtSetupComplete.Location = new Point(165, 15);
-        txtSetupComplete.Name = "txtSetupComplete";
-        txtSetupComplete.ReadOnly = true;
-        txtSetupComplete.Size = new Size(580, 23);
-        txtSetupComplete.TabIndex = 1;
-        // 
-        // lblHostMode
-        // 
-        lblHostMode.Anchor = AnchorStyles.Left;
-        lblHostMode.AutoSize = true;
-        lblHostMode.Location = new Point(15, 52);
-        lblHostMode.Name = "lblHostMode";
-        lblHostMode.Size = new Size(66, 15);
-        lblHostMode.TabIndex = 2;
-        lblHostMode.Text = "Host mode";
-        // 
-        // txtHostMode
-        // 
-        txtHostMode.BackColor = SystemColors.Window;
-        txtHostMode.BorderStyle = BorderStyle.FixedSingle;
-        txtHostMode.Dock = DockStyle.Fill;
-        txtHostMode.Location = new Point(165, 47);
-        txtHostMode.Name = "txtHostMode";
-        txtHostMode.ReadOnly = true;
-        txtHostMode.Size = new Size(580, 23);
-        txtHostMode.TabIndex = 3;
-        // 
-        // lblConnectionState
-        // 
-        lblConnectionState.Anchor = AnchorStyles.Left;
-        lblConnectionState.AutoSize = true;
-        lblConnectionState.Location = new Point(15, 84);
-        lblConnectionState.Name = "lblConnectionState";
-        lblConnectionState.Size = new Size(97, 15);
-        lblConnectionState.TabIndex = 4;
-        lblConnectionState.Text = "Connection state";
-        // 
-        // txtConnectionState
-        // 
-        txtConnectionState.BackColor = SystemColors.Window;
-        txtConnectionState.BorderStyle = BorderStyle.FixedSingle;
-        txtConnectionState.Dock = DockStyle.Fill;
-        txtConnectionState.Location = new Point(165, 79);
-        txtConnectionState.Name = "txtConnectionState";
-        txtConnectionState.ReadOnly = true;
-        txtConnectionState.Size = new Size(580, 23);
-        txtConnectionState.TabIndex = 5;
-        // 
-        // lblStatusMessage
-        // 
-        lblStatusMessage.Anchor = AnchorStyles.Left;
-        lblStatusMessage.AutoSize = true;
-        lblStatusMessage.Location = new Point(15, 135);
-        lblStatusMessage.Name = "lblStatusMessage";
-        lblStatusMessage.Size = new Size(88, 15);
-        lblStatusMessage.TabIndex = 6;
-        lblStatusMessage.Text = "Status message";
-        // 
+
+        // Header: client name + connection badge, then the status message.
+        layoutPanel.Controls.Add(lblClientNameHeader, 0, 0);
+        layoutPanel.SetColumnSpan(lblClientNameHeader, 3);
+        layoutPanel.Controls.Add(lblConnectionBadge, 3, 0);
+        layoutPanel.Controls.Add(txtStatusMessage, 0, 1);
+        layoutPanel.SetColumnSpan(txtStatusMessage, 4);
+
+        // Connection
+        layoutPanel.Controls.Add(lblConnectionSection, 0, 2);
+        layoutPanel.SetColumnSpan(lblConnectionSection, 4);
+        layoutPanel.Controls.Add(lblServer, 0, 3);
+        layoutPanel.Controls.Add(txtServer, 1, 3);
+        layoutPanel.SetColumnSpan(txtServer, 3);
+        layoutPanel.Controls.Add(lblClientId, 0, 4);
+        layoutPanel.Controls.Add(txtClientId, 1, 4);
+        layoutPanel.SetColumnSpan(txtClientId, 3);
+        layoutPanel.Controls.Add(lblLastConnected, 0, 5);
+        layoutPanel.Controls.Add(txtLastConnected, 1, 5);
+        layoutPanel.Controls.Add(lblSetupComplete, 2, 5);
+        layoutPanel.Controls.Add(txtSetupComplete, 3, 5);
+        layoutPanel.Controls.Add(lblLastUpdated, 0, 6);
+        layoutPanel.Controls.Add(txtLastUpdated, 1, 6);
+        layoutPanel.Controls.Add(lblHostMode, 2, 6);
+        layoutPanel.Controls.Add(txtHostMode, 3, 6);
+
+        // Version
+        layoutPanel.Controls.Add(lblVersionSection, 0, 7);
+        layoutPanel.SetColumnSpan(lblVersionSection, 4);
+        layoutPanel.Controls.Add(lblAgentVersion, 0, 8);
+        layoutPanel.Controls.Add(txtAgentVersion, 1, 8);
+        layoutPanel.SetColumnSpan(txtAgentVersion, 2);
+        layoutPanel.Controls.Add(btnCheckForUpdates, 3, 8);
+        layoutPanel.Controls.Add(lblLastUpdateCheck, 0, 9);
+        layoutPanel.Controls.Add(txtLastUpdateCheck, 1, 9);
+        layoutPanel.SetColumnSpan(txtLastUpdateCheck, 3);
+
+        // Activity
+        layoutPanel.Controls.Add(lblActivitySection, 0, 10);
+        layoutPanel.SetColumnSpan(lblActivitySection, 4);
+        layoutPanel.Controls.Add(lblLastMessage, 0, 11);
+        layoutPanel.Controls.Add(txtLastMessage, 1, 11);
+        layoutPanel.SetColumnSpan(txtLastMessage, 3);
+        layoutPanel.Controls.Add(lblLastError, 0, 12);
+        layoutPanel.Controls.Add(txtLastError, 1, 12);
+        layoutPanel.SetColumnSpan(txtLastError, 3);
+        //
+        // lblClientNameHeader
+        //
+        lblClientNameHeader.AutoEllipsis = true;
+        lblClientNameHeader.Dock = DockStyle.Fill;
+        lblClientNameHeader.Font = new Font("Segoe UI Semibold", 13F, FontStyle.Bold);
+        lblClientNameHeader.Margin = new Padding(0, 0, 3, 0);
+        lblClientNameHeader.Name = "lblClientNameHeader";
+        lblClientNameHeader.Size = new Size(300, 30);
+        lblClientNameHeader.Text = "Family Prism";
+        lblClientNameHeader.TextAlign = ContentAlignment.MiddleLeft;
+        //
+        // lblConnectionBadge
+        //
+        lblConnectionBadge.Anchor = AnchorStyles.Right;
+        lblConnectionBadge.AutoSize = true;
+        lblConnectionBadge.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold);
+        lblConnectionBadge.Margin = new Padding(3, 0, 0, 0);
+        lblConnectionBadge.Name = "lblConnectionBadge";
+        lblConnectionBadge.Text = "● Not configured";
+        //
         // txtStatusMessage
-        // 
-        txtStatusMessage.BackColor = SystemColors.Window;
-        txtStatusMessage.BorderStyle = BorderStyle.FixedSingle;
-        txtStatusMessage.Dock = DockStyle.Fill;
-        txtStatusMessage.Location = new Point(165, 111);
-        txtStatusMessage.Multiline = true;
-        txtStatusMessage.Name = "txtStatusMessage";
-        txtStatusMessage.ReadOnly = true;
-        txtStatusMessage.ScrollBars = ScrollBars.Vertical;
-        txtStatusMessage.Size = new Size(580, 64);
-        txtStatusMessage.TabIndex = 7;
-        // 
-        // lblServer
-        // 
-        lblServer.Anchor = AnchorStyles.Left;
-        lblServer.AutoSize = true;
-        lblServer.Location = new Point(15, 186);
-        lblServer.Name = "lblServer";
-        lblServer.Size = new Size(39, 15);
-        lblServer.TabIndex = 8;
-        lblServer.Text = "Server";
-        // 
-        // txtServer
-        // 
-        txtServer.BackColor = SystemColors.Window;
-        txtServer.BorderStyle = BorderStyle.FixedSingle;
-        txtServer.Dock = DockStyle.Fill;
-        txtServer.Location = new Point(165, 181);
-        txtServer.Name = "txtServer";
-        txtServer.ReadOnly = true;
-        txtServer.Size = new Size(580, 23);
-        txtServer.TabIndex = 9;
-        // 
-        // lblClientName
-        // 
-        lblClientName.Anchor = AnchorStyles.Left;
-        lblClientName.AutoSize = true;
-        lblClientName.Location = new Point(15, 219);
-        lblClientName.Name = "lblClientName";
-        lblClientName.Size = new Size(71, 15);
-        lblClientName.TabIndex = 10;
-        lblClientName.Text = "Client name";
-        // 
-        // txtClientName
-        // 
-        txtClientName.BackColor = SystemColors.Window;
-        txtClientName.BorderStyle = BorderStyle.FixedSingle;
-        txtClientName.Dock = DockStyle.Fill;
-        txtClientName.Location = new Point(165, 213);
-        txtClientName.Name = "txtClientName";
-        txtClientName.ReadOnly = true;
-        txtClientName.Size = new Size(580, 23);
-        txtClientName.TabIndex = 11;
-        // 
-        // lblClientId
-        // 
-        lblClientId.Anchor = AnchorStyles.Left;
-        lblClientId.AutoSize = true;
-        lblClientId.Location = new Point(15, 251);
-        lblClientId.Name = "lblClientId";
-        lblClientId.Size = new Size(52, 15);
-        lblClientId.TabIndex = 12;
-        lblClientId.Text = "Client ID";
-        // 
-        // txtClientId
-        // 
-        txtClientId.BackColor = SystemColors.Window;
-        txtClientId.BorderStyle = BorderStyle.FixedSingle;
-        txtClientId.Dock = DockStyle.Fill;
-        txtClientId.Location = new Point(165, 246);
-        txtClientId.Name = "txtClientId";
-        txtClientId.ReadOnly = true;
-        txtClientId.Size = new Size(580, 23);
-        txtClientId.TabIndex = 13;
-        // 
-        // lblLastConnected
-        // 
-        lblLastConnected.Anchor = AnchorStyles.Left;
-        lblLastConnected.AutoSize = true;
-        lblLastConnected.Location = new Point(15, 282);
-        lblLastConnected.Name = "lblLastConnected";
-        lblLastConnected.Size = new Size(87, 15);
-        lblLastConnected.TabIndex = 14;
-        lblLastConnected.Text = "Last connected";
-        // 
-        // txtLastConnected
-        // 
-        txtLastConnected.BackColor = SystemColors.Window;
-        txtLastConnected.BorderStyle = BorderStyle.FixedSingle;
-        txtLastConnected.Dock = DockStyle.Fill;
-        txtLastConnected.Location = new Point(165, 277);
-        txtLastConnected.Name = "txtLastConnected";
-        txtLastConnected.ReadOnly = true;
-        txtLastConnected.Size = new Size(580, 23);
-        txtLastConnected.TabIndex = 15;
-        // 
-        // lblLastMessage
-        // 
-        lblLastMessage.Anchor = AnchorStyles.Left;
-        lblLastMessage.AutoSize = true;
-        lblLastMessage.Location = new Point(15, 343);
-        lblLastMessage.Name = "lblLastMessage";
-        lblLastMessage.Size = new Size(77, 15);
-        lblLastMessage.TabIndex = 16;
-        lblLastMessage.Text = "Last message";
-        // 
-        // txtLastMessage
-        // 
-        txtLastMessage.BackColor = SystemColors.Window;
-        txtLastMessage.BorderStyle = BorderStyle.FixedSingle;
-        txtLastMessage.Dock = DockStyle.Fill;
-        txtLastMessage.Location = new Point(165, 309);
-        txtLastMessage.Multiline = true;
-        txtLastMessage.Name = "txtLastMessage";
-        txtLastMessage.ReadOnly = true;
-        txtLastMessage.ScrollBars = ScrollBars.Vertical;
-        txtLastMessage.Size = new Size(580, 84);
-        txtLastMessage.TabIndex = 17;
-        // 
-        // lblLastError
-        // 
-        lblLastError.Anchor = AnchorStyles.Left;
-        lblLastError.AutoSize = true;
-        lblLastError.Location = new Point(15, 433);
-        lblLastError.Name = "lblLastError";
-        lblLastError.Size = new Size(56, 15);
-        lblLastError.TabIndex = 18;
-        lblLastError.Text = "Last error";
-        // 
-        // txtLastError
-        // 
-        txtLastError.BackColor = SystemColors.Window;
-        txtLastError.BorderStyle = BorderStyle.FixedSingle;
-        txtLastError.Dock = DockStyle.Fill;
-        txtLastError.Location = new Point(165, 399);
-        txtLastError.Multiline = true;
-        txtLastError.Name = "txtLastError";
-        txtLastError.ReadOnly = true;
-        txtLastError.ScrollBars = ScrollBars.Vertical;
-        txtLastError.Size = new Size(580, 84);
-        txtLastError.TabIndex = 19;
-        // 
-        // lblLastUpdated
-        // 
-        lblLastUpdated.Anchor = AnchorStyles.Left;
-        lblLastUpdated.AutoSize = true;
-        lblLastUpdated.Location = new Point(15, 509);
-        lblLastUpdated.Name = "lblLastUpdated";
-        lblLastUpdated.Size = new Size(75, 15);
-        lblLastUpdated.TabIndex = 20;
-        lblLastUpdated.Text = "Last updated";
-        // 
-        // txtLastUpdated
-        // 
-        txtLastUpdated.BackColor = SystemColors.Window;
-        txtLastUpdated.BorderStyle = BorderStyle.FixedSingle;
-        txtLastUpdated.Dock = DockStyle.Fill;
-        txtLastUpdated.Location = new Point(165, 489);
-        txtLastUpdated.Name = "txtLastUpdated";
-        txtLastUpdated.ReadOnly = true;
-        txtLastUpdated.Size = new Size(580, 23);
-        txtLastUpdated.TabIndex = 21;
         //
-        // lblAgentVersion
+        ConfigureValue(txtStatusMessage, "txtStatusMessage");
+        txtStatusMessage.ForeColor = SystemColors.GrayText;
+        txtStatusMessage.Margin = new Padding(4, 0, 0, 2);
         //
+        // section headers
+        //
+        ConfigureSection(lblConnectionSection, "lblConnectionSection", "CONNECTION");
+        ConfigureSection(lblVersionSection, "lblVersionSection", "VERSION");
+        ConfigureSection(lblActivitySection, "lblActivitySection", "ACTIVITY");
+        //
+        // field labels
+        //
+        ConfigureLabel(lblServer, "lblServer", "Server");
+        ConfigureLabel(lblClientId, "lblClientId", "Client ID");
+        ConfigureLabel(lblLastConnected, "lblLastConnected", "Last connected");
+        ConfigureLabel(lblSetupComplete, "lblSetupComplete", "Setup");
+        ConfigureLabel(lblHostMode, "lblHostMode", "Host");
+        ConfigureLabel(lblLastUpdated, "lblLastUpdated", "Status updated");
+        ConfigureLabel(lblAgentVersion, "lblAgentVersion", "Version");
+        ConfigureLabel(lblLastUpdateCheck, "lblLastUpdateCheck", "Last check");
+        ConfigureLabel(lblLastMessage, "lblLastMessage", "Last message");
+        ConfigureLabel(lblLastError, "lblLastError", "Last error");
+        //
+        // field values
+        //
+        ConfigureValue(txtServer, "txtServer");
+        ConfigureValue(txtClientId, "txtClientId");
+        ConfigureValue(txtLastConnected, "txtLastConnected");
+        ConfigureValue(txtSetupComplete, "txtSetupComplete");
+        ConfigureValue(txtHostMode, "txtHostMode");
+        ConfigureValue(txtLastUpdated, "txtLastUpdated");
+        ConfigureValue(txtAgentVersion, "txtAgentVersion");
+        // Center the version row on the button beside it.
         lblAgentVersion.Anchor = AnchorStyles.Left;
-        lblAgentVersion.AutoSize = true;
-        lblAgentVersion.Name = "lblAgentVersion";
-        lblAgentVersion.TabIndex = 22;
-        lblAgentVersion.Text = "Agent version";
-        //
-        // versionPanel
-        //
-        versionPanel.ColumnCount = 2;
-        versionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        versionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        versionPanel.Controls.Add(txtAgentVersion, 0, 0);
-        versionPanel.Controls.Add(btnCheckForUpdates, 1, 0);
-        versionPanel.Dock = DockStyle.Fill;
-        versionPanel.Margin = new Padding(0);
-        versionPanel.Name = "versionPanel";
-        versionPanel.RowCount = 1;
-        versionPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        versionPanel.TabIndex = 23;
-        //
-        // txtAgentVersion
-        //
         txtAgentVersion.Anchor = AnchorStyles.Left | AnchorStyles.Right;
-        txtAgentVersion.BackColor = SystemColors.Window;
-        txtAgentVersion.BorderStyle = BorderStyle.FixedSingle;
-        txtAgentVersion.Name = "txtAgentVersion";
-        txtAgentVersion.ReadOnly = true;
-        txtAgentVersion.TabIndex = 0;
+        ConfigureMultilineValue(txtLastUpdateCheck, "txtLastUpdateCheck", maxLines: 2);
+        ConfigureMultilineValue(txtLastMessage, "txtLastMessage", maxLines: 3);
+        ConfigureMultilineValue(txtLastError, "txtLastError", maxLines: 3);
         //
         // btnCheckForUpdates
         //
         btnCheckForUpdates.Anchor = AnchorStyles.Right;
         btnCheckForUpdates.AutoSize = true;
         btnCheckForUpdates.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        btnCheckForUpdates.Margin = new Padding(3, 2, 0, 2);
+        btnCheckForUpdates.MinimumSize = new Size(130, 0);
         btnCheckForUpdates.Name = "btnCheckForUpdates";
-        btnCheckForUpdates.Padding = new Padding(6, 0, 6, 0);
+        btnCheckForUpdates.Padding = new Padding(6, 1, 6, 1);
         btnCheckForUpdates.TabIndex = 1;
         btnCheckForUpdates.Text = "Check for updates";
         btnCheckForUpdates.UseVisualStyleBackColor = true;
         btnCheckForUpdates.Click += btnCheckForUpdates_Click;
         //
-        // lblLastUpdateCheck
-        //
-        lblLastUpdateCheck.Anchor = AnchorStyles.Left;
-        lblLastUpdateCheck.AutoSize = true;
-        lblLastUpdateCheck.Name = "lblLastUpdateCheck";
-        lblLastUpdateCheck.TabIndex = 24;
-        lblLastUpdateCheck.Text = "Last update check";
-        //
-        // txtLastUpdateCheck
-        //
-        txtLastUpdateCheck.BackColor = SystemColors.Window;
-        txtLastUpdateCheck.BorderStyle = BorderStyle.FixedSingle;
-        txtLastUpdateCheck.Dock = DockStyle.Fill;
-        txtLastUpdateCheck.Multiline = true;
-        txtLastUpdateCheck.Name = "txtLastUpdateCheck";
-        txtLastUpdateCheck.ReadOnly = true;
-        txtLastUpdateCheck.ScrollBars = ScrollBars.Vertical;
-        txtLastUpdateCheck.TabIndex = 25;
-        // 
         // frmAgent
-        // 
+        //
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(760, 650);
+        ClientSize = new Size(560, 400);
         Controls.Add(layoutPanel);
-        MinimumSize = new Size(760, 650);
+        Font = new Font("Segoe UI", 9F);
+        FormBorderStyle = FormBorderStyle.FixedSingle;
+        MaximizeBox = false;
         Name = "frmAgent";
+        StartPosition = FormStartPosition.CenterScreen;
         Text = "Family Prism Agent";
-        versionPanel.ResumeLayout(false);
-        versionPanel.PerformLayout();
         layoutPanel.ResumeLayout(false);
         layoutPanel.PerformLayout();
         ResumeLayout(false);
+    }
+
+    private static void ConfigureSection(Label label, string name, string text)
+    {
+        label.AutoSize = true;
+        label.Font = new Font("Segoe UI Semibold", 8F, FontStyle.Bold);
+        label.ForeColor = SystemColors.GrayText;
+        label.Margin = new Padding(0, 12, 0, 3);
+        label.Name = name;
+        label.Text = text;
+    }
+
+    private static void ConfigureLabel(Label label, string name, string text)
+    {
+        label.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+        label.AutoSize = true;
+        label.ForeColor = SystemColors.GrayText;
+        label.Margin = new Padding(0, 4, 3, 3);
+        label.Name = name;
+        label.Text = text;
+    }
+
+    /// <summary>A read-only, borderless text box: reads like a label but can be selected and copied.</summary>
+    private static void ConfigureValue(TextBox textBox, string name)
+    {
+        textBox.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
+        textBox.BackColor = SystemColors.Control;
+        textBox.BorderStyle = BorderStyle.None;
+        textBox.Margin = new Padding(3, 4, 3, 3);
+        textBox.Name = name;
+        textBox.ReadOnly = true;
+        textBox.TabStop = false;
+
+        // Borderless text boxes otherwise keep the height of a bordered one, spacing rows unevenly.
+        textBox.AutoSize = false;
+        textBox.Height = textBox.Font.Height + 2;
+    }
+
+    /// <summary>A wrapping value that grows with its text up to <paramref name="maxLines"/> (see frmAgent.FitHeight).</summary>
+    private static void ConfigureMultilineValue(TextBox textBox, string name, int maxLines)
+    {
+        ConfigureValue(textBox, name);
+        // A multiline text box draws its text a few pixels further in than a single-line one.
+        textBox.Margin = new Padding(0, 4, 3, 3);
+        textBox.Multiline = true;
+        textBox.WordWrap = true;
+        textBox.Tag = maxLines;
     }
 
     #endregion
