@@ -19,6 +19,12 @@ Auto-update applies only when the pin SemVer is **strictly greater** than the in
 
 Zip bytes stay on the GitHub Release. Railway only stores the pin. Kind stays `zip` and `layoutGeneration` stays `1` unless you change the zip layout by hand.
 
+## When a PC does not update
+
+- **Check now:** open the tray status window and click **Check for updates**. The service checks right away, ignoring the schedule and any failure backoff, and shows the result under *Last update check*. Restarting the `prismsvc` service does the same.
+- **Schedule:** the service checks at startup, on websocket reconnect (at most every 15 minutes), and every 6 hours. A failed check is retried every 15 minutes, doubling up to 6 hours. If the startup check fails (often because the network is not up yet at boot), the first websocket connect runs it again.
+- **Logs:** update decisions are written to the Windows Application event log (source `prismsvc`) at Information level. `C:\ProgramData\FamilyPrism\Updates\update-state.json` holds the last failure and backoff, and `prismupdate.log` in the same folder records each install attempt.
+
 ## Rollback
 
 Keep the old Release. Point the three `CLIENT_PACKAGE_*` variables at that zip’s version, URL, and SHA-256. Clients still on a newer version will not roll back (greater-than only).
