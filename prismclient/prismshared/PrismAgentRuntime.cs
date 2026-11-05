@@ -60,6 +60,7 @@ public sealed class PrismAgentRuntime
         var periodicUpdates = RunPeriodicUpdateChecksAsync(periodicCts.Token);
         var watchdog = trayWatchdog.RunAsync(periodicCts.Token);
         var manualUpdates = RunManualUpdateRequestsAsync(periodicCts.Token);
+        var screenshotUploads = RunPendingScreenshotUploadsAsync(periodicCts.Token);
 
         try
         {
@@ -166,6 +167,14 @@ public sealed class PrismAgentRuntime
             try
             {
                 await manualUpdates;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            try
+            {
+                await screenshotUploads;
             }
             catch (OperationCanceledException)
             {
@@ -318,6 +327,52 @@ public sealed class PrismAgentRuntime
             {
                 logError?.Invoke("The requested client update check failed.", ex);
                 PublishUpdateResult(DateTimeOffset.UtcNow, $"The update check failed: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task RunPendingScreenshotUploadsAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(UpdateRequestPollInterval);
+        while (await timer.WaitForNextTickAsync(cancellationToken))
+        {
+            try
+            {
+                if (!await PendingScreenshotUploader.TryUploadPendingAsync(apiClient, cancellationToken))
+                {
+                    continue;
+                }
+
+                logInformation?.Invoke("Uploaded a screenshot captured by the tray.");
+                PrismStatusStore.Update(current => current with
+                {
+                    LastError = null,
+                    StatusMessage = current.ConnectionState == PrismConnectionState.Connected
+                        ? "Connected to the server. Screenshot uploaded."
+                        : current.StatusMessage
+                });
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                logError?.Invoke("The pending screenshot could not be uploaded.", ex);
+                try
+                {
+                    PrismStatusStore.Update(current => current with
+                    {
+                        LastError = ex.Message,
+                        StatusMessage = current.ConnectionState == PrismConnectionState.Connected
+                            ? "Connected to the server. Screenshot upload failed."
+                            : current.StatusMessage
+                    });
+                }
+                catch (Exception statusEx)
+                {
+                    logError?.Invoke("The screenshot upload error could not be written to the status file.", statusEx);
+                }
             }
         }
     }

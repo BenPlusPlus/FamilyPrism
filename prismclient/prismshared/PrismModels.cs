@@ -48,6 +48,8 @@ public static class PrismPaths
 
     public static string PendingScreenshotRequestPath => Path.Combine(StateDirectory, "pending-screenshot-request.json");
 
+    public static string PendingScreenshotImagePath => Path.Combine(StateDirectory, "pending-screenshot.png");
+
     public static string UpdateCheckRequestPath => Path.Combine(StateDirectory, "update-check-request.json");
 
     public static string PendingSetupDirectory => Path.Combine(UserProfileRoot, "PendingSetup");
