@@ -21,6 +21,20 @@ public static class PrismStatusStore
             };
     }
 
+    private static readonly object WriteLock = new();
+
+    /// <summary>
+    /// Read-modify-write under a lock so concurrent writers in the same process
+    /// (connection loop, update checks) do not drop each other's fields.
+    /// </summary>
+    public static void Update(Func<PrismStatusSnapshot, PrismStatusSnapshot> change)
+    {
+        lock (WriteLock)
+        {
+            Save(change(ReadOrDefault()));
+        }
+    }
+
     public static void Save(PrismStatusSnapshot snapshot)
     {
         MachineConfigurationStore.EnsureStateDirectory();

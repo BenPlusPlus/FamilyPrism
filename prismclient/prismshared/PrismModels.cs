@@ -48,6 +48,8 @@ public static class PrismPaths
 
     public static string PendingScreenshotRequestPath => Path.Combine(StateDirectory, "pending-screenshot-request.json");
 
+    public static string UpdateCheckRequestPath => Path.Combine(StateDirectory, "update-check-request.json");
+
     public static string PendingSetupDirectory => Path.Combine(UserProfileRoot, "PendingSetup");
 
     public static string InstalledRoot => Path.Combine(
@@ -144,8 +146,17 @@ public sealed record PrismStatusSnapshot
 
     public DateTimeOffset? LastMessageReceivedAtUtc { get; init; }
 
+    /// <summary>The version of the process that wrote this snapshot (the service in production).</summary>
+    public string? AgentVersion { get; init; }
+
+    public DateTimeOffset? LastUpdateCheckAtUtc { get; init; }
+
+    public string? LastUpdateCheckResult { get; init; }
+
     public DateTimeOffset UpdatedAtUtc { get; init; } = DateTimeOffset.UtcNow;
 }
+
+public sealed record UpdateCheckRequestPayload(DateTimeOffset RequestedAtUtc);
 
 public sealed record PrismRegistrationErrorResponse(
     string? Error,

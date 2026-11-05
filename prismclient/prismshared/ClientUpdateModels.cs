@@ -79,6 +79,11 @@ public enum ClientUpdateOutcome
     Failed
 }
 
+public sealed record ClientUpdateCheckReport(
+    DateTimeOffset CheckedAtUtc,
+    ClientUpdateOutcome Outcome,
+    string Summary);
+
 public enum ClientUpdateHelperResult
 {
     Applied,

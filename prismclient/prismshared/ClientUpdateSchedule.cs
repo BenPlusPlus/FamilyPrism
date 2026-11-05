@@ -4,7 +4,9 @@ public enum ClientUpdateCheckTrigger
 {
     Start,
     WebsocketConnect,
-    Periodic
+    Periodic,
+    Retry,
+    Manual
 }
 
 public static class ClientUpdateSchedule
@@ -17,12 +19,18 @@ public static class ClientUpdateSchedule
 
     public static readonly TimeSpan MaxBackoff = TimeSpan.FromHours(6);
 
+    /// <summary>
+    /// How often the service wakes to retry a failed check once its backoff has expired.
+    /// Without this, a failure would wait for the next 6-hour periodic tick.
+    /// </summary>
+    public static readonly TimeSpan RetryPollInterval = InitialBackoff;
+
     public static bool ShouldCheck(
         ClientUpdateCheckTrigger trigger,
         ClientUpdateState state,
         DateTimeOffset now)
     {
-        if (trigger == ClientUpdateCheckTrigger.Start)
+        if (trigger is ClientUpdateCheckTrigger.Start or ClientUpdateCheckTrigger.Manual)
         {
             return true;
         }
@@ -30,6 +38,11 @@ public static class ClientUpdateSchedule
         if (ClientUpdateStateStore.IsInBackoff(state, now))
         {
             return false;
+        }
+
+        if (trigger == ClientUpdateCheckTrigger.Retry)
+        {
+            return state.LastFailureAtUtc is not null;
         }
 
         if (trigger == ClientUpdateCheckTrigger.WebsocketConnect
