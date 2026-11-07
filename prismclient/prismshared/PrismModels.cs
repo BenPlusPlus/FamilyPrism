@@ -46,6 +46,8 @@ public static class PrismPaths
 
     public static string DnsOverlayPath => Path.Combine(SecureConfigDirectory, "dns-overlay.json");
 
+    public static string VisitCollectionPath => Path.Combine(SecureConfigDirectory, "visits.json");
+
     public static string StatusPath => Path.Combine(StateDirectory, "agent-status.json");
 
     public static string PendingScreenshotRequestPath => Path.Combine(StateDirectory, "pending-screenshot-request.json");
@@ -107,6 +109,14 @@ public sealed record DnsDirectiveResult(
     string CommandId,
     string Status,
     string? Error = null);
+
+public sealed record VisitIngestItem(
+    string Browser,
+    string BrowserProfile,
+    string Title,
+    string Url,
+    string VisitTime,
+    string WindowsUser);
 
 public sealed record PrismStoredConfiguration(
     string ServerBaseUrl,

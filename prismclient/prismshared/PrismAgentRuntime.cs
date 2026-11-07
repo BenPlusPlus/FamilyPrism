@@ -62,6 +62,7 @@ public sealed class PrismAgentRuntime
         var watchdog = trayWatchdog.RunAsync(periodicCts.Token);
         var manualUpdates = RunManualUpdateRequestsAsync(periodicCts.Token);
         var screenshotUploads = RunPendingScreenshotUploadsAsync(periodicCts.Token);
+        var visitCollection = VisitCollector.RunAsync(apiClient, logInformation, logError, periodicCts.Token);
         var overlayWatch = RunDnsOverlayWatchAsync(periodicCts.Token);
 
         try
@@ -177,6 +178,14 @@ public sealed class PrismAgentRuntime
             try
             {
                 await screenshotUploads;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            try
+            {
+                await visitCollection;
             }
             catch (OperationCanceledException)
             {
@@ -831,7 +840,8 @@ public sealed class PrismAgentRuntime
         var payload = JsonSerializer.Serialize(new
         {
             type = "identify",
-            windowsUser = GetCurrentWindowsUser(),
+            windowsUser = WindowsUserName.FromIdentityName(
+                System.Security.Principal.WindowsIdentity.GetCurrent()?.Name),
             version = GetAssemblyVersion()
         });
 
@@ -851,28 +861,6 @@ public sealed class PrismAgentRuntime
         var raw = informational ?? assembly.GetName().Version?.ToString() ?? string.Empty;
         var plusIndex = raw.IndexOf('+');
         return plusIndex >= 0 ? raw[..plusIndex] : raw;
-    }
-
-    private static string GetCurrentWindowsUser()
-    {
-        var identityName = System.Security.Principal.WindowsIdentity.GetCurrent()?.Name;
-        if (!string.IsNullOrWhiteSpace(identityName))
-        {
-            var localAccountPrefix = $"{Environment.MachineName}\\";
-            return identityName.StartsWith(localAccountPrefix, StringComparison.OrdinalIgnoreCase)
-                ? Environment.UserName
-                : identityName;
-        }
-
-        if (!string.Equals(
-            Environment.UserDomainName,
-            Environment.MachineName,
-            StringComparison.OrdinalIgnoreCase))
-        {
-            return $"{Environment.UserDomainName}\\{Environment.UserName}";
-        }
-
-        return Environment.UserName;
     }
 
     private static Uri BuildWebsocketUri(PrismConfiguration configuration)

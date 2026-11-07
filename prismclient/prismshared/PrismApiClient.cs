@@ -113,6 +113,32 @@ public sealed class PrismApiClient
             ?? new ClientUpdateManifest(null);
     }
 
+    public async Task UploadVisitsAsync(
+        PrismConfiguration configuration,
+        IReadOnlyList<VisitIngestItem> visits,
+        CancellationToken cancellationToken)
+    {
+        var endpoint = new Uri(
+            new Uri(configuration.ServerBaseUrl),
+            $"api/clients/{Uri.EscapeDataString(configuration.ClientId)}/visits");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+        request.Headers.Add("x-client-id", configuration.ClientId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", configuration.Credential);
+        request.Content = JsonContent.Create(
+            new { visits },
+            options: new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw await CreateApiExceptionAsync(
+                response,
+                cancellationToken,
+                "The Visit upload failed.");
+        }
+    }
+
     public async Task ReportDnsResultAsync(
         PrismConfiguration configuration,
         DnsDirectiveResult result,
