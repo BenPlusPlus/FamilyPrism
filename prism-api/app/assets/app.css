@@ -582,6 +582,29 @@ input.mono {
   margin-top: 16px;
 }
 
+.dns-overlay {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.dns-remaining {
+  margin: 0;
+  font-size: var(--t-14);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dns-extend-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dns-extend-actions .btn {
+  min-height: 40px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

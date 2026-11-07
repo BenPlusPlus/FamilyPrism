@@ -15,10 +15,17 @@ import {
 import { describeClientVersion } from "../../data/client-package.ts";
 import type { AdminIdentity } from "../../data/auth.ts";
 import {
+  extendDnsOverlay,
   getLatestDnsState,
   issueDnsDirective,
   DnsDirectiveTargetNotFoundError,
+  DnsOverlayNotActiveError,
 } from "../../data/dns-directives.ts";
+import {
+  clientSupportsDnsOverlay,
+  DNS_OVERLAY_MIN_CLIENT_VERSION,
+  parseDnsOverlayMinutes,
+} from "../../data/dns-overlay.ts";
 import { getDnsProfile, listDnsProfiles } from "../../data/dns-profiles.ts";
 import {
   GroupNameConflictError,
@@ -62,6 +69,10 @@ let composeSchema = f.object({
 
 let applyDnsSchema = f.object({
   profileId: f.field(s.string().pipe(minLength(1))),
+});
+
+let extendDnsSchema = f.object({
+  durationMinutes: f.field(s.string().pipe(minLength(1))),
 });
 
 function getCurrentAdminIdentity(context: Pick<AppContext, "get">) {
@@ -203,6 +214,8 @@ export const adminClients = {
             ...describeClientVersion(client.last_seen_version, pin),
           }}
           connected={connectionRegistry.isClientConnected(client.id)}
+          overlayCapable={clientSupportsDnsOverlay(client.last_seen_version)}
+          overlayMinVersion={DNS_OVERLAY_MIN_CLIENT_VERSION}
           pinnedVersion={pin?.version ?? null}
           dnsProfiles={dnsProfiles}
           latestDnsState={latestDnsState}
@@ -274,20 +287,48 @@ export const adminClients = {
         );
       }
 
+      let durationMinutes = parseDnsOverlayMinutes(
+        String(get(FormData).get("durationMinutes") ?? ""),
+      );
+      if (durationMinutes === undefined) {
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: "Choose 5, 15, 30, or 60 minutes, or leave the time limit off.",
+            type: "error",
+          }),
+        );
+      }
+
+      if (durationMinutes) {
+        let client = await getClient(params.clientId);
+        if (!clientSupportsDnsOverlay(client?.last_seen_version)) {
+          return redirect(
+            withNotice(request, detailUrl, {
+              text: `Time limits need client v${DNS_OVERLAY_MIN_CLIENT_VERSION} or newer.`,
+              type: "error",
+            }),
+          );
+        }
+      }
+
       try {
         let result = await issueDnsDirective({
           clientId: params.clientId,
+          durationMinutes,
           kind: "profile",
           primaryIp: profile.primary_ip,
           profileName: profile.name,
           secondaryIp: profile.secondary_ip,
         });
 
+        let limitLabel = durationMinutes ? ` for ${durationMinutes} minutes` : "";
         return redirect(
           withNotice(request, detailUrl, {
             text: result.delivered
-              ? `DNS profile ${profile.name} sent to client.`
-              : `DNS profile ${profile.name} queued for the next client connection.`,
+              ? `DNS profile ${profile.name} sent to client${limitLabel}.`
+              : durationMinutes
+                ? `DNS profile ${profile.name} queued for ${durationMinutes} minutes. The time started now, even while this PC is offline.`
+                : `DNS profile ${profile.name} queued for the next client connection.`,
             type: "success",
           }),
         );
@@ -328,6 +369,60 @@ export const adminClients = {
         if (error instanceof DnsDirectiveTargetNotFoundError) {
           return redirect(
             withNotice(request, routes.admin.clients.index.href(), {
+              text: error.message,
+              type: "error",
+            }),
+          );
+        }
+
+        throw error;
+      }
+    },
+
+    async extendDns({ get, params, request }) {
+      let parsed = s.parseSafe(extendDnsSchema, get(FormData));
+      let detailUrl = routes.admin.clients.detail.href({
+        clientId: params.clientId,
+      });
+
+      let durationMinutes = parsed.success
+        ? parseDnsOverlayMinutes(parsed.value.durationMinutes)
+        : undefined;
+
+      if (!durationMinutes) {
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: "Choose 5, 15, 30, or 60 minutes to add.",
+            type: "error",
+          }),
+        );
+      }
+
+      try {
+        await extendDnsOverlay({
+          clientId: params.clientId,
+          durationMinutes,
+        });
+
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: `Added ${durationMinutes} minutes to the DNS overlay.`,
+            type: "success",
+          }),
+        );
+      } catch (error) {
+        if (error instanceof DnsDirectiveTargetNotFoundError) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: error.message,
+              type: "error",
+            }),
+          );
+        }
+
+        if (error instanceof DnsOverlayNotActiveError) {
+          return redirect(
+            withNotice(request, detailUrl, {
               text: error.message,
               type: "error",
             }),

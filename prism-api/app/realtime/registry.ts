@@ -10,12 +10,22 @@ export interface TakeScreenshotPayload {
   type: "take-screenshot";
 }
 
-export interface ApplyDnsPayload {
-  commandId: string;
+export interface ApplyDnsStandingPayload {
   primaryIp: string | null;
   profileName: string | null;
   resetToDhcp: boolean;
   secondaryIp: string | null;
+}
+
+export interface ApplyDnsPayload {
+  commandId: string;
+  expiresAt?: string | null;
+  primaryIp: string | null;
+  profileName: string | null;
+  resetToDhcp: boolean;
+  restoreCommandId?: string | null;
+  secondaryIp: string | null;
+  standing?: ApplyDnsStandingPayload | null;
   type: "apply-dns";
 }
 

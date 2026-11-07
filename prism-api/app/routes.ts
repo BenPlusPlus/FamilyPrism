@@ -17,6 +17,7 @@ export const routes = route({
       detail: get(":clientId"),
       screenshot: get(":clientId/screenshot"),
       applyDns: post(":clientId/dns"),
+      extendDns: post(":clientId/dns/extend"),
       resetDns: post(":clientId/dns/reset"),
       delete: post(":clientId/delete"),
     }),

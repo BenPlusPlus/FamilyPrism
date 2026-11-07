@@ -362,6 +362,7 @@ Embossed black strip (2px radius, 5px 8px 4px padding, ellipsis on overflow). **
   - Applied: green.
   - Failed: red.
   - Each stamp has a plain-language caption, for example "Queued until the PC connects".
+- **DNS overlay remaining:** Body-small tabular numerals counting down on the client page. Extend actions are secondary buttons for 5 / 15 / 30 / 60 minutes. At zero, remaining and extend hide; standing DNS shows on the next load.
 
 ### Notices
 A full-width bar with a 20px icon, 1px border and 6px radius. **Success** is a mint wash with deep green text (role=status). **Error** is a danger wash with deep red text (role=alert), and can carry a bulleted error list.

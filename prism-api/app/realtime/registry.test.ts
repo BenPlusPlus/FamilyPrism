@@ -61,6 +61,47 @@ test("registry sends take-screenshot commands to connected clients", () => {
   assert.deepEqual(sent, ['{"type":"take-screenshot"}']);
 });
 
+test("registry sends apply-dns overlay commands with a deadline and standing DNS", () => {
+  let registry = new ClientConnectionRegistry();
+  let { sent, socket } = createSocket();
+
+  registry.register("client-1", socket);
+  let delivered = registry.sendApplyDnsCommand("client-1", {
+    commandId: "dns-2",
+    expiresAt: "2026-03-01T12:15:00.000Z",
+    primaryIp: "8.8.8.8",
+    profileName: "Open",
+    resetToDhcp: false,
+    restoreCommandId: "restore-2",
+    secondaryIp: "8.8.4.4",
+    standing: {
+      primaryIp: "1.1.1.1",
+      profileName: "School",
+      resetToDhcp: false,
+      secondaryIp: "1.0.0.1",
+    },
+    type: "apply-dns",
+  });
+
+  assert.equal(delivered, true);
+  assert.deepEqual(JSON.parse(sent[0]), {
+    commandId: "dns-2",
+    expiresAt: "2026-03-01T12:15:00.000Z",
+    primaryIp: "8.8.8.8",
+    profileName: "Open",
+    resetToDhcp: false,
+    restoreCommandId: "restore-2",
+    secondaryIp: "8.8.4.4",
+    standing: {
+      primaryIp: "1.1.1.1",
+      profileName: "School",
+      resetToDhcp: false,
+      secondaryIp: "1.0.0.1",
+    },
+    type: "apply-dns",
+  });
+});
+
 test("registry sends apply-dns commands to connected clients", () => {
   let registry = new ClientConnectionRegistry();
   let { sent, socket } = createSocket();
