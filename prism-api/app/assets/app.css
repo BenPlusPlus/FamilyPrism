@@ -1125,28 +1125,352 @@ table.grid .go {
   text-align: right;
 }
 
-.visit-url {
-  display: inline-block;
-  max-width: 28rem;
-  overflow-wrap: anywhere;
-  font-family: var(--font-data);
-  font-size: 0.92em;
-  user-select: all;
-}
-
 table.grid td form {
   margin: 0;
 }
 
+/* ---------- Filters ---------- */
+
 .filters {
-  display: grid;
-  gap: 14px;
+  container-type: inline-size;
   padding: 16px 20px;
   border-bottom: 1px solid var(--line-soft);
 }
 
-.filters .form-foot {
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.filters-grid .field + .field {
   margin-top: 0;
+}
+
+.filters-search {
+  grid-column: 1 / -1;
+}
+
+.filters-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filters-actions .btn {
+  min-height: 42px;
+}
+
+@container (min-width: 600px) {
+  .filters-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filters-search {
+    grid-column: span 2;
+  }
+}
+
+@container (min-width: 1040px) {
+  .filters-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.6fr) auto;
+  }
+
+  .filters-search {
+    grid-column: auto;
+  }
+
+  .filters-actions {
+    flex-wrap: nowrap;
+  }
+}
+
+.search-input {
+  position: relative;
+  display: block;
+}
+
+.search-input svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  color: var(--ink-3);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.search-input input {
+  padding-left: 38px;
+}
+
+/* ---------- Visit log ---------- */
+
+.visit-log {
+  container-type: inline-size;
+}
+
+.visit-day-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 20px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  background: #f6f7f5;
+  font-size: var(--t-14);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.visit-day + .visit-day .visit-day-head {
+  border-top: 1px solid var(--line-soft);
+}
+
+.visit-day-date {
+  color: var(--ink-2);
+  font-size: var(--t-13);
+  font-weight: 400;
+}
+
+/* Facts every listed Visit shares, said once above the days. */
+.visit-common {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-2);
+  font-size: var(--t-13);
+}
+
+/* The filter bar already draws the rule above. */
+.filters + .visit-log .visit-common {
+  border-top: 0;
+}
+
+.visit-common + .visit-day .visit-day-head {
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Narrow rows: title and URL with the time top right, details underneath. */
+.visit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main time"
+    "meta meta";
+  gap: 6px 12px;
+  align-items: start;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  transition: background-color 120ms var(--ease-out);
+}
+
+.visit.bare {
+  grid-template-areas: "main time";
+}
+
+.can-delete .visit {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "main time del"
+    "meta meta del";
+  padding-right: 10px;
+}
+
+.can-delete .visit.bare {
+  grid-template-areas: "main time del";
+}
+
+.visit-day:last-child .visit:last-child {
+  border-bottom: 0;
+}
+
+.visit:hover {
+  background: #f6f7f5;
+}
+
+.visit-time {
+  grid-area: time;
+  padding-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--t-13);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.visit-main {
+  grid-area: main;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.visit-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--t-15);
+  font-weight: 600;
+}
+
+.visit-title-text,
+.visit-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visit-title .muted {
+  font-weight: 400;
+}
+
+.visit-count {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  color: var(--ink-2);
+  font-size: var(--t-12);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.visit-url {
+  color: var(--ink-3);
+  font-family: var(--font-data);
+  font-size: var(--t-13);
+  user-select: all;
+}
+
+.visit-meta {
+  grid-area: meta;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: var(--t-13);
+}
+
+.visit-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.visit-fact svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--ink-3);
+}
+
+.visit-meta .chip .tape {
+  font-size: var(--t-12);
+  padding: 3px 6px 2px;
+}
+
+.visit-meta .chip-dot {
+  width: 12px;
+  height: 12px;
+}
+
+.visit-delete {
+  grid-area: del;
+  align-self: center;
+  margin: 0;
+}
+
+/* Wide rows: time, page, details, delete side by side. */
+@container (min-width: 760px) {
+  .visit {
+    grid-template-columns: 4.75rem minmax(0, 1fr) minmax(0, 17rem);
+    grid-template-areas: "time main meta";
+    gap: 4px 20px;
+  }
+
+  .visit.bare {
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    grid-template-areas: "time main";
+  }
+
+  .can-delete .visit {
+    grid-template-columns: 4.75rem minmax(0, 1fr) minmax(0, 17rem) auto;
+    grid-template-areas: "time main meta del";
+  }
+
+  .can-delete .visit.bare {
+    grid-template-columns: 4.75rem minmax(0, 1fr) auto;
+    grid-template-areas: "time main del";
+  }
+
+  .visit.chip-only {
+    grid-template-columns: 4.75rem minmax(0, 1fr) minmax(0, 11rem);
+  }
+
+  .can-delete .visit.chip-only {
+    grid-template-columns: 4.75rem minmax(0, 1fr) minmax(0, 11rem) auto;
+  }
+
+  .visit-meta {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    justify-content: start;
+    justify-items: start;
+    align-self: center;
+    gap: 5px 14px;
+  }
+
+  .visit-meta > .chip {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Square, quiet icon button; reads as an action only on hover or focus. */
+.icon-btn {
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-m);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition:
+    background-color 140ms var(--ease-out),
+    border-color 140ms var(--ease-out),
+    color 140ms var(--ease-out);
+}
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-btn:hover {
+  background: var(--paper);
+  border-color: #aab2ae;
+  color: var(--ink);
+}
+
+.icon-btn.danger:hover {
+  background: var(--danger-soft);
+  border-color: #eab3ae;
+  color: var(--danger);
+}
+
+.icon-btn:active svg {
+  transform: translateY(1px);
 }
 
 .pager {
@@ -1600,6 +1924,21 @@ table.grid td form {
 
   .filters {
     padding: 14px 16px;
+  }
+
+  .visit,
+  .can-delete .visit {
+    padding-left: 16px;
+  }
+
+  .visit-day-head,
+  .visit-common {
+    padding-inline: 16px;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
   }
 
   .page-head h1 {

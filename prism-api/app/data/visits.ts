@@ -36,6 +36,7 @@ export type VisitIngestInput = {
 export type HistoryVisit = {
   browser: VisitBrowser
   browserProfile: string
+  clientId: string
   clientName: string
   id: string
   title: string
@@ -362,6 +363,7 @@ export async function listHistoryPage(
     visits: rows.map((row) => ({
       browser: row.browser as VisitBrowser,
       browserProfile: row.browser_profile,
+      clientId: row.client_id,
       clientName: namesById.get(row.client_id) ?? row.client_id,
       id: row.id,
       title: row.title,

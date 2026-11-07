@@ -3,8 +3,10 @@ import type { Handle } from "remix/component";
 import type { HistoryList, VisitBrowser } from "../../data/visits.ts";
 import { VISIT_BROWSERS } from "../../data/visits.ts";
 import { routes } from "../../routes.ts";
+import { Icon } from "../../ui/icons.tsx";
 import { AdminShell } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
+import { VisitLog } from "../../ui/visit-log.tsx";
 import type { Notice } from "../../utils/notice.ts";
 
 function historyHref(
@@ -31,13 +33,6 @@ function historyHref(
   let href = routes.admin.history.index.href();
   let search = params.toString();
   return search ? `${href}?${search}` : href;
-}
-
-function formatVisitTime(value: string) {
-  return new Date(value).toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
 }
 
 export function HistoryPage(
@@ -85,7 +80,7 @@ export function HistoryPage(
 
         <section class="panel">
           <form class="filters" method="get" action={routes.admin.history.index.href()}>
-            <div class="form-row">
+            <div class="filters-grid">
               <label class="field">
                 <span>Client</span>
                 <select name="client">
@@ -125,81 +120,59 @@ export function HistoryPage(
                   ))}
                 </select>
               </label>
-            </div>
-            <label class="field">
-              <span>Search</span>
-              <input
-                type="search"
-                name="q"
-                value={query.q}
-                placeholder="URL or title"
-              />
-            </label>
-            <div class="form-foot">
-              <button class="btn" type="submit">
-                Show matches
-              </button>
+              <label class="field filters-search">
+                <span>Search</span>
+                <span class="search-input">
+                  <Icon name="search" />
+                  <input
+                    type="search"
+                    name="q"
+                    value={query.q}
+                    placeholder="URL or title"
+                  />
+                </span>
+              </label>
+              <div class="filters-actions">
+                <button class="btn" type="submit">
+                  Show matches
+                </button>
+                {filtered ? (
+                  <a class="btn secondary" href={routes.admin.history.index.href()}>
+                    <Icon name="close" />
+                    Clear
+                  </a>
+                ) : null}
+              </div>
             </div>
           </form>
 
           {visits.length === 0 ? (
-            <p class="empty">
+            <div class="empty">
               <strong>{filtered ? "No Visits match." : "No Visits yet."}</strong>
-            </p>
+              <p>
+                {filtered
+                  ? "Try another Client, Windows user, browser or search."
+                  : "Visits show up here once a Client with History collection on uploads them."}
+              </p>
+            </div>
           ) : (
             <>
-              <div class="table-wrap">
-                <table class="grid stackable">
-                  <thead>
-                    <tr>
-                      <th scope="col">Time</th>
-                      <th scope="col">Client</th>
-                      <th scope="col">Windows user</th>
-                      <th scope="col">Browser</th>
-                      <th scope="col">Title</th>
-                      <th scope="col">URL</th>
-                      <th scope="col">
-                        <span class="visually-hidden">Delete</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visits.map((visit) => (
-                      <tr>
-                        <td data-label="Time">{formatVisitTime(visit.visitedAt)}</td>
-                        <td data-label="Client">{visit.clientName}</td>
-                        <td data-label="Windows user">{visit.windowsUser}</td>
-                        <td data-label="Browser">
-                          {visit.browser} · {visit.browserProfile}
-                        </td>
-                        <td data-label="Title">{visit.title || <span class="muted">Untitled</span>}</td>
-                        <td data-label="URL">
-                          <span class="visit-url">{visit.url}</span>
-                        </td>
-                        <td data-label="Delete">
-                          <form
-                            method="post"
-                            action={routes.admin.history.delete.href({ visitId: visit.id })}
-                          >
-                            <input type="hidden" name="returnTo" value={historyHref(query, page)} />
-                            <button class="btn-link danger" type="submit">
-                              Delete
-                            </button>
-                          </form>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <VisitLog
+                visits={visits}
+                showClient={!query.client}
+                deleteHref={(visit) => routes.admin.history.delete.href({ visitId: visit.id })}
+                returnTo={historyHref(query, page)}
+              />
               {total > visits.length || page > 1 ? (
                 <nav class="pager" aria-label="History pages">
                   {page > 1 ? (
                     <a class="btn secondary" href={historyHref(query, page - 1)}>
+                      <Icon name="back" />
                       Previous
                     </a>
                   ) : (
                     <span class="btn secondary" aria-disabled="true">
+                      <Icon name="back" />
                       Previous
                     </span>
                   )}
@@ -209,10 +182,12 @@ export function HistoryPage(
                   {page < pageCount ? (
                     <a class="btn secondary" href={historyHref(query, page + 1)}>
                       Next
+                      <Icon name="chevron" />
                     </a>
                   ) : (
                     <span class="btn secondary" aria-disabled="true">
                       Next
+                      <Icon name="chevron" />
                     </span>
                   )}
                 </nav>

@@ -164,6 +164,35 @@ test('authenticated Client can upload Visits listed on History', async () => {
   assert.ok(text.indexOf('Newer page') < text.indexOf('Older page'))
 })
 
+test('History groups Visits under day headings and tags each with its Client', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let client = await registerClient('Kitchen PC')
+  let earlier = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+
+  assert.equal(
+    (
+      await postVisits(client, [
+        visitPayload({ title: 'Earlier page', visitTime: earlier.toISOString() }),
+        visitPayload({ title: 'Current page', visitTime: new Date(Date.now() - 1_000).toISOString() }),
+      ])
+    ).status,
+    204,
+  )
+
+  let { text } = await readHistory(cookie)
+  let today = text.indexOf('<span>Today</span>')
+  let earlierDay = text.indexOf(`<span>${earlier.toLocaleDateString('en-US', { weekday: 'long' })}</span>`)
+  assert.ok(today > -1, 'expected a Today heading')
+  assert.ok(earlierDay > today, 'expected the earlier day heading after Today')
+  assert.ok(text.indexOf('Current page') > today && text.indexOf('Current page') < earlierDay)
+  assert.ok(text.indexOf('Earlier page') > earlierDay)
+  let chipLink = new RegExp(
+    `<a(?=[^>]*class="chip c\\d")(?=[^>]*href="${routes.admin.clients.detail.href({ clientId: client.clientId })}")`,
+  )
+  assert.match(text, chipLink)
+})
+
 test('History is an empty list when the household has no Visits', async () => {
   await installTestPersistence()
   let cookie = await createFirstAdmin()
@@ -299,6 +328,64 @@ test('History pagination keeps filters in the next page URL', async () => {
   assert.match(second.text, /Kitchen 0/)
   assert.doesNotMatch(second.text, /Kitchen 50/)
   assert.match(second.text, /Page 2 of 2/)
+})
+
+test('Client detail folds back-to-back repeats and states shared facts once', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let client = await registerClient('Kitchen PC')
+  let at = (secondsAgo: number) => new Date(Date.now() - secondsAgo * 1000).toISOString()
+  let repeat = { title: 'Repeat page', url: 'https://repeat.example/' }
+
+  assert.equal(
+    (
+      await postVisits(client, [
+        visitPayload({ ...repeat, visitTime: at(10) }),
+        visitPayload({ ...repeat, visitTime: at(20) }),
+        visitPayload({ ...repeat, visitTime: at(30) }),
+        visitPayload({ title: 'Other page', url: 'https://other.example/', visitTime: at(40) }),
+        visitPayload({ ...repeat, visitTime: at(50) }),
+      ])
+    ).status,
+    204,
+  )
+
+  let detail = await readClientDetail(cookie, client.clientId)
+  // The three newest repeats fold into one row; the one after "Other page" stays separate.
+  assert.equal(detail.text.match(/>Repeat page</g)?.length, 2)
+  assert.match(detail.text, />3 visits</)
+  assert.match(detail.text, /All 5 Visits:/)
+  assert.equal(detail.text.match(/HOUSE\\kid/g)?.length, 1)
+
+  // History keeps every Visit as its own deletable row.
+  let history = await readHistory(cookie)
+  assert.equal(history.text.match(/>Repeat page</g)?.length, 4)
+  assert.doesNotMatch(history.text, /visits</)
+})
+
+test('Visit rows keep the Windows user when Visits differ', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let client = await registerClient('Kitchen PC')
+
+  assert.equal(
+    (
+      await postVisits(client, [
+        visitPayload({ title: 'Kid page', windowsUser: 'HOUSE\\kid' }),
+        visitPayload({ title: 'Parent page', windowsUser: 'HOUSE\\parent', url: 'https://parent.example/' }),
+      ])
+    ).status,
+    204,
+  )
+
+  let { text } = await readClientDetail(cookie, client.clientId)
+  let summary = text.match(/<p class="visit-common">([\s\S]*?)<\/p>/)?.[1] ?? ''
+  assert.match(summary, /Both Visits:/)
+  assert.match(summary, /Chrome · Default/)
+  assert.doesNotMatch(summary, /HOUSE\\/)
+  let rows = text.slice(text.indexOf('<ol class="visits">'))
+  assert.match(rows, /HOUSE\\kid/)
+  assert.match(rows, /HOUSE\\parent/)
 })
 
 test('Client detail shows the latest 20 Visits and links to filtered History', async () => {

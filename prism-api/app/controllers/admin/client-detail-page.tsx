@@ -16,6 +16,7 @@ import { Icon } from "../../ui/icons.tsx";
 import { KeyTag } from "../../ui/key-tag.tsx";
 import { AdminShell } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
+import { VisitLog } from "../../ui/visit-log.tsx";
 import type { Notice } from "../../utils/notice.ts";
 
 const DNS_STATUS_LABEL: Record<DnsDirectiveStatus, string> = {
@@ -217,36 +218,7 @@ export function ClientDetailPage(
                   <strong>No Visits yet.</strong>
                 </p>
               ) : (
-                <div class="table-wrap">
-                  <table class="grid stackable">
-                    <thead>
-                      <tr>
-                        <th scope="col">Time</th>
-                        <th scope="col">Windows user</th>
-                        <th scope="col">Browser</th>
-                        <th scope="col">Title</th>
-                        <th scope="col">URL</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visits.map((visit) => (
-                        <tr>
-                          <td data-label="Time">{formatTime(visit.visitedAt)}</td>
-                          <td data-label="Windows user">{visit.windowsUser}</td>
-                          <td data-label="Browser">
-                            {visit.browser} · {visit.browserProfile}
-                          </td>
-                          <td data-label="Title">
-                            {visit.title || <span class="muted">Untitled</span>}
-                          </td>
-                          <td data-label="URL">
-                            <span class="visit-url">{visit.url}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <VisitLog visits={visits} dayHeading="h3" foldRepeats />
               )}
             </section>
 
