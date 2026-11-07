@@ -348,6 +348,13 @@ img {
   letter-spacing: -0.01em;
 }
 
+.panel-head-lead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
 .panel-head .count {
   color: var(--ink-3);
   font-size: var(--t-14);

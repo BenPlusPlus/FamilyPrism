@@ -173,8 +173,10 @@ export function ClientDetailPage(
 
             <section class="panel" aria-labelledby="visits-title">
               <div class="panel-head">
-                <h2 id="visits-title">Visits</h2>
-                {collecting ? null : <span class="stamp off">Off</span>}
+                <div class="panel-head-lead">
+                  <h2 id="visits-title">Visits</h2>
+                  {collecting ? null : <span class="stamp off">Off</span>}
+                </div>
                 <a
                   class="row-link"
                   href={`${routes.admin.history.index.href()}?client=${encodeURIComponent(client.id)}`}
@@ -193,14 +195,7 @@ export function ClientDetailPage(
                 <div class="form-foot">
                   <span>
                     History collection
-                    {collecting ? (
-                      <span class="hint"> On</span>
-                    ) : (
-                      <>
-                        {" "}
-                        <span class="stamp off">Off</span>
-                      </>
-                    )}
+                    {collecting ? <span class="hint"> On</span> : null}
                   </span>
                   <button
                     class="btn secondary"
