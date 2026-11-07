@@ -6,6 +6,7 @@ import {
 import { run } from 'remix/component'
 
 import { formatDnsRemaining } from './dns-remaining.ts'
+import { startLiveScreenshots } from './live-screenshot.ts'
 
 function tickDnsOverlays() {
   for (let root of document.querySelectorAll<HTMLElement>('[data-dns-overlay]')) {
@@ -39,6 +40,7 @@ function tickDnsOverlays() {
 
 tickDnsOverlays()
 setInterval(tickDnsOverlays, 1000)
+startLiveScreenshots()
 
 let app = run({
   async loadModule(moduleUrl, exportName) {

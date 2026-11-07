@@ -260,6 +260,23 @@ export const adminClients = {
       });
     },
 
+    async screenshotMeta({ params }) {
+      let client = await getClient(params.clientId);
+      if (!client) {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      let body = JSON.stringify({
+        lastScreenshotAt: client.last_screenshot_at,
+      });
+      return new Response(body, {
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json",
+        },
+      });
+    },
+
     async historyCollection({ get, params, request }) {
       let parsed = s.parseSafe(historyCollectionSchema, get(FormData));
       let detailUrl = routes.admin.clients.detail.href({
@@ -562,12 +579,16 @@ export const adminScreenshots = {
         );
       }
 
-      return redirect(
+      let requestedUrl = new URL(
         withNotice(request, redirectedDetailUrl, {
           text: "Screenshot requested. It will appear after the client uploads it.",
           type: "success",
         }),
+        request.url,
       );
+      requestedUrl.searchParams.set("awaitScreenshot", "1");
+
+      return redirect(`${requestedUrl.pathname}${requestedUrl.search}`);
     },
   },
 } satisfies Controller<typeof routes.admin.screenshots, AppContext>;

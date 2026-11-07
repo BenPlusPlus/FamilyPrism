@@ -62,6 +62,12 @@ export function ClientDetailPage(
     } = handle.props;
     let detailHref = routes.admin.clients.detail.href({ clientId: client.id });
     let screenshotUrl = routes.admin.clients.screenshot.href({ clientId: client.id });
+    let screenshotSrc = client.last_screenshot_at
+      ? `${screenshotUrl}?t=${encodeURIComponent(client.last_screenshot_at)}`
+      : screenshotUrl;
+    let screenshotEmptyCopy = connected
+      ? "No screenshot yet. Use Take screenshot to grab the current screen."
+      : "No screenshot yet. One can be taken once this PC is connected.";
     let collecting = historyCollectionEnabled(client.history_collection);
     let dns = presentClientDnsState(latestDnsState);
 
@@ -88,6 +94,8 @@ export function ClientDetailPage(
             <form
               method="post"
               action={routes.admin.screenshots.client.href({ clientId: client.id })}
+              data-live-screenshot-form
+              data-client-id={client.id}
             >
               <button class="btn" type="submit" disabled={!connected}>
                 <Icon name="camera" />
@@ -105,70 +113,103 @@ export function ClientDetailPage(
               <div class="panel-head">
                 <h2 id="screen-title">Latest screenshot</h2>
               </div>
-              <div class="panel-body">
-                {client.last_screenshot_at ? (
-                  <>
-                    <figure class="screen">
-                      <button
-                        type="button"
-                        class="screen-zoom"
-                        popovertarget="screenshot"
-                        aria-label="Enlarge screenshot"
-                      >
-                        <img src={screenshotUrl} alt={`Latest screenshot from ${client.name}`} />
-                      </button>
-                      <figcaption>
-                        Captured {formatTime(client.last_screenshot_at)}
-                        <button type="button" class="btn-link" popovertarget="screenshot">
-                          Enlarge
-                        </button>
-                      </figcaption>
-                    </figure>
-                    <div
-                      class="lightbox"
-                      id="screenshot"
-                      popover="auto"
-                      role="dialog"
-                      aria-label={`Screenshot from ${client.name}`}
+              <div
+                class={client.last_screenshot_at ? "panel-body has-screenshot" : "panel-body"}
+                data-live-screenshot
+                data-client-id={client.id}
+                data-client-name={client.name}
+                data-screenshot-at={client.last_screenshot_at ?? ""}
+                data-screenshot-meta={routes.admin.clients.screenshotMeta.href({
+                  clientId: client.id,
+                })}
+                data-screenshot-src={screenshotUrl}
+                data-empty-copy={screenshotEmptyCopy}
+              >
+                <div class="screen-empty" data-screenshot-empty>
+                  {screenshotEmptyCopy}
+                </div>
+                <figure class="screen">
+                  <button
+                    type="button"
+                    class="screen-zoom"
+                    popovertarget="screenshot"
+                    aria-label="Enlarge screenshot"
+                  >
+                    <img
+                      data-screenshot-image
+                      src={client.last_screenshot_at ? screenshotSrc : undefined}
+                      alt={`Latest screenshot from ${client.name}`}
+                    />
+                  </button>
+                  <figcaption>
+                    Captured{" "}
+                    <time
+                      data-screenshot-time
+                      datetime={client.last_screenshot_at ?? ""}
                     >
-                      <button
-                        type="button"
-                        class="lightbox-scrim"
-                        popovertarget="screenshot"
-                        popovertargetaction="hide"
-                        aria-label="Close"
-                        tabindex={-1}
-                      ></button>
-                      <figure class="lightbox-frame">
-                        <img src={screenshotUrl} alt={`Latest screenshot from ${client.name}`} />
-                        <figcaption>
-                          <span>
-                            {client.name} · {formatTime(client.last_screenshot_at)}
-                          </span>
-                          <span class="lightbox-actions">
-                            <a href={screenshotUrl} target="_blank" rel="noopener">
-                              Open original
-                            </a>
-                            <button
-                              type="button"
-                              class="btn secondary"
-                              popovertarget="screenshot"
-                              popovertargetaction="hide"
-                            >
-                              Close
-                            </button>
-                          </span>
-                        </figcaption>
-                      </figure>
-                    </div>
-                  </>
-                ) : (
-                  <div class="screen-empty">
-                    {connected
-                      ? "No screenshot yet. Use Take screenshot to grab the current screen."
-                      : "No screenshot yet. One can be taken once this PC is connected."}
-                  </div>
-                )}
+                      {client.last_screenshot_at
+                        ? formatTime(client.last_screenshot_at)
+                        : ""}
+                    </time>
+                    <button type="button" class="btn-link" popovertarget="screenshot">
+                      Enlarge
+                    </button>
+                  </figcaption>
+                </figure>
+                <div
+                  class="lightbox"
+                  id="screenshot"
+                  popover="auto"
+                  role="dialog"
+                  aria-label={`Screenshot from ${client.name}`}
+                >
+                  <button
+                    type="button"
+                    class="lightbox-scrim"
+                    popovertarget="screenshot"
+                    popovertargetaction="hide"
+                    aria-label="Close"
+                    tabindex={-1}
+                  ></button>
+                  <figure class="lightbox-frame">
+                    <img
+                      data-screenshot-image
+                      src={client.last_screenshot_at ? screenshotSrc : undefined}
+                      alt={`Latest screenshot from ${client.name}`}
+                    />
+                    <figcaption>
+                      <span>
+                        {client.name} ·{" "}
+                        <time
+                          data-screenshot-time
+                          datetime={client.last_screenshot_at ?? ""}
+                        >
+                          {client.last_screenshot_at
+                            ? formatTime(client.last_screenshot_at)
+                            : ""}
+                        </time>
+                      </span>
+                      <span class="lightbox-actions">
+                        <a
+                          data-screenshot-original
+                          href={client.last_screenshot_at ? screenshotSrc : screenshotUrl}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          Open original
+                        </a>
+                        <button
+                          type="button"
+                          class="btn secondary"
+                          popovertarget="screenshot"
+                          popovertargetaction="hide"
+                        >
+                          Close
+                        </button>
+                      </span>
+                    </figcaption>
+                  </figure>
+                </div>
               </div>
             </section>
 
