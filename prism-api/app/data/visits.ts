@@ -1,13 +1,23 @@
 import { createHash } from 'node:crypto'
 
 import { sql, type Database } from 'remix/data-table'
+import { lt } from 'remix/data-table/operators'
 
 import { db } from './database.ts'
-import { clients, visits } from './schema.ts'
+import { clients, householdSettings, visits } from './schema.ts'
 import { generateId } from '../utils/secrets.ts'
 
-const VISIT_RETENTION_DAYS = 30
+const HOUSEHOLD_SETTINGS_ID = 'household'
+
+export const MIN_VISIT_RETENTION_DAYS = 1
+export const MAX_VISIT_RETENTION_DAYS = 365
 export const HISTORY_PAGE_SIZE = 50
+
+export class InvalidVisitRetentionError extends Error {
+  constructor() {
+    super('Visit retention must be a whole number from 1 to 365 days.')
+  }
+}
 
 export const VISIT_BROWSERS = ['Chrome', 'Edge', 'Firefox'] as const
 export type VisitBrowser = (typeof VISIT_BROWSERS)[number]
@@ -44,13 +54,71 @@ function parseVisitTime(value: string) {
   return Number.isNaN(visitedAt.getTime()) ? null : visitedAt
 }
 
-function isRetainedVisit(visitedAt: Date, now: Date) {
+function parseVisitRetentionDays(value: unknown) {
+  let raw =
+    typeof value === 'string'
+      ? value.trim()
+      : typeof value === 'number' && Number.isInteger(value)
+        ? String(value)
+        : ''
+  if (!/^[0-9]+$/.test(raw)) {
+    throw new InvalidVisitRetentionError()
+  }
+
+  let days = Number.parseInt(raw, 10)
+  if (days < MIN_VISIT_RETENTION_DAYS || days > MAX_VISIT_RETENTION_DAYS) {
+    throw new InvalidVisitRetentionError()
+  }
+
+  return days
+}
+
+function visitRetentionCutoff(now: Date, retentionDays: number) {
+  return new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000)
+}
+
+function isRetainedVisit(visitedAt: Date, now: Date, retentionDays: number) {
   if (visitedAt.getTime() > now.getTime()) {
     return false
   }
 
-  let oldest = now.getTime() - VISIT_RETENTION_DAYS * 24 * 60 * 60 * 1000
-  return visitedAt.getTime() >= oldest
+  return visitedAt.getTime() >= visitRetentionCutoff(now, retentionDays).getTime()
+}
+
+export async function getVisitRetentionDays(database: Database = db) {
+  let row = await database.find(householdSettings, HOUSEHOLD_SETTINGS_ID)
+  if (!row) {
+    throw new Error('Household settings are missing.')
+  }
+
+  return row.visit_retention_days
+}
+
+async function purgeExpiredVisits(
+  now: Date,
+  retentionDays: number,
+  database: Database,
+) {
+  await database.deleteMany(visits, {
+    where: lt('visited_at', visitRetentionCutoff(now, retentionDays).toISOString()),
+  })
+}
+
+export async function setVisitRetentionDays(
+  value: unknown,
+  now: Date = new Date(),
+  database: Database = db,
+) {
+  let visitRetentionDays = parseVisitRetentionDays(value)
+
+  await database.transaction(async (transaction) => {
+    await transaction.update(householdSettings, HOUSEHOLD_SETTINGS_ID, {
+      visit_retention_days: visitRetentionDays,
+    })
+    await purgeExpiredVisits(now, visitRetentionDays, transaction)
+  })
+
+  return visitRetentionDays
 }
 
 function hashUrl(url: string) {
@@ -93,9 +161,11 @@ export async function ingestVisits(
     }
   >()
 
+  let retentionDays = await getVisitRetentionDays(database)
+
   for (let visit of batch) {
     let visitedAt = parseVisitTime(visit.visitTime)
-    if (!visitedAt || !isRetainedVisit(visitedAt, now)) {
+    if (!visitedAt || !isRetainedVisit(visitedAt, now, retentionDays)) {
       continue
     }
 
@@ -119,6 +189,8 @@ export async function ingestVisits(
       row,
     )
   }
+
+  await purgeExpiredVisits(now, retentionDays, database)
 
   if (uniqueByKey.size === 0) {
     return { stored: 0 }
@@ -154,8 +226,11 @@ export async function ingestVisits(
 
 export async function listHistoryPage(
   requestedPage: number,
+  now: Date = new Date(),
   database: Database = db,
 ): Promise<HistoryList> {
+  await purgeExpiredVisits(now, await getVisitRetentionDays(database), database)
+
   let total = await database.count(visits)
   let pageCount = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE))
   let page = Number.isInteger(requestedPage)

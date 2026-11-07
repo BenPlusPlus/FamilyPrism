@@ -39,6 +39,7 @@ export const routes = route({
     }),
     settings: route("settings", {
       index: get("/"),
+      visitRetention: post("visit-retention"),
       dnsProfiles: route("dns-profiles", {
         index: get("/"),
         create: post("/"),

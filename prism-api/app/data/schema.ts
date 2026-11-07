@@ -169,6 +169,18 @@ export const messageDeliveries = table({
   },
 })
 
+export const householdSettings = table({
+  name: 'household_settings',
+  columns: {
+    id: c.varchar(255).notNull().primaryKey(),
+    visit_retention_days: c.integer().notNull(),
+  },
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})
+
 export const visits = table({
   name: 'visits',
   columns: {

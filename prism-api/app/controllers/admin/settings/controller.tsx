@@ -15,6 +15,13 @@ import {
   listDnsProfiles,
   updateDnsProfile,
 } from "../../../data/dns-profiles.ts";
+import {
+  getVisitRetentionDays,
+  InvalidVisitRetentionError,
+  MAX_VISIT_RETENTION_DAYS,
+  MIN_VISIT_RETENTION_DAYS,
+  setVisitRetentionDays,
+} from "../../../data/visits.ts";
 import { requireAdmin } from "../../../middleware/admin.ts";
 import type { AppContext } from "../../../router.ts";
 import { routes } from "../../../routes.ts";
@@ -42,6 +49,10 @@ let adminSettingsMiddleware = [
 function adminName(get: AppContext["get"]) {
   let auth = get(Auth);
   return auth.ok ? (auth.identity as AdminIdentity).user.name : "";
+}
+
+function settingsIndexHref() {
+  return routes.admin.settings.index.href();
 }
 
 function dnsProfilesIndexHref() {
@@ -78,8 +89,33 @@ export const adminSettings = {
         <SettingsIndexPage
           adminName={adminName(get)}
           notice={getNotice(new URL(request.url))}
+          visitRetentionDays={await getVisitRetentionDays()}
         />,
         request,
+      );
+    },
+
+    async visitRetention({ get, request }) {
+      try {
+        await setVisitRetentionDays(get(FormData).get("visitRetentionDays"));
+      } catch (error) {
+        if (!(error instanceof InvalidVisitRetentionError)) {
+          throw error;
+        }
+
+        return redirect(
+          withNotice(request, settingsIndexHref(), {
+            text: error.message,
+            type: "error",
+          }),
+        );
+      }
+
+      return redirect(
+        withNotice(request, settingsIndexHref(), {
+          text: "Visit retention saved.",
+          type: "success",
+        }),
       );
     },
   },
@@ -178,6 +214,7 @@ function SettingsIndexPage(
   handle: Handle<{
     adminName: string;
     notice: Notice | null;
+    visitRetentionDays: number;
   }>,
 ) {
   return () => (
@@ -185,10 +222,41 @@ function SettingsIndexPage(
       <header class="page-head">
         <div>
           <h1>Settings</h1>
-          <p>Reusable controls you can apply to any PC.</p>
+          <p>Household controls, including DNS profiles you can apply to any PC.</p>
         </div>
       </header>
       <NoticeBar notice={handle.props.notice} />
+      <section class="panel" aria-labelledby="visit-retention-title">
+        <div class="panel-head">
+          <h2 id="visit-retention-title">Visit retention</h2>
+        </div>
+        <form
+          class="panel-body"
+          method="post"
+          action={routes.admin.settings.visitRetention.href()}
+        >
+          <label class="field">
+            <span>Days</span>
+            <input
+              type="number"
+              name="visitRetentionDays"
+              required
+              min={MIN_VISIT_RETENTION_DAYS}
+              max={MAX_VISIT_RETENTION_DAYS}
+              step={1}
+              value={String(handle.props.visitRetentionDays)}
+            />
+          </label>
+          <div class="form-foot">
+            <span class="hint">
+              How long to keep each Visit, counted from the visit time.
+            </span>
+            <button class="btn" type="submit">
+              Save
+            </button>
+          </div>
+        </form>
+      </section>
       <section class="panel">
         <ul class="rows">
           <li>
