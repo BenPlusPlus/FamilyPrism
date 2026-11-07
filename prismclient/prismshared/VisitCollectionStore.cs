@@ -2,6 +2,8 @@ namespace prismshared;
 
 internal sealed class VisitCollectionState
 {
+    public bool? HistoryCollection { get; set; }
+
     public Dictionary<string, long> Watermarks { get; set; } = new(StringComparer.Ordinal);
 
     public List<VisitIngestItem> Pending { get; set; } = [];

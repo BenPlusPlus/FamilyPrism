@@ -1,6 +1,6 @@
 import type { Handle } from "remix/component";
 
-import type { getClient } from "../../data/clients.ts";
+import { historyCollectionEnabled, type getClient } from "../../data/clients.ts";
 import type { ClientVersionView } from "../../data/client-package.ts";
 import type { getLatestDnsState } from "../../data/dns-directives.ts";
 import {
@@ -61,6 +61,7 @@ export function ClientDetailPage(
     } = handle.props;
     let detailHref = routes.admin.clients.detail.href({ clientId: client.id });
     let screenshotUrl = routes.admin.clients.screenshot.href({ clientId: client.id });
+    let collecting = historyCollectionEnabled(client.history_collection);
     let dns = presentClientDnsState(latestDnsState);
 
     return (
@@ -173,6 +174,7 @@ export function ClientDetailPage(
             <section class="panel" aria-labelledby="visits-title">
               <div class="panel-head">
                 <h2 id="visits-title">Visits</h2>
+                {collecting ? null : <span class="stamp off">Off</span>}
                 <a
                   class="row-link"
                   href={`${routes.admin.history.index.href()}?client=${encodeURIComponent(client.id)}`}
@@ -181,6 +183,40 @@ export function ClientDetailPage(
                   <Icon name="chevron" />
                 </a>
               </div>
+              <form
+                class="panel-body"
+                method="post"
+                action={routes.admin.clients.historyCollection.href({
+                  clientId: client.id,
+                })}
+              >
+                <div class="form-foot">
+                  <span>
+                    History collection
+                    {collecting ? (
+                      <span class="hint"> On</span>
+                    ) : (
+                      <>
+                        {" "}
+                        <span class="stamp off">Off</span>
+                      </>
+                    )}
+                  </span>
+                  <button
+                    class="btn secondary"
+                    type="submit"
+                    name="enabled"
+                    value={collecting ? "off" : "on"}
+                  >
+                    {collecting ? "Turn off" : "Turn on"}
+                  </button>
+                </div>
+                <p class="hint">
+                  {collecting
+                    ? "This PC uploads Visits from Chrome, Edge, and Firefox."
+                    : "Existing Visits stay until visit retention."}
+                </p>
+              </form>
               {visits.length === 0 ? (
                 <p class="empty">
                   <strong>No Visits yet.</strong>

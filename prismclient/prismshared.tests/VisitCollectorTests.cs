@@ -340,6 +340,79 @@ public class VisitCollectorTests
     }
 
     [Fact]
+    public async Task HistoryCollectionDefaultsOnAndOffDropsUnsentBatchesWithoutRewindingHighWater()
+    {
+        using var workspace = new VisitTestWorkspace();
+        workspace.CreateChromeHistory("Default", Local("https://first.example/", "First"));
+        var statePath = Path.Combine(workspace.Root, "Config", "visits.json");
+        var handler = new VisitHandler();
+        var apiClient = new PrismApiClient(new HttpClient(handler) { BaseAddress = new Uri("https://familyprism.example.test/") });
+
+        await VisitCollector.TickAsync(
+            apiClient,
+            () => [("kid", workspace.UserProfileRoot)],
+            () => true,
+            Configuration,
+            statePath,
+            logInformation: null,
+            logError: null,
+            CancellationToken.None);
+
+        Assert.Equal(1, handler.RequestCount);
+        Assert.Null(VisitCollectionStore.Load(statePath).HistoryCollection);
+
+        workspace.AppendChromeVisit("Default", "https://second.example/", "Second");
+        var queued = VisitCollectionStore.Load(statePath);
+        queued.Pending.Add(new VisitIngestItem(
+            "Chrome",
+            "Default",
+            "Queued",
+            "https://queued.example/",
+            VisitAt.ToString("o"),
+            "kid"));
+        VisitCollectionStore.Save(queued, statePath);
+        var watermark = Assert.Single(queued.Watermarks);
+
+        VisitCollector.SetHistoryCollection(false, statePath);
+        var off = VisitCollectionStore.Load(statePath);
+        Assert.Equal(false, off.HistoryCollection);
+        Assert.Empty(off.Pending);
+        Assert.Equal(watermark, Assert.Single(off.Watermarks));
+
+        await VisitCollector.TickAsync(
+            apiClient,
+            () => [("kid", workspace.UserProfileRoot)],
+            () => true,
+            Configuration,
+            statePath,
+            logInformation: null,
+            logError: null,
+            CancellationToken.None);
+
+        Assert.Equal(1, handler.RequestCount);
+        var stillOff = VisitCollectionStore.Load(statePath);
+        Assert.Empty(stillOff.Pending);
+        Assert.Equal(watermark, Assert.Single(stillOff.Watermarks));
+
+        VisitCollector.SetHistoryCollection(true, statePath);
+        await VisitCollector.TickAsync(
+            apiClient,
+            () => [("kid", workspace.UserProfileRoot)],
+            () => true,
+            Configuration,
+            statePath,
+            logInformation: null,
+            logError: null,
+            CancellationToken.None);
+
+        Assert.Equal(2, handler.RequestCount);
+        Assert.Empty(VisitCollectionStore.Load(statePath).Pending);
+        var uploaded = handler.LastPayload!.RootElement.GetProperty("visits");
+        Assert.Equal(1, uploaded.GetArrayLength());
+        Assert.Equal("https://second.example/", uploaded[0].GetProperty("url").GetString());
+    }
+
+    [Fact]
     public void PollIntervalIsAboutSixtySeconds()
     {
         Assert.Equal(TimeSpan.FromSeconds(60), VisitCollector.PollInterval);

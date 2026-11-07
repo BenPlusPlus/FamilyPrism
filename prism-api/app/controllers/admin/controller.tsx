@@ -9,8 +9,10 @@ import { readClientPackagePin } from "../../config/env.ts";
 import {
   deleteClient,
   getClient,
+  historyCollectionEnabled,
   listClients,
   listClientsWithGroups,
+  setClientHistoryCollection,
 } from "../../data/clients.ts";
 import { describeClientVersion } from "../../data/client-package.ts";
 import type { AdminIdentity } from "../../data/auth.ts";
@@ -83,6 +85,10 @@ let applyDnsSchema = f.object({
 
 let extendDnsSchema = f.object({
   durationMinutes: f.field(s.string().pipe(minLength(1))),
+});
+
+let historyCollectionSchema = f.object({
+  enabled: f.field(s.string().pipe(minLength(1))),
 });
 
 function getCurrentAdminIdentity(context: Pick<AppContext, "get">) {
@@ -252,6 +258,53 @@ export const adminClients = {
           "Content-Type": "image/png",
         },
       });
+    },
+
+    async historyCollection({ get, params, request }) {
+      let parsed = s.parseSafe(historyCollectionSchema, get(FormData));
+      let detailUrl = routes.admin.clients.detail.href({
+        clientId: params.clientId,
+      });
+      let enabled = parsed.success
+        ? parsed.value.enabled === "on"
+          ? true
+          : parsed.value.enabled === "off"
+            ? false
+            : null
+        : null;
+
+      if (enabled === null) {
+        return redirect(
+          withNotice(request, detailUrl, {
+            text: "Choose on or off for History collection.",
+            type: "error",
+          }),
+        );
+      }
+
+      let client = await setClientHistoryCollection(params.clientId, enabled);
+      if (!client) {
+        return redirect(
+          withNotice(request, routes.admin.clients.index.href(), {
+            text: "Client not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      connectionRegistry.sendClientState(
+        client.id,
+        historyCollectionEnabled(client.history_collection),
+      );
+
+      return redirect(
+        withNotice(request, detailUrl, {
+          text: enabled
+            ? `History collection is on for ${client.name}.`
+            : `History collection is off for ${client.name}.`,
+          type: "success",
+        }),
+      );
     },
 
     async clearHistory({ params, request }) {

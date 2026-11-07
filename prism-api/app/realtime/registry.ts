@@ -80,7 +80,10 @@ export class ClientConnectionRegistry {
 
   #sendPayload(
     clientId: string,
-    payload: ApplyDnsPayload | DisplayMessagePayload | TakeScreenshotPayload,
+    payload: ApplyDnsPayload | DisplayMessagePayload | TakeScreenshotPayload | {
+      historyCollection: boolean;
+      type: "client-state";
+    },
   ) {
     let sockets = this.#connections.get(clientId);
     if (!sockets || sockets.size === 0) {
@@ -118,6 +121,13 @@ export class ClientConnectionRegistry {
 
   sendApplyDnsCommand(clientId: string, payload: ApplyDnsPayload) {
     return this.#sendPayload(clientId, payload);
+  }
+
+  sendClientState(clientId: string, historyCollection: boolean) {
+    return this.#sendPayload(clientId, {
+      historyCollection,
+      type: "client-state",
+    });
   }
 }
 

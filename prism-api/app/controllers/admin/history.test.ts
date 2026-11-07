@@ -443,6 +443,59 @@ test('Client danger zone can clear that Client\'s Visits without touching others
   assert.match(collected.text, /Den page/)
 })
 
+test('Client detail History collection is on by default and off keeps existing Visits listed', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let kitchen = await registerClient('Kitchen PC')
+
+  assert.equal(
+    (await postVisits(kitchen, [visitPayload({ title: 'Kitchen page', url: 'https://kitchen.example/' })])).status,
+    204,
+  )
+
+  let before = await readClientDetail(cookie, kitchen.clientId)
+  assert.equal(before.response.status, 200)
+  assert.match(before.text, /History collection/)
+  assert.match(before.text, /Turn off/)
+  assert.match(before.text, /name="enabled"[^>]*value="off"/)
+  assert.doesNotMatch(before.text, /class="stamp off"/)
+  assert.doesNotMatch(before.text, /update required/i)
+
+  let toggled = await router.fetch(
+    formRequest(
+      routes.admin.clients.historyCollection.href({ clientId: kitchen.clientId }),
+      { enabled: 'off' },
+      { headers: { cookie } },
+    ),
+  )
+  assert.equal(toggled.status, 302)
+  assert.match(toggled.headers.get('location') ?? '', /notice=History\+collection\+is\+off/)
+
+  assert.equal(
+    (
+      await postVisits(kitchen, [
+        visitPayload({
+          title: 'After off',
+          url: 'https://after-off.example/',
+          visitTime: new Date(Date.now() - 10_000).toISOString(),
+        }),
+      ])
+    ).status,
+    204,
+  )
+
+  let detail = await readClientDetail(cookie, kitchen.clientId)
+  assert.match(detail.text, /class="stamp off"/)
+  assert.match(detail.text, /Turn on/)
+  assert.match(detail.text, /kitchen\.example/)
+  assert.doesNotMatch(detail.text, /after-off\.example/)
+  assert.doesNotMatch(detail.text, /update required/i)
+
+  let history = await readHistory(cookie, { client: kitchen.clientId })
+  assert.match(history.text, /kitchen\.example/)
+  assert.doesNotMatch(history.text, /after-off\.example/)
+})
+
 test('unregistering a Client removes its Visits from History', async () => {
   await installTestPersistence()
   let cookie = await createFirstAdmin()

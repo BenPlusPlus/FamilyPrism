@@ -55,6 +55,7 @@ export async function registerClient(name: string, database: Database = db) {
     let client = await transaction.create(
       clients,
       {
+        history_collection: true,
         id: generateId(),
         name: normalizedName,
       },
@@ -97,8 +98,32 @@ export async function authenticateClient(clientId: string, credential: string, d
   return client
 }
 
+export function historyCollectionEnabled(value: unknown) {
+  return value !== false && value !== 0
+}
+
 export async function getClient(clientId: string, database: Database = db) {
   return database.find(clients, clientId)
+}
+
+export async function setClientHistoryCollection(
+  clientId: string,
+  enabled: boolean,
+  database: Database = db,
+) {
+  let client = await database.find(clients, clientId)
+  if (!client) {
+    return null
+  }
+
+  await database.update(clients, clientId, {
+    history_collection: enabled,
+  })
+
+  return {
+    ...client,
+    history_collection: enabled,
+  }
 }
 
 export async function listClients(database: Database = db) {

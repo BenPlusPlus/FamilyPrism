@@ -96,6 +96,17 @@ internal static class VisitCollector
         }
 
         var state = VisitCollectionStore.Load(statePath);
+        if (state.HistoryCollection == false)
+        {
+            if (state.Pending.Count > 0)
+            {
+                state.Pending.Clear();
+                VisitCollectionStore.Save(state, statePath);
+            }
+
+            return;
+        }
+
         IReadOnlyList<(string WindowsUser, string ProfileRoot)> users;
         try
         {
@@ -155,6 +166,19 @@ internal static class VisitCollector
                 }
             }
         }
+    }
+
+    internal static void SetHistoryCollection(bool enabled, string? path = null)
+    {
+        var statePath = path ?? PrismPaths.VisitCollectionPath;
+        var state = VisitCollectionStore.Load(statePath);
+        state.HistoryCollection = enabled;
+        if (!enabled)
+        {
+            state.Pending.Clear();
+        }
+
+        VisitCollectionStore.Save(state, statePath);
     }
 
     internal static async Task<int> UploadPendingAsync(

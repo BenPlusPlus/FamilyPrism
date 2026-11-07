@@ -487,6 +487,7 @@ public sealed class PrismAgentRuntime
                     ? nameProperty.GetString()
                     : configuration.ClientName;
 
+                ApplyHistoryCollection(root);
                 logInformation?.Invoke($"Family Prism connection acknowledged for {name ?? configuration.ClientName}.");
                 WriteStatus(
                     configuration with { ClientName = name ?? configuration.ClientName },
@@ -494,6 +495,10 @@ public sealed class PrismAgentRuntime
                     "Connected to the server.",
                     lastError: null,
                     lastConnectedAtUtc: DateTimeOffset.UtcNow);
+                break;
+
+            case "client-state":
+                ApplyHistoryCollection(root);
                 break;
 
             case "display-message":
@@ -547,6 +552,24 @@ public sealed class PrismAgentRuntime
                     $"Connected to the server. Last message type: {type ?? "unknown"}.",
                     lastError: null);
                 break;
+        }
+    }
+
+    private void ApplyHistoryCollection(JsonElement root)
+    {
+        if (!root.TryGetProperty("historyCollection", out var property)
+            || (property.ValueKind != JsonValueKind.True && property.ValueKind != JsonValueKind.False))
+        {
+            return;
+        }
+
+        try
+        {
+            VisitCollector.SetHistoryCollection(property.GetBoolean());
+        }
+        catch (Exception ex)
+        {
+            logError?.Invoke("History collection state could not be saved.", ex);
         }
     }
 
