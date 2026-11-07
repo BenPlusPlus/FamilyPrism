@@ -52,6 +52,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
           ref: master
+          token: ${{ secrets.CLIENT_RELEASE_GITHUB_TOKEN }}
 
       - name: Bump client version
         id: version
@@ -95,7 +96,6 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
           GH_TOKEN: ${{ secrets.CLIENT_RELEASE_GITHUB_TOKEN }}
-          CLIENT_RELEASE_GITHUB_TOKEN: ${{ secrets.CLIENT_RELEASE_GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $false
@@ -129,9 +129,7 @@ jobs:
             throw "git commit failed with exit $LASTEXITCODE."
           }
 
-          git config --local --unset-all http.https://github.com/.extraheader 2>$null
-          $authHeader = "AUTHORIZATION: bearer $($env:CLIENT_RELEASE_GITHUB_TOKEN.Trim())"
-          git -c "http.https://github.com/.extraheader=$authHeader" push --force-with-lease origin "HEAD:refs/heads/$branch"
+          git push --force-with-lease origin "HEAD:refs/heads/$branch"
           if ($LASTEXITCODE -ne 0) {
             throw "git push $branch failed with exit $LASTEXITCODE."
           }
@@ -215,7 +213,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "git tag $tag $mergedSha failed with exit $LASTEXITCODE."
           }
-          git -c "http.https://github.com/.extraheader=$authHeader" push origin $tag
+          git push origin $tag
           if ($LASTEXITCODE -ne 0) {
             throw "git push tag $tag failed with exit $LASTEXITCODE."
           }
