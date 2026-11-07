@@ -6,7 +6,13 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>Assets\familyprism.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Regenerate with ..\generate-agent-icon.ps1 when the brand mark changes. -->
+    <EmbeddedResource Include="Assets\familyprism.ico" LogicalName="prismagent.familyprism.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\prismshared\prismshared.csproj" />

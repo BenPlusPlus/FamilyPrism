@@ -10,6 +10,7 @@ public sealed partial class frmRegistration : Form
     public frmRegistration(PrismStatusSnapshot currentStatus)
     {
         InitializeComponent();
+        Icon = AgentIcon.Window;
 
         txtServerName.Text = currentStatus.ServerBaseUrl ?? string.Empty;
         txtDeviceName.Text = currentStatus.ClientName ?? Environment.MachineName;

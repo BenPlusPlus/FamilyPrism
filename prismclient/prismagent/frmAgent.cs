@@ -17,6 +17,7 @@ public partial class frmAgent : Form
     public frmAgent()
     {
         InitializeComponent();
+        Icon = AgentIcon.Window;
 
         maxLines = new Dictionary<TextBox, int>
         {
