@@ -18,6 +18,7 @@ concurrency:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
@@ -33,13 +34,17 @@ jobs:
             throw "Client releases must run from master (got $($env:GITHUB_REF)). Re-run the workflow on master."
           }
 
-      - name: Check Railway token
+      - name: Check secrets
         shell: pwsh
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          CLIENT_RELEASE_GITHUB_TOKEN: ${{ secrets.CLIENT_RELEASE_GITHUB_TOKEN }}
         run: |
           if (-not $env:RAILWAY_TOKEN) {
             throw 'Repository secret RAILWAY_TOKEN is missing. Add a Railway project token for production.'
+          }
+          if (-not $env:CLIENT_RELEASE_GITHUB_TOKEN) {
+            throw 'Repository secret CLIENT_RELEASE_GITHUB_TOKEN is missing. Add a fine-grained PAT with Contents and Pull requests read/write on this repo.'
           }
 
       - uses: actions/checkout@v7
@@ -84,11 +89,13 @@ jobs:
         shell: pwsh
         run: pwsh -NoProfile -File prismclient/publish-client.ps1
 
-      - name: Commit version, tag, and push
+      - name: Land version via PR, then tag
         id: artifacts
         shell: pwsh
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.CLIENT_RELEASE_GITHUB_TOKEN }}
+          CLIENT_RELEASE_GITHUB_TOKEN: ${{ secrets.CLIENT_RELEASE_GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $false
@@ -97,6 +104,7 @@ jobs:
             throw 'Version output from the bump step was empty.'
           }
           $tag = "v$version"
+          $branch = "release/client-$version"
           git rev-parse -q --verify "refs/tags/$tag" | Out-Null
           if ($LASTEXITCODE -eq 0) {
             throw "Tag $tag already exists."
@@ -120,21 +128,96 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "git commit failed with exit $LASTEXITCODE."
           }
-          git pull --rebase origin master
+
+          git config --local --unset-all http.https://github.com/.extraheader 2>$null
+          $authHeader = "AUTHORIZATION: bearer $($env:CLIENT_RELEASE_GITHUB_TOKEN.Trim())"
+          git -c "http.https://github.com/.extraheader=$authHeader" push --force-with-lease origin "HEAD:refs/heads/$branch"
           if ($LASTEXITCODE -ne 0) {
-            throw "git pull --rebase origin master failed with exit $LASTEXITCODE."
+            throw "git push $branch failed with exit $LASTEXITCODE."
           }
-          git push origin HEAD:master
-          if ($LASTEXITCODE -ne 0) {
-            throw "Failed to push the $version commit to master (exit $LASTEXITCODE). Tag $tag was not created. The default-branch ruleset requires the prism-api check, so github-actions[bot] cannot push unless GitHub Actions is a bypass actor (always) on Protect default branch."
+
+          $prNumber = gh pr list --head $branch --base master --state open --json number --jq '.[0].number'
+          if (-not $prNumber) {
+            $body = "Automated Windows client $version version bump from the Release Windows client workflow.`n`nThe zip and installer are already built on the runner. This PR lands Directory.Build.props and FamilyPrism.iss so master can pass prism-api, then the workflow tags $tag."
+            gh pr create --base master --head $branch --title "Release Windows client $version" --body $body
+            if ($LASTEXITCODE -ne 0) {
+              throw "gh pr create failed with exit $LASTEXITCODE."
+            }
+            $prNumber = gh pr list --head $branch --base master --state open --json number --jq '.[0].number'
           }
-          git tag $tag
-          if ($LASTEXITCODE -ne 0) {
-            throw "git tag $tag failed with exit $LASTEXITCODE after the version commit was pushed to master."
+          if (-not $prNumber) {
+            throw "Could not create or find the version PR for $branch."
           }
-          git push origin $tag
+          Write-Host "Version PR is https://github.com/$($env:GITHUB_REPOSITORY)/pull/$prNumber"
+
+          $deadline = [datetime]::UtcNow.AddMinutes(20)
+          $mergedSha = $null
+          while ($true) {
+            $pr = gh pr view $prNumber --json state,mergeable,mergeStateStatus,statusCheckRollup,mergeCommit | ConvertFrom-Json
+            if ($pr.state -eq 'MERGED') {
+              $mergedSha = $pr.mergeCommit.oid
+              break
+            }
+            if ($pr.state -eq 'CLOSED') {
+              throw "Version PR #$prNumber was closed without merging."
+            }
+
+            $checks = @($pr.statusCheckRollup)
+            $failed = @(
+              $checks | Where-Object {
+                $_.conclusion -in @('FAILURE', 'CANCELLED', 'TIMED_OUT', 'ACTION_REQUIRED')
+              }
+            )
+            if ($failed.Count -gt 0) {
+              $names = ($failed | ForEach-Object { $_.name }) -join ', '
+              throw "Version PR #$prNumber checks failed: $names"
+            }
+
+            if ($pr.mergeStateStatus -eq 'BEHIND') {
+              gh api --method PUT "repos/$($env:GITHUB_REPOSITORY)/pulls/$prNumber/update-branch"
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host "update-branch returned $LASTEXITCODE"
+              }
+            }
+            elseif ($pr.mergeStateStatus -eq 'DIRTY') {
+              throw "Version PR #$prNumber has merge conflicts with master."
+            }
+            else {
+              $prism = @(
+                $checks | Where-Object { $_.name -eq 'prism-api' -and $_.conclusion -eq 'SUCCESS' }
+              )
+              if ($prism.Count -gt 0 -and $pr.mergeStateStatus -in @('CLEAN', 'HAS_HOOKS', 'UNSTABLE')) {
+                gh pr merge $prNumber --squash --delete-branch --subject "Release Windows client $version"
+                if ($LASTEXITCODE -ne 0) {
+                  Write-Host "gh pr merge returned $LASTEXITCODE; will retry until deadline."
+                }
+              }
+            }
+
+            if ([datetime]::UtcNow -gt $deadline) {
+              throw "Timed out waiting for version PR #$prNumber to pass prism-api and merge."
+            }
+            Start-Sleep -Seconds 10
+          }
+
+          if (-not $mergedSha) {
+            $mergedSha = gh pr view $prNumber --json mergeCommit --jq .mergeCommit.oid
+          }
+          if (-not $mergedSha) {
+            throw "Version PR #$prNumber merged but merge commit SHA was empty."
+          }
+
+          git fetch origin master
           if ($LASTEXITCODE -ne 0) {
-            throw "Pushed $version to master but failed to push tag $tag (exit $LASTEXITCODE)."
+            throw "git fetch origin master failed with exit $LASTEXITCODE."
+          }
+          git tag $tag $mergedSha
+          if ($LASTEXITCODE -ne 0) {
+            throw "git tag $tag $mergedSha failed with exit $LASTEXITCODE."
+          }
+          git -c "http.https://github.com/.extraheader=$authHeader" push origin $tag
+          if ($LASTEXITCODE -ne 0) {
+            throw "git push tag $tag failed with exit $LASTEXITCODE."
           }
 
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "tag=$tag"
