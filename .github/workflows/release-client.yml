@@ -45,14 +45,27 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          fetch-tags: true
           ref: master
 
       - name: Bump client version
         id: version
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          git fetch --tags --force origin
+          if ($LASTEXITCODE -ne 0) {
+            throw "git fetch --tags failed with exit $LASTEXITCODE."
+          }
           pwsh -NoProfile -File prismclient/bump-client-version.ps1 -SelfTest
+          if ($LASTEXITCODE -ne 0) {
+            throw "bump-client-version self-test failed with exit $LASTEXITCODE."
+          }
           pwsh -NoProfile -File prismclient/bump-client-version.ps1 -Bump '${{ inputs.bump }}'
+          if ($LASTEXITCODE -ne 0) {
+            throw "bump-client-version failed with exit $LASTEXITCODE."
+          }
 
       - uses: actions/setup-dotnet@v6
         with:
@@ -77,12 +90,15 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
           $version = $env:VERSION
           if (-not $version) {
             throw 'Version output from the bump step was empty.'
           }
           $tag = "v$version"
-          if (git rev-parse -q --verify "refs/tags/$tag") {
+          git rev-parse -q --verify "refs/tags/$tag" | Out-Null
+          if ($LASTEXITCODE -eq 0) {
             throw "Tag $tag already exists."
           }
 
@@ -101,10 +117,28 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- prismclient/Directory.Build.props prismclient/installer/FamilyPrism.iss
           git commit -m "Release Windows client $version"
+          if ($LASTEXITCODE -ne 0) {
+            throw "git commit failed with exit $LASTEXITCODE."
+          }
           git pull --rebase origin master
-          git tag $tag
+          if ($LASTEXITCODE -ne 0) {
+            throw "git pull --rebase origin master failed with exit $LASTEXITCODE."
+          }
           git push origin HEAD:master
+          if ($LASTEXITCODE -ne 0) {
+            throw @"
+Failed to push the $version commit to master (exit $LASTEXITCODE).
+Tag $tag was not created. The default-branch ruleset requires the prism-api check, so github-actions[bot] cannot push unless GitHub Actions is a bypass actor (always) on Protect default branch.
+"@
+          }
+          git tag $tag
+          if ($LASTEXITCODE -ne 0) {
+            throw "git tag $tag failed with exit $LASTEXITCODE after the version commit was pushed to master."
+          }
           git push origin $tag
+          if ($LASTEXITCODE -ne 0) {
+            throw "Pushed $version to master but failed to push tag $tag (exit $LASTEXITCODE)."
+          }
 
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "tag=$tag"
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "sha256=$sha256"
