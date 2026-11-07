@@ -60,6 +60,8 @@ export function Icon(handle: Handle<{ name: IconName }>) {
   );
 }
 
+// The Windows agent's app/tray icon is rendered from this mark by
+// prismclient/generate-agent-icon.ps1; rerun it if the shapes or colors change.
 export function BrandMark() {
   return () => (
     <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">

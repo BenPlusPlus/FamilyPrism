@@ -33,7 +33,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = AgentIcon.CreateTrayIcon(),
             Text = "Family Prism Agent",
             Visible = true,
             ContextMenuStrip = contextMenu
@@ -170,6 +170,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         exiting = true;
         statusTimer.Stop();
         notifyIcon.Visible = false;
+        notifyIcon.Icon?.Dispose();
         notifyIcon.Dispose();
         statusForm.Close();
         contextMenu.Dispose();
