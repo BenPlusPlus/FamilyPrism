@@ -17,6 +17,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private bool initializedMessageTracking;
     private bool processingScreenshotRequest;
     private string? lastNotifiedMessageId;
+    private string? lastNotifiedDnsNoticeId;
 
     public TrayApplicationContext()
     {
@@ -128,6 +129,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             initializedMessageTracking = true;
             lastNotifiedMessageId = status.LastMessageId;
+            lastNotifiedDnsNoticeId = status.LastDnsNoticeId;
             return;
         }
 
@@ -140,6 +142,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 5000,
                 "Family Prism",
                 status.LastMessageText,
+                ToolTipIcon.Info);
+        }
+
+        if (!string.IsNullOrWhiteSpace(status.LastDnsNoticeId)
+            && !string.Equals(status.LastDnsNoticeId, lastNotifiedDnsNoticeId, StringComparison.Ordinal)
+            && !string.IsNullOrWhiteSpace(status.LastDnsNoticeText))
+        {
+            lastNotifiedDnsNoticeId = status.LastDnsNoticeId;
+            notifyIcon.ShowBalloonTip(
+                8000,
+                "Family Prism",
+                status.LastDnsNoticeText,
                 ToolTipIcon.Info);
         }
 

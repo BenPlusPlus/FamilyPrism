@@ -1672,6 +1672,14 @@ table.grid td form {
   font-size: var(--t-14);
 }
 
+[data-live-screenshot]:not(.has-screenshot) .screen {
+  display: none;
+}
+
+[data-live-screenshot].has-screenshot .screen-empty {
+  display: none;
+}
+
 .danger-zone {
   border-color: #e3b7b3;
 }

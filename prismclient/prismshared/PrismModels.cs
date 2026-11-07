@@ -169,6 +169,10 @@ public sealed record PrismStatusSnapshot
 
     public DateTimeOffset? LastMessageReceivedAtUtc { get; init; }
 
+    public string? LastDnsNoticeId { get; init; }
+
+    public string? LastDnsNoticeText { get; init; }
+
     /// <summary>The version of the process that wrote this snapshot (the service in production).</summary>
     public string? AgentVersion { get; init; }
 

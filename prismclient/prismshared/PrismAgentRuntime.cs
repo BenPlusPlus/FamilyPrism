@@ -670,20 +670,31 @@ public sealed class PrismAgentRuntime
                 case DnsOverlayPlanKind.ExtendOverlay:
                     if (current is not null)
                     {
+                        var added = plan.Remaining - TimeSpan.FromMilliseconds(current.RemainingMs);
+                        if (added < TimeSpan.Zero)
+                        {
+                            added = TimeSpan.Zero;
+                        }
+
                         DnsOverlayStateStore.Write(current with
                         {
                             ExpiresAtUtc = command.ExpiresAt ?? current.ExpiresAtUtc,
                             RemainingMs = (long)plan.Remaining.TotalMilliseconds,
                             LastTickMs = Environment.TickCount64
                         });
+
+                        if (!command.ResetToDhcp && !string.IsNullOrWhiteSpace(command.PrimaryIp))
+                        {
+                            dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
+                        }
+
+                        logInformation?.Invoke("Extended the DNS overlay.");
+                        WriteDnsNotice(
+                            configuration,
+                            $"{command.CommandId}:{command.ExpiresAt:O}",
+                            DnsProfileNotice.Extended(command, added, plan.Remaining));
                     }
 
-                    if (!command.ResetToDhcp && !string.IsNullOrWhiteSpace(command.PrimaryIp))
-                    {
-                        dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
-                    }
-
-                    logInformation?.Invoke("Extended the DNS overlay.");
                     return;
 
                 case DnsOverlayPlanKind.ApplyIndefinite:
@@ -774,7 +785,9 @@ public sealed class PrismAgentRuntime
             result.Succeeded
                 ? "Connected to the server. DNS settings applied."
                 : "Connected to the server. DNS settings failed.",
-            lastError: result.Error);
+            lastError: result.Error,
+            lastDnsNoticeId: result.Succeeded ? command.CommandId : null,
+            lastDnsNoticeText: result.Succeeded ? DnsProfileNotice.Applied(command, remaining) : null);
     }
 
     private async Task RestoreStandingDnsAsync(
@@ -816,7 +829,9 @@ public sealed class PrismAgentRuntime
                 configuration,
                 PrismConnectionState.Connected,
                 "Connected to the server. Standing DNS restored.",
-                lastError: null);
+                lastError: null,
+                lastDnsNoticeId: state.RestoreCommandId,
+                lastDnsNoticeText: DnsProfileNotice.Restored(state));
             return;
         }
 
@@ -836,7 +851,9 @@ public sealed class PrismAgentRuntime
         string? lastMessageId = null,
         string? lastMessageText = null,
         DateTimeOffset? lastConnectedAtUtc = null,
-        DateTimeOffset? lastMessageReceivedAtUtc = null)
+        DateTimeOffset? lastMessageReceivedAtUtc = null,
+        string? lastDnsNoticeId = null,
+        string? lastDnsNoticeText = null)
     {
         PrismStatusStore.Update(currentStatus => currentStatus with
         {
@@ -852,8 +869,21 @@ public sealed class PrismAgentRuntime
             LastMessageId = lastMessageId ?? currentStatus.LastMessageId,
             LastMessageText = lastMessageText ?? currentStatus.LastMessageText,
             LastConnectedAtUtc = lastConnectedAtUtc ?? currentStatus.LastConnectedAtUtc,
-            LastMessageReceivedAtUtc = lastMessageReceivedAtUtc ?? currentStatus.LastMessageReceivedAtUtc
+            LastMessageReceivedAtUtc = lastMessageReceivedAtUtc ?? currentStatus.LastMessageReceivedAtUtc,
+            LastDnsNoticeId = lastDnsNoticeId ?? currentStatus.LastDnsNoticeId,
+            LastDnsNoticeText = lastDnsNoticeText ?? currentStatus.LastDnsNoticeText
         });
+    }
+
+    private void WriteDnsNotice(PrismConfiguration configuration, string noticeId, string text)
+    {
+        WriteStatus(
+            configuration,
+            PrismConnectionState.Connected,
+            "Connected to the server. DNS settings applied.",
+            lastError: null,
+            lastDnsNoticeId: noticeId,
+            lastDnsNoticeText: text);
     }
 
     private static async Task SendIdentifyMessageAsync(
