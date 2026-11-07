@@ -126,10 +126,7 @@ jobs:
           }
           git push origin HEAD:master
           if ($LASTEXITCODE -ne 0) {
-            throw @"
-Failed to push the $version commit to master (exit $LASTEXITCODE).
-Tag $tag was not created. The default-branch ruleset requires the prism-api check, so github-actions[bot] cannot push unless GitHub Actions is a bypass actor (always) on Protect default branch.
-"@
+            throw "Failed to push the $version commit to master (exit $LASTEXITCODE). Tag $tag was not created. The default-branch ruleset requires the prism-api check, so github-actions[bot] cannot push unless GitHub Actions is a bypass actor (always) on Protect default branch."
           }
           git tag $tag
           if ($LASTEXITCODE -ne 0) {
