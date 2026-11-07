@@ -26,6 +26,9 @@ export const routes = route({
       create: post("/"),
       members: post(":groupId/members"),
     }),
+    history: route("history", {
+      index: get("/"),
+    }),
     messages: route("messages", {
       compose: post("compose"),
       client: post("client/:clientId"),
@@ -49,6 +52,7 @@ export const routes = route({
     clients: route("clients", {
       register: post("register"),
       screenshot: post(":clientId/screenshot"),
+      visits: post(":clientId/visits"),
       dnsResult: post(":clientId/dns/result"),
       update: get(":clientId/update"),
     }),

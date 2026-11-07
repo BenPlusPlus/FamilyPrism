@@ -12,6 +12,7 @@ import {
 import { serveUpdateManifest } from "../../data/client-package.ts";
 import { recordDnsDirectiveResult } from "../../data/dns-directives.ts";
 import { saveClientScreenshot } from "../../data/screenshots.ts";
+import { ingestVisits, VISIT_BROWSERS } from "../../data/visits.ts";
 import { prismAuth } from "../../data/auth.ts";
 import type { AppContext } from "../../router.ts";
 import { routes } from "../../routes.ts";
@@ -26,6 +27,21 @@ let registrationSchema = s.object({
 let dnsResultSchema = s.object({
   commandId: s.string().pipe(minLength(1), maxLength(255)),
   status: s.string().pipe(minLength(1), maxLength(16)),
+});
+
+const MAX_VISIT_BATCH = 1000;
+
+let visitSchema = s.object({
+  browser: s.enum_(VISIT_BROWSERS),
+  browserProfile: s.string().pipe(minLength(1), maxLength(255)),
+  title: s.string().pipe(maxLength(2048)),
+  url: s.string().pipe(minLength(1), maxLength(8192)),
+  visitTime: s.string().pipe(minLength(1), maxLength(64)),
+  windowsUser: s.string().pipe(minLength(1), maxLength(255)),
+});
+
+let visitBatchSchema = s.object({
+  visits: s.array(visitSchema),
 });
 
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
@@ -182,6 +198,71 @@ export const apiClients = {
       }
 
       await saveClientScreenshot(client.id, screenshot);
+      return new Response(null, { status: 204 });
+    },
+
+    async visits({ params, request }) {
+      let requestClientId = request.headers.get("x-client-id")?.trim();
+      let credential = readBearerCredential(request);
+
+      if (
+        !requestClientId ||
+        requestClientId !== params.clientId ||
+        !credential
+      ) {
+        return Response.json(
+          {
+            message: "Missing client credentials.",
+          },
+          { status: 401 },
+        );
+      }
+
+      let client = await authenticateClient(requestClientId, credential);
+      if (!client) {
+        return Response.json(
+          {
+            message: "Invalid client credentials.",
+          },
+          { status: 401 },
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = await request.json();
+      } catch {
+        return Response.json(
+          {
+            message: "Invalid JSON body.",
+          },
+          { status: 400 },
+        );
+      }
+
+      let parsed = s.parseSafe(visitBatchSchema, payload);
+      if (!parsed.success || parsed.value.visits.length > MAX_VISIT_BATCH) {
+        return Response.json(
+          {
+            issues: parsed.success ? undefined : parsed.issues,
+            message: "Invalid Visit batch payload.",
+          },
+          { status: 400 },
+        );
+      }
+
+      for (let visit of parsed.value.visits) {
+        if (Number.isNaN(new Date(visit.visitTime).getTime())) {
+          return Response.json(
+            {
+              message: "Invalid Visit batch payload.",
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      await ingestVisits(client.id, parsed.value.visits);
       return new Response(null, { status: 204 });
     },
 

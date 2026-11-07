@@ -109,6 +109,21 @@ const TEST_TABLES = [
     created_at text not null default (datetime('now')),
     updated_at text not null default (datetime('now'))
   )`,
+  `create table visits (
+    id text primary key,
+    client_id text not null references clients (id) on delete cascade,
+    windows_user text not null,
+    browser text not null,
+    browser_profile text not null,
+    url text not null,
+    url_hash text not null,
+    title text not null,
+    visited_at text not null,
+    created_at text not null default (datetime('now')),
+    updated_at text not null default (datetime('now'))
+  )`,
+  `create unique index visits_duplicate_idx
+    on visits (client_id, windows_user, browser, browser_profile, visited_at, url_hash)`,
 ]
 
 let current: SqliteDatabase | undefined
@@ -124,7 +139,7 @@ export async function installTestPersistence() {
   current = createSqliteDatabase(
     {
       filename: ':memory:',
-      foreignKeys: false,
+      foreignKeys: true,
     },
     {
       now: () => new Date(),

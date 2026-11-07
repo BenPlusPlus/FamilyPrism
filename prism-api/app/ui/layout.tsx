@@ -4,12 +4,13 @@ import { routes } from "../routes.ts";
 import { Document } from "./document.tsx";
 import { BrandMark, Icon, type IconName } from "./icons.tsx";
 
-export type AdminSection = "home" | "clients" | "groups" | "dns";
+export type AdminSection = "home" | "clients" | "groups" | "history" | "dns";
 
 const SECTIONS: Array<{ id: AdminSection; label: string; icon: IconName; href: () => string }> = [
   { id: "home", label: "Home", icon: "rack", href: () => routes.admin.index.href() },
   { id: "clients", label: "Clients", icon: "monitor", href: () => routes.admin.clients.index.href() },
   { id: "groups", label: "Groups", icon: "groups", href: () => routes.admin.groups.index.href() },
+  { id: "history", label: "History", icon: "history", href: () => routes.admin.history.index.href() },
   {
     id: "dns",
     label: "DNS profiles",

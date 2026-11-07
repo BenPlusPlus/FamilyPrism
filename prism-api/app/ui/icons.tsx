@@ -5,6 +5,7 @@ export type IconName =
   | "monitor"
   | "groups"
   | "dns"
+  | "history"
   | "chevron"
   | "back"
   | "check"
@@ -19,6 +20,7 @@ const PATHS: Record<IconName, string[]> = {
   monitor: ["M3.5 5h17v11h-17z", "M9 20h6", "M12 16v4"],
   groups: ["M4 8l8-4 8 4-8 4z", "M4 12l8 4 8-4", "M4 16l8 4 8-4"],
   dns: ["M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z", "M3 12h18", "M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9s1.2-6.4 3.7-9z"],
+  history: ["M12 8v5l3.5 2", "M12 21a9 9 0 1 0 0-18a9 9 0 1 0 0 18z"],
   chevron: ["M9 6l6 6-6 6"],
   back: ["M15 6l-6 6 6 6"],
   check: ["M5 12.5l4.5 4.5L19 7.5"],

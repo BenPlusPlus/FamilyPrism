@@ -24,6 +24,26 @@ _Avoid_: restarter, babysitter, tray watchdog (as a separate product)
 A Windows logon session that is currently active and attached to a desktop a person can see (console or RDP).
 _Avoid_: user session (includes disconnected), logon (the event)
 
+**Windows user**:
+The Windows account signed into an interactive session on a Client. Visits are attributed to this account, the same identity the Client reports as last user.
+_Avoid_: user (alone), kid, child, family member (as an identity store)
+
+**Visit**:
+A URL a browser on a Client recorded in its history for a Windows user, including which browser stored it.
+_Avoid_: browsing log, web activity, telemetry event, machine history
+
+**Browser profile**:
+A persistent Chrome, Edge, or Firefox profile under a Windows user. Guest and system profiles are not collected.
+_Avoid_: Chrome user (for the profile), account (for the profile)
+
+**History collection**:
+Whether a Client uploads Visits. Default is on; a Console admin can turn it off per Client.
+_Avoid_: tracking, monitoring, telemetry, browser logging (as the switch name)
+
+**Visit retention**:
+How many days the server keeps a Visit, counted from the visit time. Household-wide, 1–365 days, default 30.
+_Avoid_: TTL, log expiry, ingest age
+
 **Standard user**:
 A Windows account that cannot elevate. This is the actor who can end the Tray.
 _Avoid_: regular user, limited user, kid, child (as a privilege)
