@@ -42,6 +42,7 @@ import {
   deleteClientScreenshot,
   readClientScreenshot,
 } from "../../data/screenshots.ts";
+import { listHistoryPage } from "../../data/visits.ts";
 import { requireAdmin } from "../../middleware/admin.ts";
 import { connectionRegistry } from "../../realtime/registry.ts";
 import type { AppContext } from "../../router.ts";
@@ -52,6 +53,7 @@ import { ClientDetailPage } from "./client-detail-page.tsx";
 import { ClientsPage } from "./clients-page.tsx";
 import { DashboardPage } from "./dashboard-page.tsx";
 import { GroupsPage } from "./groups-page.tsx";
+import { HistoryPage } from "./history-page.tsx";
 
 let messageSchema = f.object({
   content: f.field(s.string().pipe(minLength(1), maxLength(500))),
@@ -570,6 +572,33 @@ export const adminGroups = {
     },
   },
 } satisfies Controller<typeof routes.admin.groups, AppContext>;
+
+export const adminHistory = {
+  middleware: [
+    requireAuth<AdminIdentity>({
+      onFailure() {
+        return redirect(routes.auth.login.index.href());
+      },
+    }),
+    requireAdmin(),
+  ],
+  actions: {
+    async index({ get, request }) {
+      let identity = getCurrentAdminIdentity({ get });
+      let requestedPage = Number.parseInt(new URL(request.url).searchParams.get("page") ?? "1", 10);
+      let history = await listHistoryPage(Number.isInteger(requestedPage) ? requestedPage : 1);
+
+      return render(
+        <HistoryPage
+          adminName={identity.user.name}
+          history={history}
+          notice={getNotice(new URL(request.url))}
+        />,
+        request,
+      );
+    },
+  },
+} satisfies Controller<typeof routes.admin.history, AppContext>;
 
 export const adminMessages = {
   middleware: [

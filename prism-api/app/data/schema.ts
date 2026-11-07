@@ -168,3 +168,22 @@ export const messageDeliveries = table({
     updatedAt: 'updated_at',
   },
 })
+
+export const visits = table({
+  name: 'visits',
+  columns: {
+    id: c.varchar(255).notNull().primaryKey(),
+    client_id: c.varchar(255).notNull().references('clients', 'id').onDelete('cascade'),
+    windows_user: c.varchar(255).notNull(),
+    browser: c.enum(['Chrome', 'Edge', 'Firefox']).notNull(),
+    browser_profile: c.varchar(255).notNull(),
+    url: c.text().notNull(),
+    url_hash: c.varchar(64).notNull(),
+    title: c.text().notNull(),
+    visited_at: c.varchar(64).notNull(),
+  },
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})

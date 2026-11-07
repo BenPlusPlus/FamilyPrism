@@ -16,6 +16,7 @@ import {
   admin,
   adminClients,
   adminGroups,
+  adminHistory,
   adminMessages,
   adminScreenshots,
 } from "./controllers/admin/controller.tsx";
@@ -89,6 +90,7 @@ router.map(routes.auth.setup, authSetup);
 router.map(routes.admin, admin);
 router.map(routes.admin.clients, adminClients);
 router.map(routes.admin.groups, adminGroups);
+router.map(routes.admin.history, adminHistory);
 router.map(routes.admin.messages, adminMessages);
 router.map(routes.admin.screenshots, adminScreenshots);
 router.map(routes.admin.settings, adminSettings);
