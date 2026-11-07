@@ -1,14 +1,36 @@
 import type { Handle } from "remix/component";
 
-import type { HistoryList } from "../../data/visits.ts";
+import type { HistoryList, VisitBrowser } from "../../data/visits.ts";
+import { VISIT_BROWSERS } from "../../data/visits.ts";
 import { routes } from "../../routes.ts";
 import { AdminShell } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import type { Notice } from "../../utils/notice.ts";
 
-function historyHref(page: number) {
+function historyHref(
+  query: { browser: string; client: string; q: string; user: string },
+  page: number,
+) {
+  let params = new URLSearchParams();
+  if (query.client) {
+    params.set("client", query.client);
+  }
+  if (query.user) {
+    params.set("user", query.user);
+  }
+  if (query.browser) {
+    params.set("browser", query.browser);
+  }
+  if (query.q) {
+    params.set("q", query.q);
+  }
+  if (page > 1) {
+    params.set("page", String(page));
+  }
+
   let href = routes.admin.history.index.href();
-  return page <= 1 ? href : `${href}?page=${page}`;
+  let search = params.toString();
+  return search ? `${href}?${search}` : href;
 }
 
 function formatVisitTime(value: string) {
@@ -21,17 +43,34 @@ function formatVisitTime(value: string) {
 export function HistoryPage(
   handle: Handle<{
     adminName: string;
+    filterOptions: {
+      browsers: VisitBrowser[];
+      clients: { id: string; name: string }[];
+      windowsUsers: string[];
+    };
     history: HistoryList;
     notice: Notice | null;
+    query: { browser: string; client: string; q: string; user: string };
   }>,
 ) {
   return () => {
-    let { adminName, history, notice } = handle.props;
+    let { adminName, filterOptions, history, notice, query } = handle.props;
     let { page, pageCount, total, visits } = history;
+    let filtered = Boolean(query.browser || query.client || query.q || query.user);
     let lede =
       total === 0
-        ? "No Visits yet."
+        ? filtered
+          ? "No Visits match."
+          : "No Visits yet."
         : `${total} ${total === 1 ? "Visit" : "Visits"}, newest first.`;
+    let windowsUsers = [...filterOptions.windowsUsers];
+    if (query.user && !windowsUsers.includes(query.user)) {
+      windowsUsers.push(query.user);
+      windowsUsers.sort((left, right) => left.localeCompare(right));
+    }
+    let browsers = VISIT_BROWSERS.filter(
+      (browser) => filterOptions.browsers.includes(browser) || browser === query.browser,
+    );
 
     return (
       <AdminShell active="history" title="History" adminName={adminName}>
@@ -45,9 +84,67 @@ export function HistoryPage(
         <NoticeBar notice={notice} />
 
         <section class="panel">
+          <form class="filters" method="get" action={routes.admin.history.index.href()}>
+            <div class="form-row">
+              <label class="field">
+                <span>Client</span>
+                <select name="client">
+                  <option value="" selected={query.client === ""}>
+                    All Clients
+                  </option>
+                  {filterOptions.clients.map((client) => (
+                    <option value={client.id} selected={query.client === client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label class="field">
+                <span>Windows user</span>
+                <select name="user">
+                  <option value="" selected={query.user === ""}>
+                    All Windows users
+                  </option>
+                  {windowsUsers.map((windowsUser) => (
+                    <option value={windowsUser} selected={query.user === windowsUser}>
+                      {windowsUser}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label class="field">
+                <span>Browser</span>
+                <select name="browser">
+                  <option value="" selected={query.browser === ""}>
+                    All browsers
+                  </option>
+                  {browsers.map((browser) => (
+                    <option value={browser} selected={query.browser === browser}>
+                      {browser}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label class="field">
+              <span>Search</span>
+              <input
+                type="search"
+                name="q"
+                value={query.q}
+                placeholder="URL or title"
+              />
+            </label>
+            <div class="form-foot">
+              <button class="btn" type="submit">
+                Show matches
+              </button>
+            </div>
+          </form>
+
           {visits.length === 0 ? (
             <p class="empty">
-              <strong>No Visits yet.</strong>
+              <strong>{filtered ? "No Visits match." : "No Visits yet."}</strong>
             </p>
           ) : (
             <>
@@ -84,7 +181,7 @@ export function HistoryPage(
               {total > visits.length || page > 1 ? (
                 <nav class="pager" aria-label="History pages">
                   {page > 1 ? (
-                    <a class="btn secondary" href={historyHref(page - 1)}>
+                    <a class="btn secondary" href={historyHref(query, page - 1)}>
                       Previous
                     </a>
                   ) : (
@@ -96,7 +193,7 @@ export function HistoryPage(
                     Page {page} of {pageCount}
                   </span>
                   {page < pageCount ? (
-                    <a class="btn secondary" href={historyHref(page + 1)}>
+                    <a class="btn secondary" href={historyHref(query, page + 1)}>
                       Next
                     </a>
                   ) : (

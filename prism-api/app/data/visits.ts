@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 
-import { sql, type Database } from 'remix/data-table'
-import { lt } from 'remix/data-table/operators'
+import { sql, type Database, type SingleTableWhere } from 'remix/data-table'
+import { and, ilike, lt, or } from 'remix/data-table/operators'
 
 import { db } from './database.ts'
 import { clients, householdSettings, visits } from './schema.ts'
@@ -12,6 +12,7 @@ const HOUSEHOLD_SETTINGS_ID = 'household'
 export const MIN_VISIT_RETENTION_DAYS = 1
 export const MAX_VISIT_RETENTION_DAYS = 365
 export const HISTORY_PAGE_SIZE = 50
+export const CLIENT_HISTORY_LIMIT = 20
 
 export class InvalidVisitRetentionError extends Error {
   constructor() {
@@ -224,23 +225,88 @@ export async function ingestVisits(
   })
 }
 
+function visitWhere(filter: {
+  browser?: string
+  clientId?: string
+  search?: string
+  windowsUser?: string
+}): SingleTableWhere<typeof visits> | undefined {
+  let clauses: SingleTableWhere<typeof visits>[] = []
+  if (filter.clientId) {
+    clauses.push({ client_id: filter.clientId })
+  }
+  if (filter.windowsUser) {
+    clauses.push({ windows_user: filter.windowsUser })
+  }
+  if (filter.browser) {
+    clauses.push({ browser: filter.browser })
+  }
+  if (filter.search) {
+    let pattern = `%${filter.search}%`
+    clauses.push(or(ilike('url', pattern), ilike('title', pattern)))
+  }
+  if (clauses.length === 0) {
+    return undefined
+  }
+  if (clauses.length === 1) {
+    return clauses[0]
+  }
+  return and(...clauses)
+}
+
+export async function listHistoryFilterOptions(
+  now: Date = new Date(),
+  database: Database = db,
+) {
+  await purgeExpiredVisits(now, await getVisitRetentionDays(database), database)
+
+  let [householdClients, userRows, browserRows] = await Promise.all([
+    database.findMany(clients, { orderBy: ['name', 'asc'] }),
+    database.query(visits).select('windows_user').distinct().orderBy('windows_user', 'asc').all(),
+    database.query(visits).select('browser').distinct().all(),
+  ])
+
+  let seenBrowsers = new Set(browserRows.map((row) => row.browser))
+
+  return {
+    browsers: VISIT_BROWSERS.filter((browser) => seenBrowsers.has(browser)),
+    clients: householdClients.map((client) => ({ id: client.id, name: client.name })),
+    windowsUsers: userRows.map((row) => row.windows_user),
+  }
+}
+
 export async function listHistoryPage(
   requestedPage: number,
   now: Date = new Date(),
-  database: Database = db,
+  options: {
+    browser?: string
+    clientId?: string
+    database?: Database
+    pageSize?: number
+    search?: string
+    windowsUser?: string
+  } = {},
 ): Promise<HistoryList> {
+  let database = options.database ?? db
+  let pageSize = HISTORY_PAGE_SIZE
+  if (typeof options.pageSize === 'number' && Number.isInteger(options.pageSize) && options.pageSize > 0) {
+    pageSize = options.pageSize
+  }
+
   await purgeExpiredVisits(now, await getVisitRetentionDays(database), database)
 
-  let total = await database.count(visits)
-  let pageCount = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE))
+  let where = visitWhere(options)
+  let total = await database.count(visits, where ? { where } : {})
+  let pageCount = Math.max(1, Math.ceil(total / pageSize))
   let page = Number.isInteger(requestedPage)
     ? Math.min(Math.max(1, requestedPage), pageCount)
     : 1
-  let offset = (page - 1) * HISTORY_PAGE_SIZE
+  let offset = (page - 1) * pageSize
 
   let [rows, allClients] = await Promise.all([
     database.findMany(visits, {
-      limit: HISTORY_PAGE_SIZE,
+      ...(where ? { where } : {}),
+      limit: pageSize,
       offset,
       orderBy: [
         ['visited_at', 'desc'],

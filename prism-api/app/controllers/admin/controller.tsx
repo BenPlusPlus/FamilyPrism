@@ -42,7 +42,13 @@ import {
   deleteClientScreenshot,
   readClientScreenshot,
 } from "../../data/screenshots.ts";
-import { listHistoryPage } from "../../data/visits.ts";
+import {
+  CLIENT_HISTORY_LIMIT,
+  listHistoryFilterOptions,
+  listHistoryPage,
+  VISIT_BROWSERS,
+  type VisitBrowser,
+} from "../../data/visits.ts";
 import { requireAdmin } from "../../middleware/admin.ts";
 import { connectionRegistry } from "../../realtime/registry.ts";
 import type { AppContext } from "../../router.ts";
@@ -192,10 +198,14 @@ export const adminClients = {
 
     async detail({ get, params, request }) {
       let identity = getCurrentAdminIdentity({ get });
-      let [client, dnsProfiles, latestDnsState] = await Promise.all([
+      let [client, dnsProfiles, latestDnsState, recentVisits] = await Promise.all([
         getClient(params.clientId),
         listDnsProfiles(),
         getLatestDnsState(params.clientId),
+        listHistoryPage(1, new Date(), {
+          clientId: params.clientId,
+          pageSize: CLIENT_HISTORY_LIMIT,
+        }),
       ]);
       if (!client) {
         return redirect(
@@ -222,6 +232,7 @@ export const adminClients = {
           dnsProfiles={dnsProfiles}
           latestDnsState={latestDnsState}
           notice={getNotice(new URL(request.url))}
+          visits={recentVisits.visits}
         />,
         request,
       );
@@ -585,14 +596,30 @@ export const adminHistory = {
   actions: {
     async index({ get, request }) {
       let identity = getCurrentAdminIdentity({ get });
-      let requestedPage = Number.parseInt(new URL(request.url).searchParams.get("page") ?? "1", 10);
-      let history = await listHistoryPage(Number.isInteger(requestedPage) ? requestedPage : 1);
+      let url = new URL(request.url);
+      let client = url.searchParams.get("client")?.trim() ?? "";
+      let user = url.searchParams.get("user")?.trim() ?? "";
+      let browserParam = url.searchParams.get("browser")?.trim() ?? "";
+      let browser = VISIT_BROWSERS.includes(browserParam as VisitBrowser) ? browserParam : "";
+      let q = url.searchParams.get("q")?.trim() ?? "";
+      let requestedPage = Number.parseInt(url.searchParams.get("page") ?? "1", 10);
+      let [history, filterOptions] = await Promise.all([
+        listHistoryPage(Number.isInteger(requestedPage) ? requestedPage : 1, new Date(), {
+          browser: browser || undefined,
+          clientId: client || undefined,
+          search: q || undefined,
+          windowsUser: user || undefined,
+        }),
+        listHistoryFilterOptions(),
+      ]);
 
       return render(
         <HistoryPage
           adminName={identity.user.name}
+          filterOptions={filterOptions}
           history={history}
-          notice={getNotice(new URL(request.url))}
+          notice={getNotice(url)}
+          query={{ browser, client, q, user }}
         />,
         request,
       );

@@ -1121,6 +1121,17 @@ table.grid .go {
   user-select: all;
 }
 
+.filters {
+  display: grid;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.filters .form-foot {
+  margin-top: 0;
+}
+
 .pager {
   display: flex;
   align-items: center;
@@ -1564,6 +1575,10 @@ table.grid .go {
   .page {
     padding: 20px 16px 104px;
     gap: 20px;
+  }
+
+  .filters {
+    padding: 14px 16px;
   }
 
   .page-head h1 {

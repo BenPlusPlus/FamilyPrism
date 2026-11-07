@@ -10,6 +10,7 @@ import {
   type DnsDirectiveStatus,
 } from "../../data/dns-overlay.ts";
 import type { listDnsProfiles } from "../../data/dns-profiles.ts";
+import type { HistoryVisit } from "../../data/visits.ts";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
 import { KeyTag } from "../../ui/key-tag.tsx";
@@ -42,6 +43,7 @@ export function ClientDetailPage(
     overlayCapable: boolean;
     overlayMinVersion: string;
     pinnedVersion: string | null;
+    visits: HistoryVisit[];
   }>,
 ) {
   return () => {
@@ -55,6 +57,7 @@ export function ClientDetailPage(
       overlayCapable,
       overlayMinVersion,
       pinnedVersion,
+      visits,
     } = handle.props;
     let detailHref = routes.admin.clients.detail.href({ clientId: client.id });
     let screenshotUrl = routes.admin.clients.screenshot.href({ clientId: client.id });
@@ -165,6 +168,55 @@ export function ClientDetailPage(
                   </div>
                 )}
               </div>
+            </section>
+
+            <section class="panel" aria-labelledby="visits-title">
+              <div class="panel-head">
+                <h2 id="visits-title">Visits</h2>
+                <a
+                  class="row-link"
+                  href={`${routes.admin.history.index.href()}?client=${encodeURIComponent(client.id)}`}
+                >
+                  View in History
+                  <Icon name="chevron" />
+                </a>
+              </div>
+              {visits.length === 0 ? (
+                <p class="empty">
+                  <strong>No Visits yet.</strong>
+                </p>
+              ) : (
+                <div class="table-wrap">
+                  <table class="grid stackable">
+                    <thead>
+                      <tr>
+                        <th scope="col">Time</th>
+                        <th scope="col">Windows user</th>
+                        <th scope="col">Browser</th>
+                        <th scope="col">Title</th>
+                        <th scope="col">URL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visits.map((visit) => (
+                        <tr>
+                          <td data-label="Time">{formatTime(visit.visitedAt)}</td>
+                          <td data-label="Windows user">{visit.windowsUser}</td>
+                          <td data-label="Browser">
+                            {visit.browser} · {visit.browserProfile}
+                          </td>
+                          <td data-label="Title">
+                            {visit.title || <span class="muted">Untitled</span>}
+                          </td>
+                          <td data-label="URL">
+                            <span class="visit-url">{visit.url}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             <section class="panel" aria-labelledby="message-title">
