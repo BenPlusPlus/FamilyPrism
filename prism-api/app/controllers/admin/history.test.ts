@@ -68,14 +68,43 @@ async function postVisits(
   )
 }
 
-async function readHistory(cookie: string, page?: number) {
-  let path = routes.admin.history.index.href()
-  if (page && page > 1) {
-    path = `${path}?page=${page}`
+async function readHistory(
+  cookie: string,
+  query: { browser?: string; client?: string; page?: number; q?: string; user?: string } = {},
+) {
+  let params = new URLSearchParams()
+  if (query.client) {
+    params.set('client', query.client)
+  }
+  if (query.user) {
+    params.set('user', query.user)
+  }
+  if (query.browser) {
+    params.set('browser', query.browser)
+  }
+  if (query.q) {
+    params.set('q', query.q)
+  }
+  if (query.page && query.page > 1) {
+    params.set('page', String(query.page))
   }
 
+  let path = routes.admin.history.index.href()
+  let search = params.toString()
   let response = await router.fetch(
-    jsonRequest(path, {
+    jsonRequest(search ? `${path}?${search}` : path, {
+      headers: { cookie },
+    }),
+  )
+  return {
+    response,
+    text: await response.text(),
+  }
+}
+
+async function readClientDetail(cookie: string, clientId: string) {
+  let response = await router.fetch(
+    jsonRequest(routes.admin.clients.detail.href({ clientId }), {
       headers: { cookie },
     }),
   )
@@ -166,11 +195,141 @@ test('History paginates 50 Visits and puts the page in the URL', async () => {
   assert.doesNotMatch(first.text, /Visit 0</)
   assert.match(first.text, /href="\/admin\/history\?page=2"/)
 
-  let second = await readHistory(cookie, 2)
+  let second = await readHistory(cookie, { page: 2 })
   assert.equal(second.response.status, 200)
   assert.match(second.text, /Visit 0/)
   assert.doesNotMatch(second.text, /Visit 50/)
   assert.match(second.text, /Page 2 of 2/)
+})
+
+test('History filters, search, and page live in the URL together', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let kitchen = await registerClient('Kitchen PC')
+  let den = await registerClient('Den PC')
+
+  assert.equal(
+    (
+      await postVisits(kitchen, [
+        visitPayload({
+          browser: 'Chrome',
+          title: 'Kitchen Docs',
+          url: 'https://docs.example/kitchen',
+          visitTime: new Date(Date.now() - 30_000).toISOString(),
+          windowsUser: 'HOUSE\\kid',
+        }),
+        visitPayload({
+          browser: 'Firefox',
+          title: 'Kitchen News',
+          url: 'https://news.example/kitchen',
+          visitTime: new Date(Date.now() - 90_000).toISOString(),
+          windowsUser: 'HOUSE\\parent',
+        }),
+      ])
+    ).status,
+    204,
+  )
+  assert.equal(
+    (
+      await postVisits(den, [
+        visitPayload({
+          browser: 'Chrome',
+          title: 'Den Docs',
+          url: 'https://docs.example/den',
+          visitTime: new Date(Date.now() - 60_000).toISOString(),
+          windowsUser: 'HOUSE\\kid',
+        }),
+      ])
+    ).status,
+    204,
+  )
+
+  let filtered = await readHistory(cookie, { client: kitchen.clientId, q: 'docs' })
+  assert.equal(filtered.response.status, 200)
+  assert.match(filtered.text, /Kitchen Docs/)
+  assert.doesNotMatch(filtered.text, /Kitchen News/)
+  assert.doesNotMatch(filtered.text, /Den Docs/)
+  assert.match(filtered.text, new RegExp(`name="client"[\\s\\S]*value="${kitchen.clientId}"[\\s\\S]*selected`))
+  assert.match(filtered.text, /name="q"[^>]*value="docs"/)
+  assert.match(filtered.text, /<option value="Firefox">/)
+  assert.match(filtered.text, /<option value="HOUSE\\kid">/)
+  assert.match(filtered.text, />Den PC</)
+
+  let byUser = await readHistory(cookie, { user: 'HOUSE\\parent' })
+  assert.match(byUser.text, /Kitchen News/)
+  assert.doesNotMatch(byUser.text, /Kitchen Docs/)
+  assert.doesNotMatch(byUser.text, /Den Docs/)
+
+  let none = await readHistory(cookie, { browser: 'Firefox', q: 'docs' })
+  assert.match(none.text, /No Visits match/)
+  assert.doesNotMatch(none.text, /Kitchen Docs/)
+})
+
+test('History pagination keeps filters in the next page URL', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let kitchen = await registerClient('Kitchen PC')
+  let visits = []
+  for (let index = 0; index < 51; index += 1) {
+    visits.push(
+      visitPayload({
+        title: `Kitchen ${index}`,
+        url: `https://kitchen.example/${index}`,
+        visitTime: new Date(Date.now() - (51 - index) * 1000).toISOString(),
+      }),
+    )
+  }
+
+  assert.equal((await postVisits(kitchen, visits)).status, 204)
+
+  let first = await readHistory(cookie, { client: kitchen.clientId, q: 'kitchen.example' })
+  assert.match(first.text, /Kitchen 50/)
+  assert.doesNotMatch(first.text, /Kitchen 0</)
+  assert.match(
+    first.text,
+    new RegExp(`/admin/history\\?client=${kitchen.clientId}&amp;q=kitchen\\.example&amp;page=2`),
+  )
+
+  let second = await readHistory(cookie, {
+    client: kitchen.clientId,
+    page: 2,
+    q: 'kitchen.example',
+  })
+  assert.match(second.text, /Kitchen 0/)
+  assert.doesNotMatch(second.text, /Kitchen 50/)
+  assert.match(second.text, /Page 2 of 2/)
+})
+
+test('Client detail shows the latest 20 Visits and links to filtered History', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let kitchen = await registerClient('Kitchen PC')
+  let den = await registerClient('Den PC')
+  let visits = []
+  for (let index = 0; index < 21; index += 1) {
+    visits.push(
+      visitPayload({
+        title: `Kitchen ${index}`,
+        url: `https://kitchen.example/${index}`,
+        visitTime: new Date(Date.now() - (21 - index) * 1000).toISOString(),
+      }),
+    )
+  }
+
+  assert.equal((await postVisits(kitchen, visits)).status, 204)
+  assert.equal(
+    (await postVisits(den, [visitPayload({ title: 'Den page', url: 'https://den.example/' })])).status,
+    204,
+  )
+
+  let { response, text } = await readClientDetail(cookie, kitchen.clientId)
+  assert.equal(response.status, 200)
+  assert.match(text, /Kitchen 20/)
+  assert.match(text, /Kitchen 1/)
+  assert.doesNotMatch(text, /Kitchen 0</)
+  assert.doesNotMatch(text, /Den page/)
+  assert.match(text, new RegExp(`/admin/history\\?client=${kitchen.clientId}`))
+  assert.match(text, /View in History/)
 })
 
 test('unregistering a Client removes its Visits from History', async () => {

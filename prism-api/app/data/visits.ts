@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import { sql, type Database } from 'remix/data-table'
+import { sql, type Database, type SqlStatement } from 'remix/data-table'
 import { lt } from 'remix/data-table/operators'
 
 import { db } from './database.ts'
@@ -12,6 +12,7 @@ const HOUSEHOLD_SETTINGS_ID = 'household'
 export const MIN_VISIT_RETENTION_DAYS = 1
 export const MAX_VISIT_RETENTION_DAYS = 365
 export const HISTORY_PAGE_SIZE = 50
+export const CLIENT_HISTORY_LIMIT = 20
 
 export class InvalidVisitRetentionError extends Error {
   constructor() {
@@ -224,31 +225,106 @@ export async function ingestVisits(
   })
 }
 
+function visitWhere(filter: {
+  browser?: string
+  clientId?: string
+  search?: string
+  windowsUser?: string
+}): SqlStatement | undefined {
+  let clauses: SqlStatement[] = []
+  if (filter.clientId) {
+    clauses.push(sql`client_id = ${filter.clientId}`)
+  }
+  if (filter.windowsUser) {
+    clauses.push(sql`windows_user = ${filter.windowsUser}`)
+  }
+  if (filter.browser) {
+    clauses.push(sql`browser = ${filter.browser}`)
+  }
+  if (filter.search) {
+    let pattern = `%${filter.search.replace(/[#%_]/g, '#$&')}%`
+    clauses.push(
+      sql`(lower(url) like lower(${pattern}) escape '#' or lower(title) like lower(${pattern}) escape '#')`,
+    )
+  }
+  if (clauses.length === 0) {
+    return undefined
+  }
+  return clauses.reduce((left, right) => sql`${left} and ${right}`)
+}
+
+export async function listHistoryFilterOptions(
+  now: Date = new Date(),
+  database: Database = db,
+) {
+  await purgeExpiredVisits(now, await getVisitRetentionDays(database), database)
+
+  let [householdClients, userRows, browserRows] = await Promise.all([
+    database.findMany(clients, { orderBy: ['name', 'asc'] }),
+    database.query(visits).select('windows_user').distinct().orderBy('windows_user', 'asc').all(),
+    database.query(visits).select('browser').distinct().all(),
+  ])
+
+  let seenBrowsers = new Set(browserRows.map((row) => row.browser))
+
+  return {
+    browsers: VISIT_BROWSERS.filter((browser) => seenBrowsers.has(browser)),
+    clients: householdClients.map((client) => ({ id: client.id, name: client.name })),
+    windowsUsers: userRows.map((row) => row.windows_user),
+  }
+}
+
 export async function listHistoryPage(
   requestedPage: number,
   now: Date = new Date(),
-  database: Database = db,
+  options: {
+    browser?: string
+    clientId?: string
+    database?: Database
+    pageSize?: number
+    search?: string
+    windowsUser?: string
+  } = {},
 ): Promise<HistoryList> {
+  let database = options.database ?? db
+  let pageSize = HISTORY_PAGE_SIZE
+  if (typeof options.pageSize === 'number' && Number.isInteger(options.pageSize) && options.pageSize > 0) {
+    pageSize = options.pageSize
+  }
+
   await purgeExpiredVisits(now, await getVisitRetentionDays(database), database)
 
-  let total = await database.count(visits)
-  let pageCount = Math.max(1, Math.ceil(total / HISTORY_PAGE_SIZE))
+  let where = visitWhere(options)
+  let totalResult = await database.exec(
+    where
+      ? sql`select count(*) as total from visits where ${where}`
+      : sql`select count(*) as total from visits`,
+  )
+  let total = Number(totalResult.rows?.[0]?.total ?? 0)
+  let pageCount = Math.max(1, Math.ceil(total / pageSize))
   let page = Number.isInteger(requestedPage)
     ? Math.min(Math.max(1, requestedPage), pageCount)
     : 1
-  let offset = (page - 1) * HISTORY_PAGE_SIZE
+  let offset = (page - 1) * pageSize
 
-  let [rows, allClients] = await Promise.all([
-    database.findMany(visits, {
-      limit: HISTORY_PAGE_SIZE,
-      offset,
-      orderBy: [
-        ['visited_at', 'desc'],
-        ['id', 'desc'],
-      ],
-    }),
+  let [listResult, allClients] = await Promise.all([
+    database.exec(
+      where
+        ? sql`select * from visits where ${where} order by visited_at desc, id desc limit ${pageSize} offset ${offset}`
+        : sql`select * from visits order by visited_at desc, id desc limit ${pageSize} offset ${offset}`,
+    ),
     database.findMany(clients),
   ])
+  let rows = (listResult.rows ?? []) as Array<{
+    browser: string
+    browser_profile: string
+    client_id: string
+    id: string
+    title: string
+    url: string
+    visited_at: string
+    windows_user: string
+  }>
 
   let namesById = new Map(allClients.map((client) => [client.id, client.name]))
 

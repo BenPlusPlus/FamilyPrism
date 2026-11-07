@@ -3,10 +3,12 @@ import test from 'node:test'
 
 import { deleteClient, registerClient } from './clients.ts'
 import {
+  CLIENT_HISTORY_LIMIT,
   getVisitRetentionDays,
   HISTORY_PAGE_SIZE,
   ingestVisits,
   InvalidVisitRetentionError,
+  listHistoryFilterOptions,
   listHistoryPage,
   setVisitRetentionDays,
   type VisitIngestInput,
@@ -234,4 +236,194 @@ test('listHistoryPage returns 50 Visits per page', async () => {
   assert.equal(first.visits[0]?.title, 'Visit 50')
   assert.equal(second.visits.length, 1)
   assert.equal(second.visits[0]?.title, 'Visit 0')
+})
+
+test('listHistoryPage filters by Client, Windows user, browser, and search together', async () => {
+  await installTestPersistence()
+  let kitchen = await registerPc()
+  let den = await registerPc('Den PC')
+
+  await ingestVisits(
+    kitchen.client.id,
+    [
+      visit({
+        browser: 'Chrome',
+        title: 'Kitchen Docs',
+        url: 'https://docs.example/kitchen',
+        visitTime: '2026-11-06T11:30:00.000Z',
+        windowsUser: 'HOUSE\\kid',
+      }),
+      visit({
+        browser: 'Firefox',
+        title: 'Kitchen News',
+        url: 'https://news.example/kitchen',
+        visitTime: '2026-11-06T11:20:00.000Z',
+        windowsUser: 'HOUSE\\parent',
+      }),
+    ],
+    NOW,
+  )
+  await ingestVisits(
+    den.client.id,
+    [
+      visit({
+        browser: 'Chrome',
+        title: 'Den Docs',
+        url: 'https://docs.example/den',
+        visitTime: '2026-11-06T11:25:00.000Z',
+        windowsUser: 'HOUSE\\kid',
+      }),
+    ],
+    NOW,
+  )
+
+  let byClient = await listHistoryPage(1, NOW, { clientId: kitchen.client.id })
+  assert.deepEqual(
+    byClient.visits.map((row) => row.title),
+    ['Kitchen Docs', 'Kitchen News'],
+  )
+
+  let byUser = await listHistoryPage(1, NOW, { windowsUser: 'HOUSE\\parent' })
+  assert.deepEqual(
+    byUser.visits.map((row) => row.title),
+    ['Kitchen News'],
+  )
+
+  let byBrowser = await listHistoryPage(1, NOW, { browser: 'Firefox' })
+  assert.deepEqual(
+    byBrowser.visits.map((row) => row.title),
+    ['Kitchen News'],
+  )
+
+  let byTitle = await listHistoryPage(1, NOW, { search: 'DOCS' })
+  assert.deepEqual(
+    byTitle.visits.map((row) => row.title),
+    ['Kitchen Docs', 'Den Docs'],
+  )
+
+  let byUrl = await listHistoryPage(1, NOW, { search: 'news.example' })
+  assert.deepEqual(
+    byUrl.visits.map((row) => row.title),
+    ['Kitchen News'],
+  )
+
+  let combined = await listHistoryPage(1, NOW, {
+    clientId: kitchen.client.id,
+    search: 'docs',
+    windowsUser: 'HOUSE\\kid',
+  })
+  assert.deepEqual(
+    combined.visits.map((row) => row.title),
+    ['Kitchen Docs'],
+  )
+  assert.equal(combined.total, 1)
+})
+
+test('listHistoryPage search treats % and _ as literal substring characters', async () => {
+  await installTestPersistence()
+  let { client } = await registerPc()
+
+  await ingestVisits(
+    client.id,
+    [
+      visit({
+        title: 'Encoded',
+        url: 'https://example.com/a%20b',
+        visitTime: '2026-11-06T11:30:00.000Z',
+      }),
+      visit({
+        title: 'Twenty',
+        url: 'https://example.com/a20b',
+        visitTime: '2026-11-06T11:20:00.000Z',
+      }),
+      visit({
+        title: 'Underscore',
+        url: 'https://example.com/a_b',
+        visitTime: '2026-11-06T11:10:00.000Z',
+      }),
+      visit({
+        title: 'AxB',
+        url: 'https://example.com/axb',
+        visitTime: '2026-11-06T11:00:00.000Z',
+      }),
+    ],
+    NOW,
+  )
+
+  let encoded = await listHistoryPage(1, NOW, { search: '%20' })
+  assert.deepEqual(
+    encoded.visits.map((row) => row.title),
+    ['Encoded'],
+  )
+
+  let underscore = await listHistoryPage(1, NOW, { search: 'a_b' })
+  assert.deepEqual(
+    underscore.visits.map((row) => row.title),
+    ['Underscore'],
+  )
+})
+
+test('listHistoryFilterOptions lists household Clients and stored Visit users and browsers', async () => {
+  await installTestPersistence()
+  let kitchen = await registerPc()
+  await registerPc('Den PC')
+
+  await ingestVisits(
+    kitchen.client.id,
+    [
+      visit({ browser: 'Edge', windowsUser: 'HOUSE\\kid' }),
+      visit({
+        browser: 'Chrome',
+        url: 'https://other.example/',
+        visitTime: '2026-11-06T11:01:00.000Z',
+        windowsUser: 'HOUSE\\parent',
+      }),
+    ],
+    NOW,
+  )
+
+  let options = await listHistoryFilterOptions(NOW)
+  assert.deepEqual(
+    options.clients.map((client) => client.name),
+    ['Den PC', 'Kitchen PC'],
+  )
+  assert.deepEqual(options.windowsUsers, ['HOUSE\\kid', 'HOUSE\\parent'])
+  assert.deepEqual(options.browsers, ['Chrome', 'Edge'])
+})
+
+test('listHistoryPage can return the latest 20 Visits for a Client', async () => {
+  await installTestPersistence()
+  let kitchen = await registerPc()
+  let den = await registerPc('Den PC')
+  let batch: VisitIngestInput[] = []
+  for (let index = 0; index < CLIENT_HISTORY_LIMIT + 1; index += 1) {
+    let second = String(index).padStart(2, '0')
+    batch.push(
+      visit({
+        title: `Visit ${index}`,
+        url: `https://example.com/${index}`,
+        visitTime: `2026-11-06T11:00:${second}.000Z`,
+      }),
+    )
+  }
+
+  await ingestVisits(kitchen.client.id, batch, NOW)
+  await ingestVisits(
+    den.client.id,
+    [visit({ title: 'Den', url: 'https://den.example/', visitTime: '2026-11-06T11:59:00.000Z' })],
+    NOW,
+  )
+
+  let page = await listHistoryPage(1, NOW, {
+    clientId: kitchen.client.id,
+    pageSize: CLIENT_HISTORY_LIMIT,
+  })
+  assert.equal(page.total, 21)
+  assert.equal(page.visits.length, 20)
+  assert.equal(page.visits[0]?.title, 'Visit 20')
+  assert.equal(page.visits[19]?.title, 'Visit 1')
+  assert.equal(
+    page.visits.some((row) => row.title === 'Den' || row.title === 'Visit 0'),
+    false,
+  )
 })
