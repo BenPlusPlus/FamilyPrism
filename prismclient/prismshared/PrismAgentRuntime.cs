@@ -13,6 +13,7 @@ public sealed class PrismAgentRuntime
     private readonly Action<string, Exception?>? logError;
     private readonly PrismApiClient apiClient;
     private readonly DnsConfigurationService dnsConfigurationService;
+    private readonly DnsOverlayRestorer overlayRestorer;
     private readonly ClientUpdateCoordinator updateCoordinator;
     private readonly TrayWatchdog trayWatchdog;
     private readonly string agentVersion = GetAssemblyVersion();
@@ -43,6 +44,7 @@ public sealed class PrismAgentRuntime
         this.logError = logError;
         this.apiClient = apiClient ?? new PrismApiClient();
         this.dnsConfigurationService = dnsConfigurationService ?? new DnsConfigurationService();
+        overlayRestorer = new DnsOverlayRestorer(this.dnsConfigurationService, logError);
         this.updateCoordinator = updateCoordinator
             ?? ClientUpdateCoordinator.CreateDefault(
                 hostMode,
@@ -641,7 +643,7 @@ public sealed class PrismAgentRuntime
             }
 
             var configuration = MachineConfigurationStore.Load();
-            await RestoreStandingDnsAsync(configuration, state, cancellationToken);
+            await RestoreStandingDnsAsync(configuration, state, nowTick, cancellationToken);
         }
         finally
         {
@@ -663,7 +665,9 @@ public sealed class PrismAgentRuntime
             switch (plan.Kind)
             {
                 case DnsOverlayPlanKind.SkipExpired:
-                    DnsOverlayStateStore.Clear();
+                    // The skipped overlay never took effect, so any saved overlay state belongs to
+                    // the overlay still on the adapter (or a restore still in progress). Clearing
+                    // it here would leave that overlay in place with nothing to restore it.
                     logInformation?.Invoke("Skipped an expired DNS overlay.");
                     return;
 
@@ -793,54 +797,56 @@ public sealed class PrismAgentRuntime
     private async Task RestoreStandingDnsAsync(
         PrismConfiguration configuration,
         DnsOverlayPersistedState state,
+        long nowTick,
         CancellationToken cancellationToken)
     {
-        DnsConfigurationApplyResult result;
-        if (state.HasStandingProfile)
-        {
-            result = dnsConfigurationService.Apply(state.StandingPrimaryIp!, state.StandingSecondaryIp);
-        }
-        else
-        {
-            result = dnsConfigurationService.ResetToDhcp();
-        }
+        var result = await overlayRestorer.RestoreAsync(
+            state,
+            (directiveResult, ct) => apiClient.ReportDnsResultAsync(configuration, directiveResult, ct),
+            nowTick,
+            cancellationToken);
 
-        var status = result.Succeeded ? "applied" : "failed";
-        try
+        switch (result.Outcome)
         {
-            await apiClient.ReportDnsResultAsync(
-                configuration,
-                new DnsDirectiveResult(state.RestoreCommandId, status, result.Error),
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logError?.Invoke("The Family Prism DNS restore report could not be sent.", ex);
-            if (result.Succeeded)
-            {
+            case DnsOverlayRestoreOutcome.Restored:
+                if (result.StandingAppliedNow)
+                {
+                    logInformation?.Invoke("Restored standing DNS after the DNS overlay ended.");
+                }
+
+                WriteStatus(
+                    configuration,
+                    PrismConnectionState.Connected,
+                    "Connected to the server. Standing DNS restored.",
+                    lastError: null,
+                    lastDnsNoticeId: state.RestoreCommandId,
+                    lastDnsNoticeText: DnsProfileNotice.Restored(state));
                 return;
-            }
-        }
 
-        if (result.Succeeded)
-        {
-            DnsOverlayStateStore.Clear();
-            WriteStatus(
-                configuration,
-                PrismConnectionState.Connected,
-                "Connected to the server. Standing DNS restored.",
-                lastError: null,
-                lastDnsNoticeId: state.RestoreCommandId,
-                lastDnsNoticeText: DnsProfileNotice.Restored(state));
-            return;
-        }
+            case DnsOverlayRestoreOutcome.RestoredReportPending when result.StandingAppliedNow:
+                // Likely offline (e.g. just woke from sleep). Tell the user now; the connection
+                // state is left alone because the report failing says nothing good about it.
+                logInformation?.Invoke("Restored standing DNS after the DNS overlay ended; the server report will be retried.");
+                PrismStatusStore.Update(currentStatus => currentStatus with
+                {
+                    LastDnsNoticeId = state.RestoreCommandId,
+                    LastDnsNoticeText = DnsProfileNotice.Restored(state)
+                });
+                return;
 
-        DnsOverlayStateStore.Clear();
-        WriteStatus(
-            configuration,
-            PrismConnectionState.Connected,
-            "Connected to the server. Standing DNS restore failed.",
-            lastError: result.Error);
+            case DnsOverlayRestoreOutcome.AdaptersNotReady:
+                logInformation?.Invoke("No network adapter is up to restore standing DNS yet; retrying.");
+                return;
+
+            case DnsOverlayRestoreOutcome.Failed:
+                logError?.Invoke($"Standing DNS could not be restored; retrying. {result.Error}", null);
+                PrismStatusStore.Update(currentStatus => currentStatus with
+                {
+                    StatusMessage = "Standing DNS restore failed. Retrying.",
+                    LastError = result.Error
+                });
+                return;
+        }
     }
 
     private void WriteStatus(

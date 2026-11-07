@@ -12,7 +12,8 @@ internal sealed record DnsOverlayPersistedState(
     string? StandingSecondaryIp,
     DateTimeOffset ExpiresAtUtc,
     long RemainingMs,
-    long LastTickMs)
+    long LastTickMs,
+    bool StandingRestored = false)
 {
     public bool HasStandingProfile => !string.IsNullOrWhiteSpace(StandingPrimaryIp);
 }
