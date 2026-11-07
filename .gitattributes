@@ -1,0 +1,3 @@
+# Remix data-table journals SHA-256 of up.sql. Keep SQL as LF so Windows
+# autocrlf checkouts do not drift against Linux and git blobs.
+*.sql text eol=lf
