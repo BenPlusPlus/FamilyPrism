@@ -295,6 +295,12 @@ internal static class Native
         int tokenInformationLength,
         out int returnLength);
 
+    [DllImport("userenv.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    internal static extern bool GetUserProfileDirectory(
+        IntPtr hToken,
+        StringBuilder path,
+        ref int pathLength);
+
     [DllImport("userenv.dll", SetLastError = true)]
     internal static extern bool CreateEnvironmentBlock(out IntPtr environment, IntPtr token, bool inherit);
 
