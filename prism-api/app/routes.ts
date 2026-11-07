@@ -20,6 +20,7 @@ export const routes = route({
       extendDns: post(":clientId/dns/extend"),
       resetDns: post(":clientId/dns/reset"),
       delete: post(":clientId/delete"),
+      clearHistory: post(":clientId/history/clear"),
     }),
     groups: route("groups", {
       index: get("/"),
@@ -28,6 +29,7 @@ export const routes = route({
     }),
     history: route("history", {
       index: get("/"),
+      delete: post(":visitId/delete"),
     }),
     messages: route("messages", {
       compose: post("compose"),

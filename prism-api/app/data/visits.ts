@@ -274,6 +274,27 @@ export async function listHistoryFilterOptions(
   }
 }
 
+export async function deleteVisit(visitId: string, database: Database = db) {
+  return database.transaction(async (transaction) => {
+    let visit = await transaction.find(visits, visitId)
+    if (!visit) {
+      return null
+    }
+
+    await transaction.deleteMany(visits, {
+      where: { id: visitId },
+    })
+
+    return visit
+  })
+}
+
+export async function clearClientVisits(clientId: string, database: Database = db) {
+  await database.deleteMany(visits, {
+    where: { client_id: clientId },
+  })
+}
+
 export async function listHistoryPage(
   requestedPage: number,
   now: Date = new Date(),

@@ -3,7 +3,9 @@ import test from 'node:test'
 
 import { deleteClient, registerClient } from './clients.ts'
 import {
+  clearClientVisits,
   CLIENT_HISTORY_LIMIT,
+  deleteVisit,
   getVisitRetentionDays,
   HISTORY_PAGE_SIZE,
   ingestVisits,
@@ -191,6 +193,51 @@ test('ingestVisits stores a duplicate Visit once in a batch and across uploads',
   assert.equal(first.stored, 1)
   assert.equal(second.stored, 0)
   assert.equal((await listHistoryPage(1, NOW)).total, 1)
+})
+
+test('deleteVisit removes only that Visit', async () => {
+  await installTestPersistence()
+  let kitchen = await registerPc()
+
+  await ingestVisits(
+    kitchen.client.id,
+    [
+      visit({ title: 'Keep', url: 'https://keep.example/' }),
+      visit({ title: 'Drop', url: 'https://drop.example/', visitTime: '2026-11-06T11:30:00.000Z' }),
+    ],
+    NOW,
+  )
+
+  let before = await listHistoryPage(1, NOW)
+  let dropped = before.visits.find((row) => row.title === 'Drop')
+  assert.ok(dropped)
+  assert.equal((await deleteVisit(dropped.id))?.url, 'https://drop.example/')
+  assert.equal(await deleteVisit(dropped.id), null)
+
+  let after = await listHistoryPage(1, NOW)
+  assert.equal(after.total, 1)
+  assert.equal(after.visits[0]?.title, 'Keep')
+})
+
+test('clearClientVisits removes only that Client\'s Visits', async () => {
+  await installTestPersistence()
+  let kitchen = await registerPc()
+  let den = await registerPc('Den PC')
+
+  await ingestVisits(kitchen.client.id, [visit({ url: 'https://kitchen.example/' })], NOW)
+  await ingestVisits(den.client.id, [visit({ url: 'https://den.example/' })], NOW)
+
+  await clearClientVisits(kitchen.client.id)
+
+  let page = await listHistoryPage(1, NOW)
+  assert.equal(page.total, 1)
+  assert.equal(page.visits[0]?.clientName, 'Den PC')
+  assert.equal(page.visits[0]?.url, 'https://den.example/')
+
+  await ingestVisits(kitchen.client.id, [visit({ url: 'https://kitchen-again.example/' })], NOW)
+  let after = await listHistoryPage(1, NOW)
+  assert.equal(after.total, 2)
+  assert.ok(after.visits.some((row) => row.url === 'https://kitchen-again.example/'))
 })
 
 test('unregistering a Client deletes its Visits', async () => {

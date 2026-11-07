@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { listHistoryPage } from '../../data/visits.ts'
 import { router } from '../../router.ts'
 import { routes } from '../../routes.ts'
 import { cookieHeaderFrom, formRequest, jsonRequest } from '../../../test/http.ts'
@@ -330,6 +331,116 @@ test('Client detail shows the latest 20 Visits and links to filtered History', a
   assert.doesNotMatch(text, /Den page/)
   assert.match(text, new RegExp(`/admin/history\\?client=${kitchen.clientId}`))
   assert.match(text, /View in History/)
+})
+
+test('History row Delete removes that Visit and stays on the filtered list', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let kitchen = await registerClient('Kitchen PC')
+  let den = await registerClient('Den PC')
+
+  assert.equal(
+    (
+      await postVisits(kitchen, [
+        visitPayload({ title: 'Kitchen Docs', url: 'https://docs.example/kitchen' }),
+        visitPayload({
+          title: 'Kitchen News',
+          url: 'https://news.example/kitchen',
+          visitTime: new Date(Date.now() - 90_000).toISOString(),
+        }),
+      ])
+    ).status,
+    204,
+  )
+  assert.equal(
+    (await postVisits(den, [visitPayload({ title: 'Den Docs', url: 'https://docs.example/den' })])).status,
+    204,
+  )
+
+  let listed = await listHistoryPage(1, new Date(), { clientId: kitchen.clientId, search: 'docs' })
+  let kitchenDocs = listed.visits.find((row) => row.title === 'Kitchen Docs')
+  assert.ok(kitchenDocs)
+
+  let history = await readHistory(cookie, { client: kitchen.clientId, q: 'docs' })
+  assert.match(
+    history.text,
+    new RegExp(`action="/admin/history/${kitchenDocs.id}/delete"`),
+  )
+
+  let deleted = await router.fetch(
+    formRequest(
+      routes.admin.history.delete.href({ visitId: kitchenDocs.id }),
+      { returnTo: `/admin/history?client=${kitchen.clientId}&q=docs` },
+      { headers: { cookie } },
+    ),
+  )
+  assert.equal(deleted.status, 302)
+  let deletedLocation = deleted.headers.get('location') ?? ''
+  assert.match(deletedLocation, /\/admin\/history\?/)
+  assert.match(deletedLocation, new RegExp(`client=${kitchen.clientId}`))
+  assert.match(deletedLocation, /q=docs/)
+  assert.match(deletedLocation, /notice=Visit/)
+
+  let after = await readHistory(cookie, { client: kitchen.clientId, q: 'docs' })
+  assert.doesNotMatch(after.text, /Kitchen Docs/)
+  assert.doesNotMatch(after.text, /Kitchen News/)
+  assert.match(after.text, /No Visits match/)
+
+  let remaining = await readHistory(cookie)
+  assert.match(remaining.text, /Kitchen News/)
+  assert.match(remaining.text, /Den Docs/)
+})
+
+test('Client danger zone can clear that Client\'s Visits without touching others', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let kitchen = await registerClient('Kitchen PC')
+  let den = await registerClient('Den PC')
+
+  assert.equal(
+    (await postVisits(kitchen, [visitPayload({ title: 'Kitchen page', url: 'https://kitchen.example/' })])).status,
+    204,
+  )
+  assert.equal(
+    (await postVisits(den, [visitPayload({ title: 'Den page', url: 'https://den.example/' })])).status,
+    204,
+  )
+
+  let detail = await readClientDetail(cookie, kitchen.clientId)
+  assert.match(detail.text, /Clear History for Kitchen PC/)
+  assert.match(
+    detail.text,
+    new RegExp(`action="/admin/clients/${kitchen.clientId}/history/clear"`),
+  )
+  assert.match(detail.text, /New Visits still appear/)
+
+  let cleared = await router.fetch(
+    formRequest(routes.admin.clients.clearHistory.href({ clientId: kitchen.clientId }), {}, { headers: { cookie } }),
+  )
+  assert.equal(cleared.status, 302)
+  let clearedLocation = cleared.headers.get('location') ?? ''
+  assert.match(clearedLocation, new RegExp(`/admin/clients/${kitchen.clientId}`))
+  assert.match(clearedLocation, /notice=Cleared/)
+
+  let kitchenAfter = await readClientDetail(cookie, kitchen.clientId)
+  assert.doesNotMatch(kitchenAfter.text, /kitchen\.example/)
+  assert.match(kitchenAfter.text, /No Visits yet/)
+
+  let history = await readHistory(cookie)
+  assert.doesNotMatch(history.text, /kitchen\.example/)
+  assert.match(history.text, /Den page/)
+
+  assert.equal(
+    (
+      await postVisits(kitchen, [
+        visitPayload({ title: 'Kitchen again', url: 'https://kitchen-again.example/' }),
+      ])
+    ).status,
+    204,
+  )
+  let collected = await readHistory(cookie)
+  assert.match(collected.text, /Kitchen again/)
+  assert.match(collected.text, /Den page/)
 })
 
 test('unregistering a Client removes its Visits from History', async () => {
