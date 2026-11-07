@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { deleteClient, registerClient } from './clients.ts'
+import {
+  deleteClient,
+  historyCollectionEnabled,
+  registerClient,
+  setClientHistoryCollection,
+} from './clients.ts'
 import {
   clearClientVisits,
   CLIENT_HISTORY_LIMIT,
@@ -38,6 +43,13 @@ function visit(overrides: Partial<VisitIngestInput> = {}): VisitIngestInput {
 async function registerPc(name = 'Kitchen PC') {
   return registerClient(name)
 }
+
+test('History collection defaults on for a new Client', async () => {
+  await installTestPersistence()
+  let { client } = await registerPc()
+
+  assert.equal(historyCollectionEnabled(client.history_collection), true)
+})
 
 test('ingestVisits stores a retained Visit and lists it newest first', async () => {
   await installTestPersistence()
@@ -90,6 +102,26 @@ test('visit retention defaults to 30 days and accepts 1 through 365', async () =
   await assert.rejects(() => setVisitRetentionDays(''), InvalidVisitRetentionError)
   await assert.rejects(() => setVisitRetentionDays('30days'), InvalidVisitRetentionError)
   assert.equal(await getVisitRetentionDays(), 7)
+})
+
+test('ingestVisits stores nothing when History collection is off and keeps existing rows', async () => {
+  await installTestPersistence()
+  let { client } = await registerPc()
+
+  await ingestVisits(client.id, [visit({ url: 'https://kept.example/' })], NOW)
+  let off = await setClientHistoryCollection(client.id, false)
+  assert.equal(historyCollectionEnabled(off?.history_collection), false)
+
+  let result = await ingestVisits(
+    client.id,
+    [visit({ url: 'https://dropped.example/', visitTime: '2026-11-06T11:30:00.000Z' })],
+    NOW,
+  )
+
+  assert.equal(result.stored, 0)
+  let page = await listHistoryPage(1, NOW)
+  assert.equal(page.total, 1)
+  assert.equal(page.visits[0]?.url, 'https://kept.example/')
 })
 
 test('ingestVisits drops future visit times and visits older than household retention', async () => {

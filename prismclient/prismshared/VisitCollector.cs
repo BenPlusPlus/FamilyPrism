@@ -39,6 +39,9 @@ internal static class VisitCollector
     private const int MaxUrlLength = 8192;
     private const int MaxWindowsUserLength = 255;
 
+    // Tick and websocket both write visits.json.
+    private static readonly SemaphoreSlim StateGate = new(1, 1);
+
     public static async Task RunAsync(
         PrismApiClient apiClient,
         Action<string>? logInformation,
@@ -95,7 +98,29 @@ internal static class VisitCollector
             return;
         }
 
-        var state = VisitCollectionStore.Load(statePath);
+        VisitCollectionState state;
+        await StateGate.WaitAsync(cancellationToken);
+        try
+        {
+            state = VisitCollectionStore.Load(statePath);
+            if (state.HistoryCollection == false)
+            {
+                if (state.Pending.Count > 0)
+                {
+                    state.Pending.Clear();
+                    VisitCollectionStore.Save(state, statePath);
+                }
+
+                return;
+            }
+        }
+        finally
+        {
+            StateGate.Release();
+        }
+
+        var watermarksBefore = new Dictionary<string, long>(state.Watermarks, StringComparer.Ordinal);
+
         IReadOnlyList<(string WindowsUser, string ProfileRoot)> users;
         try
         {
@@ -108,14 +133,29 @@ internal static class VisitCollector
         }
 
         CollectUsers(users, state, logError);
-        VisitCollectionStore.Save(state, statePath);
+
+        await StateGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (DiscardTickIfOff(state, statePath, watermarksBefore))
+            {
+                return;
+            }
+
+            VisitCollectionStore.Save(state, statePath);
+        }
+        finally
+        {
+            StateGate.Release();
+        }
 
         var uploaded = await UploadPendingAsync(
             state,
             apiClient,
             loadConfiguration(),
             statePath,
-            cancellationToken);
+            cancellationToken,
+            watermarksBefore);
         if (uploaded > 0)
         {
             logInformation?.Invoke($"Uploaded {uploaded} Visit(s).");
@@ -157,25 +197,97 @@ internal static class VisitCollector
         }
     }
 
+    internal static void SetHistoryCollection(bool enabled, string? path = null)
+    {
+        var statePath = path ?? PrismPaths.VisitCollectionPath;
+        StateGate.Wait();
+        try
+        {
+            var state = VisitCollectionStore.Load(statePath);
+            state.HistoryCollection = enabled;
+            if (!enabled)
+            {
+                state.Pending.Clear();
+            }
+
+            VisitCollectionStore.Save(state, statePath);
+        }
+        finally
+        {
+            StateGate.Release();
+        }
+    }
+
     internal static async Task<int> UploadPendingAsync(
         VisitCollectionState state,
         PrismApiClient apiClient,
         PrismConfiguration configuration,
         string statePath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, long>? watermarksBefore = null)
     {
         var uploaded = 0;
         while (state.Pending.Count > 0)
         {
+            await StateGate.WaitAsync(cancellationToken);
+            try
+            {
+                if (DiscardTickIfOff(state, statePath, watermarksBefore))
+                {
+                    return uploaded;
+                }
+            }
+            finally
+            {
+                StateGate.Release();
+            }
+
             var take = Math.Min(MaxBatchSize, state.Pending.Count);
             var batch = state.Pending.GetRange(0, take);
             await apiClient.UploadVisitsAsync(configuration, batch, cancellationToken);
-            state.Pending.RemoveRange(0, take);
-            VisitCollectionStore.Save(state, statePath);
-            uploaded += take;
+
+            await StateGate.WaitAsync(cancellationToken);
+            try
+            {
+                if (DiscardTickIfOff(state, statePath, watermarksBefore))
+                {
+                    return uploaded;
+                }
+
+                state.Pending.RemoveRange(0, take);
+                VisitCollectionStore.Save(state, statePath);
+                uploaded += take;
+            }
+            finally
+            {
+                StateGate.Release();
+            }
         }
 
         return uploaded;
+    }
+
+    private static bool DiscardTickIfOff(
+        VisitCollectionState memory,
+        string statePath,
+        IReadOnlyDictionary<string, long>? watermarksBefore)
+    {
+        var disk = VisitCollectionStore.Load(statePath);
+        if (disk.HistoryCollection != false)
+        {
+            return false;
+        }
+
+        disk.Pending.Clear();
+        if (watermarksBefore is not null)
+        {
+            disk.Watermarks = new Dictionary<string, long>(watermarksBefore, StringComparer.Ordinal);
+        }
+
+        VisitCollectionStore.Save(disk, statePath);
+        memory.HistoryCollection = false;
+        memory.Pending.Clear();
+        return true;
     }
 
     internal static IReadOnlyList<(string WindowsUser, string ProfileRoot)> ListInteractiveWindowsUsers()

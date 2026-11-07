@@ -15,6 +15,7 @@ const TEST_TABLES = [
     last_user text,
     last_screenshot_at text,
     last_seen_version text,
+    history_collection integer not null default 1,
     created_at text not null default (datetime('now')),
     updated_at text not null default (datetime('now'))
   )`,

@@ -127,6 +127,20 @@ test("registry sends apply-dns commands to connected clients", () => {
   });
 });
 
+test("registry sends standing History collection as client-state", () => {
+  let registry = new ClientConnectionRegistry();
+  let { sent, socket } = createSocket();
+
+  registry.register("client-1", socket);
+  let delivered = registry.sendClientState("client-1", false);
+
+  assert.equal(delivered, true);
+  assert.deepEqual(JSON.parse(sent[0]), {
+    historyCollection: false,
+    type: "client-state",
+  });
+});
+
 test("registry reports offline delivery when no socket is connected", () => {
   let registry = new ClientConnectionRegistry();
 

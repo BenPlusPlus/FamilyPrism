@@ -4,6 +4,7 @@ import { sql, type Database, type SqlStatement } from 'remix/data-table'
 import { lt } from 'remix/data-table/operators'
 
 import { db } from './database.ts'
+import { historyCollectionEnabled } from './clients.ts'
 import { clients, householdSettings, visits } from './schema.ts'
 import { generateId } from '../utils/secrets.ts'
 
@@ -150,6 +151,11 @@ export async function ingestVisits(
   now: Date = new Date(),
   database: Database = db,
 ) {
+  let client = await database.find(clients, clientId)
+  if (!client || !historyCollectionEnabled(client.history_collection)) {
+    return { stored: 0 }
+  }
+
   let uniqueByKey = new Map<
     string,
     {

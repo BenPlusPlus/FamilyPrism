@@ -21,6 +21,7 @@ export const routes = route({
       resetDns: post(":clientId/dns/reset"),
       delete: post(":clientId/delete"),
       clearHistory: post(":clientId/history/clear"),
+      historyCollection: post(":clientId/history-collection"),
     }),
     groups: route("groups", {
       index: get("/"),

@@ -3,7 +3,12 @@ import type { Duplex } from 'node:stream'
 
 import { WebSocketServer, type RawData, type WebSocket } from 'ws'
 
-import { authenticateClient, updateClientLastSeenVersion, updateClientLastUser } from '../data/clients.ts'
+import {
+  authenticateClient,
+  historyCollectionEnabled,
+  updateClientLastSeenVersion,
+  updateClientLastUser,
+} from '../data/clients.ts'
 import { normalizeClientVersion } from '../data/client-package.ts'
 import { flushPendingDnsDirective } from '../data/dns-directives.ts'
 import { routes } from '../routes.ts'
@@ -174,6 +179,7 @@ export function attachRealtimeServer(server: http.Server) {
       websocket.send(
         JSON.stringify({
           clientId: client.id,
+          historyCollection: historyCollectionEnabled(client.history_collection),
           name: client.name,
           type: 'connected',
         }),
