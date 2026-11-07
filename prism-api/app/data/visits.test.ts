@@ -319,6 +319,50 @@ test('listHistoryPage filters by Client, Windows user, browser, and search toget
   assert.equal(combined.total, 1)
 })
 
+test('listHistoryPage search treats % and _ as literal substring characters', async () => {
+  await installTestPersistence()
+  let { client } = await registerPc()
+
+  await ingestVisits(
+    client.id,
+    [
+      visit({
+        title: 'Encoded',
+        url: 'https://example.com/a%20b',
+        visitTime: '2026-11-06T11:30:00.000Z',
+      }),
+      visit({
+        title: 'Twenty',
+        url: 'https://example.com/a20b',
+        visitTime: '2026-11-06T11:20:00.000Z',
+      }),
+      visit({
+        title: 'Underscore',
+        url: 'https://example.com/a_b',
+        visitTime: '2026-11-06T11:10:00.000Z',
+      }),
+      visit({
+        title: 'AxB',
+        url: 'https://example.com/axb',
+        visitTime: '2026-11-06T11:00:00.000Z',
+      }),
+    ],
+    NOW,
+  )
+
+  let encoded = await listHistoryPage(1, NOW, { search: '%20' })
+  assert.deepEqual(
+    encoded.visits.map((row) => row.title),
+    ['Encoded'],
+  )
+
+  let underscore = await listHistoryPage(1, NOW, { search: 'a_b' })
+  assert.deepEqual(
+    underscore.visits.map((row) => row.title),
+    ['Underscore'],
+  )
+})
+
 test('listHistoryFilterOptions lists household Clients and stored Visit users and browsers', async () => {
   await installTestPersistence()
   let kitchen = await registerPc()

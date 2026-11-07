@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 
-import { sql, type Database, type SingleTableWhere } from 'remix/data-table'
-import { and, ilike, lt, or } from 'remix/data-table/operators'
+import { sql, type Database, type SqlStatement } from 'remix/data-table'
+import { lt } from 'remix/data-table/operators'
 
 import { db } from './database.ts'
 import { clients, householdSettings, visits } from './schema.ts'
@@ -230,28 +230,27 @@ function visitWhere(filter: {
   clientId?: string
   search?: string
   windowsUser?: string
-}): SingleTableWhere<typeof visits> | undefined {
-  let clauses: SingleTableWhere<typeof visits>[] = []
+}): SqlStatement | undefined {
+  let clauses: SqlStatement[] = []
   if (filter.clientId) {
-    clauses.push({ client_id: filter.clientId })
+    clauses.push(sql`client_id = ${filter.clientId}`)
   }
   if (filter.windowsUser) {
-    clauses.push({ windows_user: filter.windowsUser })
+    clauses.push(sql`windows_user = ${filter.windowsUser}`)
   }
   if (filter.browser) {
-    clauses.push({ browser: filter.browser })
+    clauses.push(sql`browser = ${filter.browser}`)
   }
   if (filter.search) {
-    let pattern = `%${filter.search}%`
-    clauses.push(or(ilike('url', pattern), ilike('title', pattern)))
+    let pattern = `%${filter.search.replace(/[#%_]/g, '#$&')}%`
+    clauses.push(
+      sql`(lower(url) like lower(${pattern}) escape '#' or lower(title) like lower(${pattern}) escape '#')`,
+    )
   }
   if (clauses.length === 0) {
     return undefined
   }
-  if (clauses.length === 1) {
-    return clauses[0]
-  }
-  return and(...clauses)
+  return clauses.reduce((left, right) => sql`${left} and ${right}`)
 }
 
 export async function listHistoryFilterOptions(
@@ -296,25 +295,36 @@ export async function listHistoryPage(
   await purgeExpiredVisits(now, await getVisitRetentionDays(database), database)
 
   let where = visitWhere(options)
-  let total = await database.count(visits, where ? { where } : {})
+  let totalResult = await database.exec(
+    where
+      ? sql`select count(*) as total from visits where ${where}`
+      : sql`select count(*) as total from visits`,
+  )
+  let total = Number(totalResult.rows?.[0]?.total ?? 0)
   let pageCount = Math.max(1, Math.ceil(total / pageSize))
   let page = Number.isInteger(requestedPage)
     ? Math.min(Math.max(1, requestedPage), pageCount)
     : 1
   let offset = (page - 1) * pageSize
 
-  let [rows, allClients] = await Promise.all([
-    database.findMany(visits, {
-      ...(where ? { where } : {}),
-      limit: pageSize,
-      offset,
-      orderBy: [
-        ['visited_at', 'desc'],
-        ['id', 'desc'],
-      ],
-    }),
+  let [listResult, allClients] = await Promise.all([
+    database.exec(
+      where
+        ? sql`select * from visits where ${where} order by visited_at desc, id desc limit ${pageSize} offset ${offset}`
+        : sql`select * from visits order by visited_at desc, id desc limit ${pageSize} offset ${offset}`,
+    ),
     database.findMany(clients),
   ])
+  let rows = (listResult.rows ?? []) as Array<{
+    browser: string
+    browser_profile: string
+    client_id: string
+    id: string
+    title: string
+    url: string
+    visited_at: string
+    windows_user: string
+  }>
 
   let namesById = new Map(allClients.map((client) => [client.id, client.name]))
 
