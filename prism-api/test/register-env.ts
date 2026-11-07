@@ -1,0 +1,5 @@
+process.env.BETTER_AUTH_SECRET = 'test-secret-test-secret-test-secret-12'
+process.env.BETTER_AUTH_URL = 'http://localhost:44100'
+process.env.DATABASE_URL = 'postgres://prism-test:prism-test@127.0.0.1:1/prism-test'
+process.env.NODE_ENV = 'test'
+process.env.REGISTRATION_PASSWORD = 'test-registration-password'

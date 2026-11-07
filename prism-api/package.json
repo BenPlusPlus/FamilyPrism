@@ -7,7 +7,7 @@
     "dev": "tsx watch server.ts",
     "migrate": "tsx app/data/migrate.ts",
     "start": "tsx server.ts",
-    "test": "tsx --test",
+    "test": "tsx --import ./test/register-env.ts --test --test-force-exit **/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
