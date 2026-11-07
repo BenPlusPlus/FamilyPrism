@@ -437,9 +437,30 @@ export function ClientDetailPage(
 
             <section class="panel danger-zone" aria-labelledby="danger-title">
               <div class="panel-head">
-                <h2 id="danger-title">Unregister</h2>
+                <h2 id="danger-title">Danger zone</h2>
               </div>
               <div class="panel-body">
+                <details class="disclose">
+                  <summary>
+                    <Icon name="chevron" />
+                    Clear History for {client.name}
+                  </summary>
+                  <form
+                    class="disclose-body"
+                    method="post"
+                    action={routes.admin.clients.clearHistory.href({ clientId: client.id })}
+                  >
+                    <p class="muted">
+                      Deletes every stored Visit for this PC. New Visits still appear.
+                    </p>
+                    <div class="form-foot">
+                      <span></span>
+                      <button class="btn danger" type="submit">
+                        Clear History for {client.name}
+                      </button>
+                    </div>
+                  </form>
+                </details>
                 <details class="disclose">
                   <summary>
                     <Icon name="chevron" />

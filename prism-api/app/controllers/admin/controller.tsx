@@ -44,6 +44,8 @@ import {
 } from "../../data/screenshots.ts";
 import {
   CLIENT_HISTORY_LIMIT,
+  clearClientVisits,
+  deleteVisit,
   listHistoryFilterOptions,
   listHistoryPage,
   VISIT_BROWSERS,
@@ -250,6 +252,31 @@ export const adminClients = {
           "Content-Type": "image/png",
         },
       });
+    },
+
+    async clearHistory({ params, request }) {
+      let client = await getClient(params.clientId);
+      if (!client) {
+        return redirect(
+          withNotice(request, routes.admin.clients.index.href(), {
+            text: "Client not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      await clearClientVisits(client.id);
+
+      return redirect(
+        withNotice(
+          request,
+          routes.admin.clients.detail.href({ clientId: client.id }),
+          {
+            text: `Cleared History for ${client.name}.`,
+            type: "success",
+          },
+        ),
+      );
     },
 
     async delete({ params, request }) {
@@ -622,6 +649,29 @@ export const adminHistory = {
           query={{ browser, client, q, user }}
         />,
         request,
+      );
+    },
+
+    async delete({ get, params, request }) {
+      let returnUrl = safeAdminReturnTo(
+        get(FormData).get("returnTo"),
+        routes.admin.history.index.href(),
+      );
+      let visit = await deleteVisit(params.visitId);
+      if (!visit) {
+        return redirect(
+          withNotice(request, returnUrl, {
+            text: "Visit not found.",
+            type: "error",
+          }),
+        );
+      }
+
+      return redirect(
+        withNotice(request, returnUrl, {
+          text: "Visit deleted.",
+          type: "success",
+        }),
       );
     },
   },

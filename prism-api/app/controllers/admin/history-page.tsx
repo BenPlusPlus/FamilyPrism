@@ -158,6 +158,9 @@ export function HistoryPage(
                       <th scope="col">Browser</th>
                       <th scope="col">Title</th>
                       <th scope="col">URL</th>
+                      <th scope="col">
+                        <span class="visually-hidden">Delete</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -172,6 +175,17 @@ export function HistoryPage(
                         <td data-label="Title">{visit.title || <span class="muted">Untitled</span>}</td>
                         <td data-label="URL">
                           <span class="visit-url">{visit.url}</span>
+                        </td>
+                        <td data-label="Delete">
+                          <form
+                            method="post"
+                            action={routes.admin.history.delete.href({ visitId: visit.id })}
+                          >
+                            <input type="hidden" name="returnTo" value={historyHref(query, page)} />
+                            <button class="btn-link danger" type="submit">
+                              Delete
+                            </button>
+                          </form>
                         </td>
                       </tr>
                     ))}
