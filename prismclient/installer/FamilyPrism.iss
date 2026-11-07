@@ -4,7 +4,7 @@
 ; https://github.com/DomGries/InnoDependencyInstaller
 
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.5"
+  #define MyAppVersion "0.1.7"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish\win-x64"
