@@ -109,6 +109,13 @@ const TEST_TABLES = [
     created_at text not null default (datetime('now')),
     updated_at text not null default (datetime('now'))
   )`,
+  `create table household_settings (
+    id text primary key,
+    visit_retention_days integer not null,
+    created_at text not null default (datetime('now')),
+    updated_at text not null default (datetime('now'))
+  )`,
+  `insert into household_settings (id, visit_retention_days) values ('household', 30)`,
   `create table visits (
     id text primary key,
     client_id text not null references clients (id) on delete cascade,

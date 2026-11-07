@@ -13,9 +13,9 @@ const SECTIONS: Array<{ id: AdminSection; label: string; icon: IconName; href: (
   { id: "history", label: "History", icon: "history", href: () => routes.admin.history.index.href() },
   {
     id: "dns",
-    label: "DNS profiles",
+    label: "Settings",
     icon: "dns",
-    href: () => routes.admin.settings.dnsProfiles.index.href(),
+    href: () => routes.admin.settings.index.href(),
   },
 ];
 
@@ -125,7 +125,7 @@ export function AdminShell(handle: Handle<AdminShellProps>) {
           {SECTIONS.map((section) => (
             <a href={section.href()} aria-current={section.id === handle.props.active ? "page" : undefined}>
               <Icon name={section.icon} />
-              {section.id === "dns" ? "DNS" : section.label}
+              {section.label}
             </a>
           ))}
         </nav>
