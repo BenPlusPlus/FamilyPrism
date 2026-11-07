@@ -13,7 +13,12 @@ export type IconName =
   | "camera"
   | "send"
   | "refresh"
-  | "plus";
+  | "plus"
+  | "user"
+  | "browser"
+  | "trash"
+  | "search"
+  | "close";
 
 const PATHS: Record<IconName, string[]> = {
   rack: ["M3 6h18", "M7 6v3", "M12 6v3", "M17 6v3", "M5.5 11h3v8h-3z", "M10.5 11h3v8h-3z", "M15.5 11h3v8h-3z"],
@@ -29,6 +34,11 @@ const PATHS: Record<IconName, string[]> = {
   send: ["M4 12l16-7-6.5 15-2.5-6z", "M11 14l9-9"],
   refresh: ["M19.5 8.5A8 8 0 0 0 5 7.5", "M4.5 15.5A8 8 0 0 0 19 16.5", "M19.5 3.5v5h-5", "M4.5 20.5v-5h5"],
   plus: ["M12 5v14", "M5 12h14"],
+  user: ["M12 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7z", "M5 20c.4-3.6 3.3-6 7-6s6.6 2.4 7 6"],
+  browser: ["M3.5 5h17v14h-17z", "M3.5 9h17", "M6.5 7h.01", "M9 7h.01"],
+  trash: ["M4.5 7h15", "M9.5 7V4.5h5V7", "M6.5 7l1 12.5h9l1-12.5", "M10.5 11v5", "M13.5 11v5"],
+  search: ["M10.5 4.5a6 6 0 1 0 0 12a6 6 0 1 0 0-12z", "M15 15l4.5 4.5"],
+  close: ["M6.5 6.5l11 11", "M17.5 6.5l-11 11"],
 };
 
 export function Icon(handle: Handle<{ name: IconName }>) {
