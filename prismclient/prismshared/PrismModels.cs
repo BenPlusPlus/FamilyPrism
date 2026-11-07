@@ -44,6 +44,8 @@ public static class PrismPaths
 
     public static string SecureConfigPath => Path.Combine(SecureConfigDirectory, "agent-config.json");
 
+    public static string DnsOverlayPath => Path.Combine(SecureConfigDirectory, "dns-overlay.json");
+
     public static string StatusPath => Path.Combine(StateDirectory, "agent-status.json");
 
     public static string PendingScreenshotRequestPath => Path.Combine(StateDirectory, "pending-screenshot-request.json");
@@ -85,12 +87,21 @@ public sealed record PendingSetupPayload(
 public sealed record PendingScreenshotRequestPayload(
     DateTimeOffset RequestedAtUtc);
 
+public sealed record ApplyDnsStanding(
+    bool ResetToDhcp,
+    string? ProfileName,
+    string? PrimaryIp,
+    string? SecondaryIp);
+
 public sealed record ApplyDnsCommand(
     string CommandId,
     bool ResetToDhcp,
     string? ProfileName,
     string? PrimaryIp,
-    string? SecondaryIp);
+    string? SecondaryIp,
+    DateTimeOffset? ExpiresAt = null,
+    string? RestoreCommandId = null,
+    ApplyDnsStanding? Standing = null);
 
 public sealed record DnsDirectiveResult(
     string CommandId,

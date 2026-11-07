@@ -17,6 +17,7 @@ public sealed class PrismAgentRuntime
     private readonly TrayWatchdog trayWatchdog;
     private readonly string agentVersion = GetAssemblyVersion();
     private readonly object reportLock = new();
+    private readonly SemaphoreSlim dnsGate = new(1, 1);
     private ClientUpdateCheckReport? publishedReport;
 
     // The startup check usually runs before the network is up at boot. If it fails, it stays
@@ -61,6 +62,7 @@ public sealed class PrismAgentRuntime
         var watchdog = trayWatchdog.RunAsync(periodicCts.Token);
         var manualUpdates = RunManualUpdateRequestsAsync(periodicCts.Token);
         var screenshotUploads = RunPendingScreenshotUploadsAsync(periodicCts.Token);
+        var overlayWatch = RunDnsOverlayWatchAsync(periodicCts.Token);
 
         try
         {
@@ -175,6 +177,14 @@ public sealed class PrismAgentRuntime
             try
             {
                 await screenshotUploads;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            try
+            {
+                await overlayWatch;
             }
             catch (OperationCanceledException)
             {
@@ -531,42 +541,128 @@ public sealed class PrismAgentRuntime
         }
     }
 
+    private async Task RunDnsOverlayWatchAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await TickDnsOverlayAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                logError?.Invoke("The Family Prism DNS overlay watch failed.", ex);
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+        }
+    }
+
+    private async Task TickDnsOverlayAsync(CancellationToken cancellationToken)
+    {
+        await dnsGate.WaitAsync(cancellationToken);
+        try
+        {
+            var state = DnsOverlayStateStore.Read();
+            if (state is null)
+            {
+                return;
+            }
+
+            var nowUtc = DateTimeOffset.UtcNow;
+            var nowTick = Environment.TickCount64;
+            var remaining = DnsOverlayRemaining.Compute(
+                TimeSpan.FromMilliseconds(state.RemainingMs),
+                state.LastTickMs,
+                nowTick,
+                state.ExpiresAtUtc,
+                nowUtc);
+
+            if (remaining.TotalMilliseconds < state.RemainingMs)
+            {
+                DnsOverlayStateStore.Write(state with
+                {
+                    RemainingMs = (long)remaining.TotalMilliseconds,
+                    LastTickMs = nowTick
+                });
+            }
+
+            if (remaining > TimeSpan.Zero)
+            {
+                return;
+            }
+
+            if (!MachineConfigurationStore.HasSecureConfiguration())
+            {
+                return;
+            }
+
+            var configuration = MachineConfigurationStore.Load();
+            await RestoreStandingDnsAsync(configuration, state, cancellationToken);
+        }
+        finally
+        {
+            dnsGate.Release();
+        }
+    }
+
     private async Task ProcessApplyDnsCommandAsync(
         PrismConfiguration configuration,
         ApplyDnsCommand command,
         CancellationToken cancellationToken)
     {
+        await dnsGate.WaitAsync(cancellationToken);
         try
         {
-            DnsConfigurationApplyResult result;
+            var current = DnsOverlayStateStore.Read();
+            var plan = DnsOverlayPlanner.Plan(command, current, DateTimeOffset.UtcNow);
 
-            if (command.ResetToDhcp)
+            switch (plan.Kind)
             {
-                result = dnsConfigurationService.ResetToDhcp();
+                case DnsOverlayPlanKind.SkipExpired:
+                    DnsOverlayStateStore.Clear();
+                    logInformation?.Invoke("Skipped an expired DNS overlay.");
+                    return;
+
+                case DnsOverlayPlanKind.ExtendOverlay:
+                    if (current is not null)
+                    {
+                        DnsOverlayStateStore.Write(current with
+                        {
+                            ExpiresAtUtc = command.ExpiresAt ?? current.ExpiresAtUtc,
+                            RemainingMs = (long)plan.Remaining.TotalMilliseconds,
+                            LastTickMs = Environment.TickCount64
+                        });
+                    }
+
+                    if (!command.ResetToDhcp && !string.IsNullOrWhiteSpace(command.PrimaryIp))
+                    {
+                        dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
+                    }
+
+                    logInformation?.Invoke("Extended the DNS overlay.");
+                    return;
+
+                case DnsOverlayPlanKind.ApplyIndefinite:
+                    DnsOverlayStateStore.Clear();
+                    await ApplyAndReportDnsAsync(configuration, command, persistOverlay: false, plan.Remaining, cancellationToken);
+                    return;
+
+                default:
+                    await ApplyAndReportDnsAsync(configuration, command, persistOverlay: true, plan.Remaining, cancellationToken);
+                    return;
             }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(command.PrimaryIp))
-                {
-                    throw new InvalidOperationException("The DNS command did not include a primary DNS server.");
-                }
-
-                result = dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
-            }
-
-            var status = result.Succeeded ? "applied" : "failed";
-            await apiClient.ReportDnsResultAsync(
-                configuration,
-                new DnsDirectiveResult(command.CommandId, status, result.Error),
-                cancellationToken);
-
-            WriteStatus(
-                configuration,
-                PrismConnectionState.Connected,
-                result.Succeeded
-                    ? "Connected to the server. DNS settings applied."
-                    : "Connected to the server. DNS settings failed.",
-                lastError: result.Error);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -593,6 +689,111 @@ public sealed class PrismAgentRuntime
                 "Connected to the server. DNS settings failed.",
                 lastError: ex.Message);
         }
+        finally
+        {
+            dnsGate.Release();
+        }
+    }
+
+    private async Task ApplyAndReportDnsAsync(
+        PrismConfiguration configuration,
+        ApplyDnsCommand command,
+        bool persistOverlay,
+        TimeSpan remaining,
+        CancellationToken cancellationToken)
+    {
+        DnsConfigurationApplyResult result;
+
+        if (command.ResetToDhcp)
+        {
+            result = dnsConfigurationService.ResetToDhcp();
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(command.PrimaryIp))
+            {
+                throw new InvalidOperationException("The DNS command did not include a primary DNS server.");
+            }
+
+            result = dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
+        }
+
+        if (persistOverlay && result.Succeeded)
+        {
+            DnsOverlayStateStore.Write(DnsOverlayStateStore.FromCommand(
+                command,
+                remaining,
+                Environment.TickCount64));
+        }
+        else if (!result.Succeeded)
+        {
+            DnsOverlayStateStore.Clear();
+        }
+
+        var status = result.Succeeded ? "applied" : "failed";
+        await apiClient.ReportDnsResultAsync(
+            configuration,
+            new DnsDirectiveResult(command.CommandId, status, result.Error),
+            cancellationToken);
+
+        WriteStatus(
+            configuration,
+            PrismConnectionState.Connected,
+            result.Succeeded
+                ? "Connected to the server. DNS settings applied."
+                : "Connected to the server. DNS settings failed.",
+            lastError: result.Error);
+    }
+
+    private async Task RestoreStandingDnsAsync(
+        PrismConfiguration configuration,
+        DnsOverlayPersistedState state,
+        CancellationToken cancellationToken)
+    {
+        DnsConfigurationApplyResult result;
+        if (state.HasStandingProfile)
+        {
+            result = dnsConfigurationService.Apply(state.StandingPrimaryIp!, state.StandingSecondaryIp);
+        }
+        else
+        {
+            result = dnsConfigurationService.ResetToDhcp();
+        }
+
+        var status = result.Succeeded ? "applied" : "failed";
+        try
+        {
+            await apiClient.ReportDnsResultAsync(
+                configuration,
+                new DnsDirectiveResult(state.RestoreCommandId, status, result.Error),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logError?.Invoke("The Family Prism DNS restore report could not be sent.", ex);
+            if (result.Succeeded)
+            {
+                return;
+            }
+        }
+
+        if (result.Succeeded)
+        {
+            DnsOverlayStateStore.Clear();
+            WriteStatus(
+                configuration,
+                PrismConnectionState.Connected,
+                "Connected to the server. Standing DNS restored.",
+                lastError: null);
+            return;
+        }
+
+        DnsOverlayStateStore.Clear();
+        WriteStatus(
+            configuration,
+            PrismConnectionState.Connected,
+            "Connected to the server. Standing DNS restore failed.",
+            lastError: result.Error);
     }
 
     private void WriteStatus(

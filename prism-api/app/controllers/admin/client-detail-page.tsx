@@ -3,6 +3,12 @@ import type { Handle } from "remix/component";
 import type { getClient } from "../../data/clients.ts";
 import type { ClientVersionView } from "../../data/client-package.ts";
 import type { getLatestDnsState } from "../../data/dns-directives.ts";
+import {
+  DNS_OVERLAY_PRESET_MINUTES,
+  formatDnsRemaining,
+  presentClientDnsState,
+  type DnsDirectiveStatus,
+} from "../../data/dns-overlay.ts";
 import type { listDnsProfiles } from "../../data/dns-profiles.ts";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
@@ -11,9 +17,7 @@ import { AdminShell } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import type { Notice } from "../../utils/notice.ts";
 
-type DnsState = NonNullable<Awaited<ReturnType<typeof getLatestDnsState>>>;
-
-const DNS_STATUS_LABEL: Record<DnsState["status"], string> = {
+const DNS_STATUS_LABEL: Record<DnsDirectiveStatus, string> = {
   applied: "Applied",
   delivered: "Delivered, waiting for result",
   failed: "Failed",
@@ -35,15 +39,26 @@ export function ClientDetailPage(
     dnsProfiles: Awaited<ReturnType<typeof listDnsProfiles>>;
     latestDnsState: Awaited<ReturnType<typeof getLatestDnsState>>;
     notice: Notice | null;
+    overlayCapable: boolean;
+    overlayMinVersion: string;
     pinnedVersion: string | null;
   }>,
 ) {
   return () => {
-    let { adminName, client, connected, dnsProfiles, latestDnsState, notice, pinnedVersion } =
-      handle.props;
+    let {
+      adminName,
+      client,
+      connected,
+      dnsProfiles,
+      latestDnsState,
+      notice,
+      overlayCapable,
+      overlayMinVersion,
+      pinnedVersion,
+    } = handle.props;
     let detailHref = routes.admin.clients.detail.href({ clientId: client.id });
     let screenshotUrl = routes.admin.clients.screenshot.href({ clientId: client.id });
-    let dns = latestDnsState;
+    let dns = presentClientDnsState(latestDnsState);
 
     return (
       <AdminShell active="clients" title={client.name} adminName={adminName}>
@@ -224,10 +239,14 @@ export function ClientDetailPage(
             <section class="panel" aria-labelledby="dns-title">
               <div class="panel-head">
                 <h2 id="dns-title">DNS</h2>
-                {dns ? <span class={`stamp ${dns.status}`}>{DNS_STATUS_LABEL[dns.status]}</span> : null}
+                {dns && !dns.windowsDefault ? (
+                  <span class={`stamp ${dns.status}`}>
+                    {DNS_STATUS_LABEL[dns.status as DnsDirectiveStatus]}
+                  </span>
+                ) : null}
               </div>
               <div class="panel-body">
-                {dns ? (
+                {dns && !dns.windowsDefault ? (
                   <dl class="facts">
                     <dt>Last change</dt>
                     <dd>
@@ -263,6 +282,43 @@ export function ClientDetailPage(
                   <p class="muted">Using whatever DNS Windows already had. No changes sent yet.</p>
                 )}
 
+                {dns?.overlayActive ? (
+                  <div class="dns-overlay" data-dns-overlay>
+                    <p
+                      class="dns-remaining"
+                      data-dns-remaining
+                      data-deadline={dns.expires_at ?? ""}
+                    >
+                      {formatDnsRemaining(dns.remainingMs)}
+                    </p>
+                    <p class="hint" data-dns-restore-hint hidden>
+                      Standing DNS should be back. Refresh to confirm.
+                    </p>
+                    <form
+                      method="post"
+                      action={routes.admin.clients.extendDns.href({ clientId: client.id })}
+                    >
+                      <div class="form-foot">
+                        <span class="hint">Add time</span>
+                        <div class="dns-extend-actions">
+                          {DNS_OVERLAY_PRESET_MINUTES.map((minutes) => (
+                            <button
+                              class="btn secondary"
+                              type="submit"
+                              name="durationMinutes"
+                              value={String(minutes)}
+                            >
+                              {minutes === 60 ? "1 hr" : `${minutes} min`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                ) : dns?.awaitingRestore ? (
+                  <p class="hint">Standing DNS should be back. Refresh to confirm.</p>
+                ) : null}
+
                 <form
                   method="post"
                   action={routes.admin.clients.applyDns.href({ clientId: client.id })}
@@ -279,13 +335,33 @@ export function ClientDetailPage(
                       ))}
                     </select>
                   </label>
+                  {overlayCapable && dnsProfiles.length > 0 ? (
+                    <label class="field">
+                      <span>Time limit</span>
+                      <select name="durationMinutes">
+                        <option value="">Until I change it</option>
+                        {DNS_OVERLAY_PRESET_MINUTES.map((minutes) => (
+                          <option value={String(minutes)}>
+                            {minutes === 60 ? "1 hour" : `${minutes} minutes`}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <div class="form-foot">
                     {dnsProfiles.length === 0 ? (
                       <a class="hint" href={routes.admin.settings.dnsProfiles.index.href()}>
                         Create a DNS profile first
                       </a>
+                    ) : overlayCapable ? (
+                      <span class="hint">
+                        A time limit starts when you apply, even if this PC is offline.
+                      </span>
                     ) : (
-                      <span class="hint">Applies to every active network adapter.</span>
+                      <span class="hint">
+                        Time limits need client v{overlayMinVersion} or newer. Apply stays until you
+                        change it.
+                      </span>
                     )}
                     <button class="btn" type="submit" disabled={dnsProfiles.length === 0}>
                       Apply

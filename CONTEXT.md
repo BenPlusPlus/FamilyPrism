@@ -35,3 +35,23 @@ _Avoid_: admin (alone), parent (as a privilege)
 **Console admin**:
 A person who signs into the FamilyPrism web console.
 _Avoid_: admin (alone) when a Windows account is meant
+
+**DNS profile**:
+A named pair of DNS servers (primary IPv4, optional secondary) that a Console admin can apply to a Client.
+_Avoid_: DNS server list, resolver config
+
+**DNS directive**:
+An instruction to a Client to apply a DNS profile or reset to automatic (DHCP).
+_Avoid_: DNS command (in product language), DNS policy
+
+**Standing DNS**:
+The last indefinite DNS directive on a Client: a profile applied with no time limit, or reset to automatic. If FamilyPrism has never issued an indefinite directive, standing DNS is whatever Windows already had.
+_Avoid_: original profile, previous profile, default DNS
+
+**DNS overlay**:
+A DNS profile in effect on a Client for a limited time, after which standing DNS is restored. An overlay that fails to apply, or that expires before apply, never took effect.
+_Avoid_: temporary profile, DNS timeout, DNS session, DNS lease
+
+**DNS time limit**:
+The duration of a DNS overlay, chosen from presets of 5, 15, 30, or 60 minutes.
+_Avoid_: timeout, TTL, lease

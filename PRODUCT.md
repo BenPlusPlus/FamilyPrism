@@ -31,6 +31,7 @@ It is a self-hosted tool that one technical parent built for their own family, n
 - Messages are limited to 500 characters. Group messages report how many clients got them live.
 - Deleting a client revokes its credential and cannot be undone.
 - DNS profiles hold a primary IPv4 address and an optional secondary. Applying a profile snapshots it, so later edits do not rewrite issued commands.
+- A DNS overlay is a profile applied for 5, 15, 30, or 60 minutes. Time starts when the admin applies it, including while the client is queued. When it expires, standing DNS is restored (the last indefinite apply or reset; otherwise whatever Windows already had). An overlay that expires before apply, or that fails to apply, never took effect. Remaining time can be extended by those same presets while time is left. Time limits are offered only on clients that report v0.1.6 or newer.
 - Terminology: "client" means a registered PC, "group" is a named set of clients, "DNS profile" and "DNS directive" are as above, and "admin" is a console user.
 
 ## Evidence on Hand

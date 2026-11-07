@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 
 import { getEnv } from '../config/env.ts'
+import { expandLoopbackTrustedOrigins } from '../config/trusted-origins.ts'
 import { isAdminUser } from './admin-users.ts'
 import { pool } from './database.ts'
 
@@ -16,7 +17,7 @@ export const prismAuth = betterAuth({
     enabled: true,
   },
   secret: env.betterAuthSecret,
-  trustedOrigins: [authUrl.origin],
+  trustedOrigins: expandLoopbackTrustedOrigins(authUrl.origin),
 })
 
 export type BetterAuthSession = Awaited<ReturnType<typeof prismAuth.api.getSession>>
