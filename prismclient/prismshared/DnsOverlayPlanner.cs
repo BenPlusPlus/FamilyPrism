@@ -30,7 +30,10 @@ internal static class DnsOverlayPlanner
             utcRemaining = TimeSpan.Zero;
         }
 
+        // Once standing DNS is back, the overlay is no longer on the adapter, so the same command
+        // arriving again must apply it in full rather than only move the deadline.
         if (current is not null
+            && !current.StandingRestored
             && string.Equals(current.CommandId, command.CommandId, StringComparison.Ordinal)
             && utcRemaining > TimeSpan.Zero)
         {

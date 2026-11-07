@@ -37,6 +37,19 @@ public class DnsOverlayPlannerTests
     }
 
     [Fact]
+    public void SameCommandIdAfterStandingRestoredAppliesInFull()
+    {
+        var command = Command(Now.AddMinutes(15));
+        var restored = DnsOverlayStateStore.FromCommand(Command(Now.AddMinutes(-1)), TimeSpan.Zero, 1)
+            with { StandingRestored = true };
+
+        var plan = DnsOverlayPlanner.Plan(command, restored, Now);
+
+        Assert.Equal(DnsOverlayPlanKind.ApplyOverlay, plan.Kind);
+        Assert.Equal(TimeSpan.FromMinutes(15), plan.Remaining);
+    }
+
+    [Fact]
     public void OverlayJsonDeserializesDeadlineAndStanding()
     {
         const string json = """
