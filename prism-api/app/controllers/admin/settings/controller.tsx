@@ -16,6 +16,11 @@ import {
   updateDnsProfile,
 } from "../../../data/dns-profiles.ts";
 import {
+  getHouseholdTimeZone,
+  InvalidTimeZoneError,
+  setHouseholdTimeZone,
+} from "../../../data/household-settings.ts";
+import {
   getVisitRetentionDays,
   InvalidVisitRetentionError,
   MAX_VISIT_RETENTION_DAYS,
@@ -30,6 +35,7 @@ import { AdminShell } from "../../../ui/layout.tsx";
 import { NoticeBar } from "../../../ui/notice.tsx";
 import { getNotice, withNotice, type Notice } from "../../../utils/notice.ts";
 import { render } from "../../../utils/render.tsx";
+import { timeZoneChoices } from "../../../utils/time-zone.ts";
 
 let dnsProfileSchema = f.object({
   name: f.field(s.string().pipe(minLength(1), maxLength(100))),
@@ -85,13 +91,43 @@ export const adminSettings = {
   middleware: adminSettingsMiddleware,
   actions: {
     async index({ get, request }) {
+      let [visitRetentionDays, timeZone] = await Promise.all([
+        getVisitRetentionDays(),
+        getHouseholdTimeZone(),
+      ]);
+
       return render(
         <SettingsIndexPage
           adminName={adminName(get)}
           notice={getNotice(new URL(request.url))}
-          visitRetentionDays={await getVisitRetentionDays()}
+          timeZone={timeZone}
+          visitRetentionDays={visitRetentionDays}
         />,
         request,
+      );
+    },
+
+    async timeZone({ get, request }) {
+      try {
+        await setHouseholdTimeZone(get(FormData).get("timeZone"));
+      } catch (error) {
+        if (!(error instanceof InvalidTimeZoneError)) {
+          throw error;
+        }
+
+        return redirect(
+          withNotice(request, settingsIndexHref(), {
+            text: error.message,
+            type: "error",
+          }),
+        );
+      }
+
+      return redirect(
+        withNotice(request, settingsIndexHref(), {
+          text: "Time zone saved.",
+          type: "success",
+        }),
       );
     },
 
@@ -214,6 +250,7 @@ function SettingsIndexPage(
   handle: Handle<{
     adminName: string;
     notice: Notice | null;
+    timeZone: string;
     visitRetentionDays: number;
   }>,
 ) {
@@ -226,6 +263,35 @@ function SettingsIndexPage(
         </div>
       </header>
       <NoticeBar notice={handle.props.notice} />
+      <section class="panel" aria-labelledby="time-zone-title">
+        <div class="panel-head">
+          <h2 id="time-zone-title">Time zone</h2>
+        </div>
+        <form
+          class="panel-body"
+          method="post"
+          action={routes.admin.settings.timeZone.href()}
+        >
+          <label class="field">
+            <span>Zone</span>
+            <select name="timeZone" required>
+              {timeZoneChoices(handle.props.timeZone).map((zone) => (
+                <option value={zone} selected={zone === handle.props.timeZone}>
+                  {zone.replaceAll("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div class="form-foot">
+            <span class="hint">
+              Visit times, Today and Yesterday, and other dates follow this zone.
+            </span>
+            <button class="btn" type="submit">
+              Save
+            </button>
+          </div>
+        </form>
+      </section>
       <section class="panel" aria-labelledby="visit-retention-title">
         <div class="panel-head">
           <h2 id="visit-retention-title">Visit retention</h2>

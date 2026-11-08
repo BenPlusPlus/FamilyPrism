@@ -29,6 +29,7 @@ import {
   parseDnsOverlayMinutes,
 } from "../../data/dns-overlay.ts";
 import { getDnsProfile, listDnsProfiles } from "../../data/dns-profiles.ts";
+import { getHouseholdTimeZone } from "../../data/household-settings.ts";
 import {
   GroupNameConflictError,
   createGroup,
@@ -206,7 +207,7 @@ export const adminClients = {
 
     async detail({ get, params, request }) {
       let identity = getCurrentAdminIdentity({ get });
-      let [client, dnsProfiles, latestDnsState, recentVisits] = await Promise.all([
+      let [client, dnsProfiles, latestDnsState, recentVisits, timeZone] = await Promise.all([
         getClient(params.clientId),
         listDnsProfiles(),
         getLatestDnsState(params.clientId),
@@ -214,6 +215,7 @@ export const adminClients = {
           clientId: params.clientId,
           pageSize: CLIENT_HISTORY_LIMIT,
         }),
+        getHouseholdTimeZone(),
       ]);
       if (!client) {
         return redirect(
@@ -240,6 +242,7 @@ export const adminClients = {
           dnsProfiles={dnsProfiles}
           latestDnsState={latestDnsState}
           notice={getNotice(new URL(request.url))}
+          timeZone={timeZone}
           visits={recentVisits.visits}
         />,
         request,
@@ -704,7 +707,7 @@ export const adminHistory = {
       let browser = VISIT_BROWSERS.includes(browserParam as VisitBrowser) ? browserParam : "";
       let q = url.searchParams.get("q")?.trim() ?? "";
       let requestedPage = Number.parseInt(url.searchParams.get("page") ?? "1", 10);
-      let [history, filterOptions] = await Promise.all([
+      let [history, filterOptions, timeZone] = await Promise.all([
         listHistoryPage(Number.isInteger(requestedPage) ? requestedPage : 1, new Date(), {
           browser: browser || undefined,
           clientId: client || undefined,
@@ -712,6 +715,7 @@ export const adminHistory = {
           windowsUser: user || undefined,
         }),
         listHistoryFilterOptions(),
+        getHouseholdTimeZone(),
       ]);
 
       return render(
@@ -721,6 +725,7 @@ export const adminHistory = {
           history={history}
           notice={getNotice(url)}
           query={{ browser, client, q, user }}
+          timeZone={timeZone}
         />,
         request,
       );

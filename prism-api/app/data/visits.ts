@@ -5,10 +5,9 @@ import { lt } from 'remix/data-table/operators'
 
 import { db } from './database.ts'
 import { historyCollectionEnabled } from './clients.ts'
+import { getHouseholdSettings, HOUSEHOLD_SETTINGS_ID } from './household-settings.ts'
 import { clients, householdSettings, visits } from './schema.ts'
 import { generateId } from '../utils/secrets.ts'
-
-const HOUSEHOLD_SETTINGS_ID = 'household'
 
 export const MIN_VISIT_RETENTION_DAYS = 1
 export const MAX_VISIT_RETENTION_DAYS = 365
@@ -89,12 +88,7 @@ function isRetainedVisit(visitedAt: Date, now: Date, retentionDays: number) {
 }
 
 export async function getVisitRetentionDays(database: Database = db) {
-  let row = await database.find(householdSettings, HOUSEHOLD_SETTINGS_ID)
-  if (!row) {
-    throw new Error('Household settings are missing.')
-  }
-
-  return row.visit_retention_days
+  return (await getHouseholdSettings(database)).visit_retention_days
 }
 
 async function purgeExpiredVisits(

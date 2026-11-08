@@ -46,10 +46,11 @@ export function HistoryPage(
     history: HistoryList;
     notice: Notice | null;
     query: { browser: string; client: string; q: string; user: string };
+    timeZone: string;
   }>,
 ) {
   return () => {
-    let { adminName, filterOptions, history, notice, query } = handle.props;
+    let { adminName, filterOptions, history, notice, query, timeZone } = handle.props;
     let { page, pageCount, total, visits } = history;
     let filtered = Boolean(query.browser || query.client || query.q || query.user);
     let lede =
@@ -159,6 +160,7 @@ export function HistoryPage(
             <>
               <VisitLog
                 visits={visits}
+                timeZone={timeZone}
                 showClient={!query.client}
                 deleteHref={(visit) => routes.admin.history.delete.href({ visitId: visit.id })}
                 returnTo={historyHref(query, page)}
