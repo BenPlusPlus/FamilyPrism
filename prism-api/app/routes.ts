@@ -8,6 +8,7 @@ export const routes = route({
   auth: route("auth", {
     login: form("login"),
     setup: form("setup"),
+    invite: form("invite/:token"),
     logout: post("logout"),
   }),
   admin: route("admin", {
@@ -45,6 +46,13 @@ export const routes = route({
       index: get("/"),
       visitRetention: post("visit-retention"),
       timeZone: post("time-zone"),
+      accounts: route("accounts", {
+        index: get("/"),
+        invite: post("invite"),
+        revokeInvite: post("invites/:inviteId/revoke"),
+        role: post(":userId/role"),
+        remove: post(":userId/remove"),
+      }),
       dnsProfiles: route("dns-profiles", {
         index: get("/"),
         create: post("/"),

@@ -1,6 +1,6 @@
 import { auth } from 'remix/middleware/auth'
 
-import { getAdminIdentityFromRequest, type AdminIdentity } from '../data/auth.ts'
+import { getConsoleIdentityFromRequest, type ConsoleIdentity } from '../data/auth.ts'
 
 export function loadAuth() {
   return auth({
@@ -8,7 +8,7 @@ export function loadAuth() {
       {
         name: 'better-auth-session',
         async authenticate(context) {
-          let identity = await getAdminIdentityFromRequest(context.request)
+          let identity = await getConsoleIdentityFromRequest(context.request)
 
           if (!identity) {
             return null
@@ -18,7 +18,7 @@ export function loadAuth() {
             identity,
             status: 'success',
           } satisfies {
-            identity: AdminIdentity
+            identity: ConsoleIdentity
             status: 'success'
           }
         },

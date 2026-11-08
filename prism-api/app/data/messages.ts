@@ -17,7 +17,7 @@ export type MessageRow = TableRow<typeof messages>
 async function dispatchMessage(
   input: {
     content: string
-    senderAdminUserId: string
+    senderUserId: string
     targetClientIds: string[]
     targetId: string
     targetType: 'client' | 'group'
@@ -32,7 +32,7 @@ async function dispatchMessage(
         content: input.content,
         delivered_live_count: 0,
         id: generateId(),
-        sender_admin_user_id: input.senderAdminUserId,
+        sender_user_id: input.senderUserId,
         target_id: input.targetId,
         target_type: input.targetType,
       },
@@ -81,7 +81,7 @@ export async function dispatchTextMessageToClient(
   input: {
     clientId: string
     content: string
-    senderAdminUserId: string
+    senderUserId: string
   },
   database: Database = db,
 ) {
@@ -93,7 +93,7 @@ export async function dispatchTextMessageToClient(
   return dispatchMessage(
     {
       content: input.content,
-      senderAdminUserId: input.senderAdminUserId,
+      senderUserId: input.senderUserId,
       targetClientIds: [input.clientId],
       targetId: input.clientId,
       targetType: 'client',
@@ -106,7 +106,7 @@ export async function dispatchTextMessageToGroup(
   input: {
     content: string
     groupId: string
-    senderAdminUserId: string
+    senderUserId: string
   },
   database: Database = db,
 ) {
@@ -120,7 +120,7 @@ export async function dispatchTextMessageToGroup(
   return dispatchMessage(
     {
       content: input.content,
-      senderAdminUserId: input.senderAdminUserId,
+      senderUserId: input.senderUserId,
       targetClientIds,
       targetId: input.groupId,
       targetType: 'group',

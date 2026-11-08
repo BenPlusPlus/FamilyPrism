@@ -5,7 +5,7 @@ import type { listGroupsWithMembers } from "../../data/groups.ts";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
 import { TagChip, tagClass } from "../../ui/key-tag.tsx";
-import { AdminShell } from "../../ui/layout.tsx";
+import { AdminShell, type Viewer } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import type { Notice } from "../../utils/notice.ts";
 
@@ -35,28 +35,33 @@ function ClientPicker(handle: Handle<{ clients: PickClient[]; selected: Set<stri
 
 export function GroupsPage(
   handle: Handle<{
-    adminName: string;
+    viewer: Viewer;
     allClients: PickClient[];
     groups: Awaited<ReturnType<typeof listGroupsWithMembers>>;
     notice: Notice | null;
   }>,
 ) {
   return () => {
-    let { adminName, allClients, groups, notice } = handle.props;
+    let { viewer, allClients, groups, notice } = handle.props;
     let none = new Set<string>();
+    let isAdmin = viewer.role === "admin";
 
     return (
-      <AdminShell active="groups" title="Groups" adminName={adminName}>
+      <AdminShell active="groups" title="Groups" viewer={viewer}>
         <header class="page-head">
           <div>
             <h1>Groups</h1>
-            <p>Bundle PCs together, like "Kids' rooms", to message them all at once.</p>
+            <p>
+              {isAdmin
+                ? `Bundle PCs together, like "Kids' rooms", to message them all at once.`
+                : "Message several PCs at once. An admin sets up groups and their members."}
+            </p>
           </div>
         </header>
 
         <NoticeBar notice={notice} />
 
-        <div class="split">
+        <div class={isAdmin ? "split" : undefined}>
           <section class="panel" aria-labelledby="groups-title">
             <div class="panel-head">
               <h2 id="groups-title">Your groups</h2>
@@ -65,7 +70,9 @@ export function GroupsPage(
             {groups.length === 0 ? (
               <p class="empty">
                 <strong>No groups yet.</strong>
-                Create one to send a single message to several PCs.
+                {isAdmin
+                  ? "Create one to send a single message to several PCs."
+                  : "An admin can create one to message several PCs at once."}
               </p>
             ) : (
               groups.map((group) => {
@@ -90,7 +97,9 @@ export function GroupsPage(
                         ))}
                       </div>
                     ) : (
-                      <p class="hint">No members yet. Add some PCs below.</p>
+                      <p class="hint">
+                        {isAdmin ? "No members yet. Add some PCs below." : "No members yet."}
+                      </p>
                     )}
                     <p class="hint">Only members that are home get it; messages aren't queued.</p>
                     <form
@@ -117,60 +126,64 @@ export function GroupsPage(
                         Send
                       </button>
                     </form>
-                    <details class="disclose">
-                      <summary>
-                        <Icon name="chevron" />
-                        Change members
-                      </summary>
-                      <form
-                        class="disclose-body"
-                        method="post"
-                        action={routes.admin.groups.members.href({ groupId: group.id })}
-                      >
-                        <fieldset>
-                          <legend class="visually-hidden">Members of {group.name}</legend>
-                          <ClientPicker clients={allClients} selected={memberIds} />
-                        </fieldset>
-                        <div class="form-foot">
-                          <span class="hint">Unticked PCs leave the group.</span>
-                          <button class="btn secondary" type="submit">
-                            Save members
-                          </button>
-                        </div>
-                      </form>
-                    </details>
+                    {isAdmin ? (
+                      <details class="disclose">
+                        <summary>
+                          <Icon name="chevron" />
+                          Change members
+                        </summary>
+                        <form
+                          class="disclose-body"
+                          method="post"
+                          action={routes.admin.groups.members.href({ groupId: group.id })}
+                        >
+                          <fieldset>
+                            <legend class="visually-hidden">Members of {group.name}</legend>
+                            <ClientPicker clients={allClients} selected={memberIds} />
+                          </fieldset>
+                          <div class="form-foot">
+                            <span class="hint">Unticked PCs leave the group.</span>
+                            <button class="btn secondary" type="submit">
+                              Save members
+                            </button>
+                          </div>
+                        </form>
+                      </details>
+                    ) : null}
                   </article>
                 );
               })
             )}
           </section>
 
-          <section class="panel" aria-labelledby="create-group-title">
-            <div class="panel-head">
-              <h2 id="create-group-title">New group</h2>
-            </div>
-            <form class="panel-body" method="post" action={routes.admin.groups.create.href()}>
-              <label class="field">
-                <span>Name</span>
-                <input type="text" name="name" required maxlength={100} placeholder="Kids' rooms" />
-              </label>
-              <label class="field">
-                <span>Description</span>
-                <input type="text" name="description" placeholder="Optional" />
-              </label>
-              <fieldset>
-                <legend>Members</legend>
-                <ClientPicker clients={allClients} selected={none} />
-              </fieldset>
-              <div class="form-foot">
-                <span></span>
-                <button class="btn" type="submit">
-                  <Icon name="plus" />
-                  Create group
-                </button>
+          {isAdmin ? (
+            <section class="panel" aria-labelledby="create-group-title">
+              <div class="panel-head">
+                <h2 id="create-group-title">New group</h2>
               </div>
-            </form>
-          </section>
+              <form class="panel-body" method="post" action={routes.admin.groups.create.href()}>
+                <label class="field">
+                  <span>Name</span>
+                  <input type="text" name="name" required maxlength={100} placeholder="Kids' rooms" />
+                </label>
+                <label class="field">
+                  <span>Description</span>
+                  <input type="text" name="description" placeholder="Optional" />
+                </label>
+                <fieldset>
+                  <legend>Members</legend>
+                  <ClientPicker clients={allClients} selected={none} />
+                </fieldset>
+                <div class="form-foot">
+                  <span></span>
+                  <button class="btn" type="submit">
+                    <Icon name="plus" />
+                    Create group
+                  </button>
+                </div>
+              </form>
+            </section>
+          ) : null}
         </div>
       </AdminShell>
     );

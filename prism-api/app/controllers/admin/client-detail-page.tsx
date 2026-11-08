@@ -14,7 +14,7 @@ import type { HistoryVisit } from "../../data/visits.ts";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
 import { KeyTag } from "../../ui/key-tag.tsx";
-import { AdminShell } from "../../ui/layout.tsx";
+import { AdminShell, type Viewer } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import { VisitLog } from "../../ui/visit-log.tsx";
 import type { Notice } from "../../utils/notice.ts";
@@ -29,7 +29,7 @@ const DNS_STATUS_LABEL: Record<DnsDirectiveStatus, string> = {
 
 export function ClientDetailPage(
   handle: Handle<{
-    adminName: string;
+    viewer: Viewer;
     client: NonNullable<Awaited<ReturnType<typeof getClient>>> & ClientVersionView;
     connected: boolean;
     dnsProfiles: Awaited<ReturnType<typeof listDnsProfiles>>;
@@ -44,7 +44,7 @@ export function ClientDetailPage(
 ) {
   return () => {
     let {
-      adminName,
+      viewer,
       client,
       connected,
       dnsProfiles,
@@ -67,9 +67,10 @@ export function ClientDetailPage(
       : "No screenshot yet. One can be taken once this PC is connected.";
     let collecting = historyCollectionEnabled(client.history_collection);
     let dns = presentClientDnsState(latestDnsState);
+    let isAdmin = viewer.role === "admin";
 
     return (
-      <AdminShell active="clients" title={client.name} adminName={adminName}>
+      <AdminShell active="clients" title={client.name} viewer={viewer}>
         <a class="crumb" href={routes.admin.clients.index.href()}>
           <Icon name="back" />
           Clients
@@ -225,33 +226,41 @@ export function ClientDetailPage(
                   <Icon name="chevron" />
                 </a>
               </div>
-              <form
-                class="panel-body"
-                method="post"
-                action={routes.admin.clients.historyCollection.href({
-                  clientId: client.id,
-                })}
-              >
-                <div class="form-foot">
-                  <span>
-                    History collection
-                    {collecting ? <span class="hint"> On</span> : null}
-                  </span>
-                  <button
-                    class="btn secondary"
-                    type="submit"
-                    name="enabled"
-                    value={collecting ? "off" : "on"}
-                  >
-                    {collecting ? "Turn off" : "Turn on"}
-                  </button>
-                </div>
-                <p class="hint">
+              {isAdmin ? (
+                <form
+                  class="panel-body"
+                  method="post"
+                  action={routes.admin.clients.historyCollection.href({
+                    clientId: client.id,
+                  })}
+                >
+                  <div class="form-foot">
+                    <span>
+                      History collection
+                      {collecting ? <span class="hint"> On</span> : null}
+                    </span>
+                    <button
+                      class="btn secondary"
+                      type="submit"
+                      name="enabled"
+                      value={collecting ? "off" : "on"}
+                    >
+                      {collecting ? "Turn off" : "Turn on"}
+                    </button>
+                  </div>
+                  <p class="hint">
+                    {collecting
+                      ? "This PC uploads Visits from Chrome, Edge, and Firefox."
+                      : "Existing Visits stay until visit retention."}
+                  </p>
+                </form>
+              ) : (
+                <p class="panel-body hint">
                   {collecting
-                    ? "This PC uploads Visits from Chrome, Edge, and Firefox."
-                    : "Existing Visits stay until visit retention."}
+                    ? "History collection is on. This PC uploads Visits from Chrome, Edge, and Firefox."
+                    : "History collection is off. An admin can turn it back on."}
                 </p>
-              </form>
+              )}
               {visits.length === 0 ? (
                 <p class="empty">
                   <strong>No Visits yet.</strong>
@@ -444,9 +453,13 @@ export function ClientDetailPage(
                   ) : null}
                   <div class="form-foot">
                     {dnsProfiles.length === 0 ? (
-                      <a class="hint" href={routes.admin.settings.dnsProfiles.index.href()}>
-                        Create a DNS profile first
-                      </a>
+                      isAdmin ? (
+                        <a class="hint" href={routes.admin.settings.dnsProfiles.index.href()}>
+                          Create a DNS profile first
+                        </a>
+                      ) : (
+                        <span class="hint">No DNS profiles yet. An admin can add them in Settings.</span>
+                      )
                     ) : overlayCapable ? (
                       <span class="hint">
                         A time limit starts when you apply, even if this PC is offline.
@@ -477,56 +490,58 @@ export function ClientDetailPage(
               </div>
             </section>
 
-            <section class="panel danger-zone" aria-labelledby="danger-title">
-              <div class="panel-head">
-                <h2 id="danger-title">Danger zone</h2>
-              </div>
-              <div class="panel-body">
-                <details class="disclose">
-                  <summary>
-                    <Icon name="chevron" />
-                    Clear History for {client.name}
-                  </summary>
-                  <form
-                    class="disclose-body"
-                    method="post"
-                    action={routes.admin.clients.clearHistory.href({ clientId: client.id })}
-                  >
-                    <p class="muted">
-                      Deletes every stored Visit for this PC. New Visits still appear.
-                    </p>
-                    <div class="form-foot">
-                      <span></span>
-                      <button class="btn danger" type="submit">
-                        Clear History for {client.name}
-                      </button>
-                    </div>
-                  </form>
-                </details>
-                <details class="disclose">
-                  <summary>
-                    <Icon name="chevron" />
-                    Remove {client.name} from FamilyPrism
-                  </summary>
-                  <form
-                    class="disclose-body"
-                    method="post"
-                    action={routes.admin.clients.delete.href({ clientId: client.id })}
-                  >
-                    <p class="muted">
-                      Disconnects the PC, revokes its credential, and deletes its screenshot.
-                      To manage it again, reinstall the agent and register it from scratch.
-                    </p>
-                    <div class="form-foot">
-                      <span></span>
-                      <button class="btn danger" type="submit">
-                        Unregister {client.name}
-                      </button>
-                    </div>
-                  </form>
-                </details>
-              </div>
-            </section>
+            {isAdmin ? (
+              <section class="panel danger-zone" aria-labelledby="danger-title">
+                <div class="panel-head">
+                  <h2 id="danger-title">Danger zone</h2>
+                </div>
+                <div class="panel-body">
+                  <details class="disclose">
+                    <summary>
+                      <Icon name="chevron" />
+                      Clear History for {client.name}
+                    </summary>
+                    <form
+                      class="disclose-body"
+                      method="post"
+                      action={routes.admin.clients.clearHistory.href({ clientId: client.id })}
+                    >
+                      <p class="muted">
+                        Deletes every stored Visit for this PC. New Visits still appear.
+                      </p>
+                      <div class="form-foot">
+                        <span></span>
+                        <button class="btn danger" type="submit">
+                          Clear History for {client.name}
+                        </button>
+                      </div>
+                    </form>
+                  </details>
+                  <details class="disclose">
+                    <summary>
+                      <Icon name="chevron" />
+                      Remove {client.name} from FamilyPrism
+                    </summary>
+                    <form
+                      class="disclose-body"
+                      method="post"
+                      action={routes.admin.clients.delete.href({ clientId: client.id })}
+                    >
+                      <p class="muted">
+                        Disconnects the PC, revokes its credential, and deletes its screenshot.
+                        To manage it again, reinstall the agent and register it from scratch.
+                      </p>
+                      <div class="form-foot">
+                        <span></span>
+                        <button class="btn danger" type="submit">
+                          Unregister {client.name}
+                        </button>
+                      </div>
+                    </form>
+                  </details>
+                </div>
+              </section>
+            ) : null}
           </div>
         </div>
       </AdminShell>

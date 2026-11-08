@@ -1,11 +1,35 @@
 import { column as c, table } from 'remix/data-table'
 
-export const adminUsers = table({
-  name: 'admin_users',
+export const CONSOLE_ROLES = ['admin', 'parent'] as const
+
+export const consoleAccounts = table({
+  name: 'console_accounts',
   columns: {
     user_id: c.varchar(255).notNull().references('user', 'id').onDelete('cascade'),
+    role: c.enum(CONSOLE_ROLES).notNull(),
   },
   primaryKey: 'user_id',
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})
+
+export const consoleInvitations = table({
+  name: 'console_invitations',
+  columns: {
+    id: c.varchar(255).notNull().primaryKey(),
+    token_hash: c.varchar(64).notNull().unique(),
+    email: c.varchar(255).notNull().unique(),
+    name: c.varchar(100).notNull(),
+    role: c.enum(CONSOLE_ROLES).notNull(),
+    invited_by_user_id: c
+      .varchar(255)
+      .nullable()
+      .references('console_accounts', 'user_id')
+      .onDelete('set null'),
+    expires_at: c.varchar(64).notNull(),
+  },
   timestamps: {
     createdAt: 'created_at',
     updatedAt: 'updated_at',
@@ -143,7 +167,7 @@ export const messages = table({
   name: 'messages',
   columns: {
     id: c.varchar(255).notNull().primaryKey(),
-    sender_admin_user_id: c.varchar(255).notNull().references('admin_users', 'user_id').onDelete('restrict'),
+    sender_user_id: c.varchar(255).nullable().references('console_accounts', 'user_id').onDelete('set null'),
     target_type: c.enum(['client', 'group']).notNull(),
     target_id: c.varchar(255).notNull(),
     content: c.text().notNull(),

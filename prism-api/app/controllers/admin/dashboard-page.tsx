@@ -3,7 +3,7 @@ import type { Handle } from "remix/component";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
 import { KeyTag, TagChip, type TagClient } from "../../ui/key-tag.tsx";
-import { AdminShell } from "../../ui/layout.tsx";
+import { AdminShell, type Viewer } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import type { Notice } from "../../utils/notice.ts";
 
@@ -32,7 +32,7 @@ function attentionReason(client: RackClient, pinnedVersion: string | null) {
 
 export function DashboardPage(
   handle: Handle<{
-    adminName: string;
+    viewer: Viewer;
     clients: RackClient[];
     groups: ComposeGroup[];
     notice: Notice | null;
@@ -40,7 +40,7 @@ export function DashboardPage(
   }>,
 ) {
   return () => {
-    let { adminName, clients, groups, notice, pinnedVersion } = handle.props;
+    let { viewer, clients, groups, notice, pinnedVersion } = handle.props;
     let home = clients.filter((client) => client.connected);
     let ordered = [...home, ...clients.filter((client) => !client.connected)];
     let attention = clients.filter(
@@ -56,7 +56,7 @@ export function DashboardPage(
           : `${home.length} of ${clients.length} PCs are home`;
 
     return (
-      <AdminShell active="home" title="Home" adminName={adminName}>
+      <AdminShell active="home" title="Home" viewer={viewer}>
         <header class="page-head">
           <div>
             <h1>{headline}</h1>

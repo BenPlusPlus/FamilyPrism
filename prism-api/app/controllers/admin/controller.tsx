@@ -1,5 +1,4 @@
 import type { Controller } from "remix/router";
-import { Auth, requireAuth } from "remix/middleware/auth";
 import * as s from "remix/data-schema";
 import * as f from "remix/data-schema/form-data";
 import { maxLength, minLength } from "remix/data-schema/checks";
@@ -15,7 +14,6 @@ import {
   setClientHistoryCollection,
 } from "../../data/clients.ts";
 import { describeClientVersion } from "../../data/client-package.ts";
-import type { AdminIdentity } from "../../data/auth.ts";
 import {
   extendDnsOverlay,
   getLatestDnsState,
@@ -54,11 +52,16 @@ import {
   VISIT_BROWSERS,
   type VisitBrowser,
 } from "../../data/visits.ts";
-import { requireAdmin } from "../../middleware/admin.ts";
+import {
+  getConsoleViewer,
+  requireConsoleAccount,
+  requireConsoleAdmin,
+} from "../../middleware/console.ts";
 import { connectionRegistry } from "../../realtime/registry.ts";
 import type { AppContext } from "../../router.ts";
 import { routes } from "../../routes.ts";
 import { getNotice, safeAdminReturnTo, withNotice, type Notice } from "../../utils/notice.ts";
+import { viewerFrom } from "../../ui/layout.tsx";
 import { render } from "../../utils/render.tsx";
 import { ClientDetailPage } from "./client-detail-page.tsx";
 import { ClientsPage } from "./clients-page.tsx";
@@ -91,15 +94,6 @@ let extendDnsSchema = f.object({
 let historyCollectionSchema = f.object({
   enabled: f.field(s.string().pipe(minLength(1))),
 });
-
-function getCurrentAdminIdentity(context: Pick<AppContext, "get">) {
-  let auth = context.get(Auth);
-  if (!auth.ok || !auth.identity.isAdmin) {
-    throw new Error("Expected an authenticated admin identity.");
-  }
-
-  return auth.identity as AdminIdentity;
-}
 
 /** Offline PCs never receive a message later, so the notice must say who missed it. */
 function deliveryNotice(result: { deliveredLiveCount: number; targetCount: number }): Notice {
@@ -147,17 +141,10 @@ async function listRackClients() {
 }
 
 export const admin = {
-  middleware: [
-    requireAuth<AdminIdentity>({
-      onFailure() {
-        return redirect(routes.auth.login.index.href());
-      },
-    }),
-    requireAdmin(),
-  ],
+  middleware: requireConsoleAccount(),
   actions: {
     async index({ get, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let [clients, groups] = await Promise.all([
         listRackClients(),
         listGroupsWithMembers(),
@@ -165,7 +152,7 @@ export const admin = {
 
       return render(
         <DashboardPage
-          adminName={identity.user.name}
+          viewer={viewerFrom(identity)}
           clients={clients}
           groups={groups.map((group) => ({
             id: group.id,
@@ -182,22 +169,15 @@ export const admin = {
 } satisfies Controller<typeof routes.admin, AppContext>;
 
 export const adminClients = {
-  middleware: [
-    requireAuth<AdminIdentity>({
-      onFailure() {
-        return redirect(routes.auth.login.index.href());
-      },
-    }),
-    requireAdmin(),
-  ],
+  middleware: requireConsoleAccount(),
   actions: {
     async index({ get, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let clients = await listRackClients();
 
       return render(
         <ClientsPage
-          adminName={identity.user.name}
+          viewer={viewerFrom(identity)}
           clients={clients}
           notice={getNotice(new URL(request.url))}
         />,
@@ -206,7 +186,7 @@ export const adminClients = {
     },
 
     async detail({ get, params, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let [client, dnsProfiles, latestDnsState, recentVisits, timeZone] = await Promise.all([
         getClient(params.clientId),
         listDnsProfiles(),
@@ -230,7 +210,7 @@ export const adminClients = {
 
       return render(
         <ClientDetailPage
-          adminName={identity.user.name}
+          viewer={viewerFrom(identity)}
           client={{
             ...client,
             ...describeClientVersion(client.last_seen_version, pin),
@@ -280,99 +260,108 @@ export const adminClients = {
       });
     },
 
-    async historyCollection({ get, params, request }) {
-      let parsed = s.parseSafe(historyCollectionSchema, get(FormData));
-      let detailUrl = routes.admin.clients.detail.href({
-        clientId: params.clientId,
-      });
-      let enabled = parsed.success
-        ? parsed.value.enabled === "on"
-          ? true
-          : parsed.value.enabled === "off"
-            ? false
-            : null
-        : null;
+    historyCollection: {
+      middleware: [requireConsoleAdmin()],
+      async handler({ get, params, request }) {
+        let parsed = s.parseSafe(historyCollectionSchema, get(FormData));
+        let detailUrl = routes.admin.clients.detail.href({
+          clientId: params.clientId,
+        });
+        let enabled = parsed.success
+          ? parsed.value.enabled === "on"
+            ? true
+            : parsed.value.enabled === "off"
+              ? false
+              : null
+          : null;
 
-      if (enabled === null) {
+        if (enabled === null) {
+          return redirect(
+            withNotice(request, detailUrl, {
+              text: "Choose on or off for History collection.",
+              type: "error",
+            }),
+          );
+        }
+
+        let client = await setClientHistoryCollection(params.clientId, enabled);
+        if (!client) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: "Client not found.",
+              type: "error",
+            }),
+          );
+        }
+
+        connectionRegistry.sendClientState(
+          client.id,
+          historyCollectionEnabled(client.history_collection),
+        );
+
         return redirect(
           withNotice(request, detailUrl, {
-            text: "Choose on or off for History collection.",
-            type: "error",
-          }),
-        );
-      }
-
-      let client = await setClientHistoryCollection(params.clientId, enabled);
-      if (!client) {
-        return redirect(
-          withNotice(request, routes.admin.clients.index.href(), {
-            text: "Client not found.",
-            type: "error",
-          }),
-        );
-      }
-
-      connectionRegistry.sendClientState(
-        client.id,
-        historyCollectionEnabled(client.history_collection),
-      );
-
-      return redirect(
-        withNotice(request, detailUrl, {
-          text: enabled
-            ? `History collection is on for ${client.name}.`
-            : `History collection is off for ${client.name}.`,
-          type: "success",
-        }),
-      );
-    },
-
-    async clearHistory({ params, request }) {
-      let client = await getClient(params.clientId);
-      if (!client) {
-        return redirect(
-          withNotice(request, routes.admin.clients.index.href(), {
-            text: "Client not found.",
-            type: "error",
-          }),
-        );
-      }
-
-      await clearClientVisits(client.id);
-
-      return redirect(
-        withNotice(
-          request,
-          routes.admin.clients.detail.href({ clientId: client.id }),
-          {
-            text: `Cleared History for ${client.name}.`,
+            text: enabled
+              ? `History collection is on for ${client.name}.`
+              : `History collection is off for ${client.name}.`,
             type: "success",
-          },
-        ),
-      );
-    },
-
-    async delete({ params, request }) {
-      let client = await deleteClient(params.clientId);
-
-      if (!client) {
-        return redirect(
-          withNotice(request, routes.admin.clients.index.href(), {
-            text: "Client not found.",
-            type: "error",
           }),
         );
-      }
+      },
+    },
 
-      connectionRegistry.disconnectClient(client.id);
-      await deleteClientScreenshot(client.id);
+    clearHistory: {
+      middleware: [requireConsoleAdmin()],
+      async handler({ params, request }) {
+        let client = await getClient(params.clientId);
+        if (!client) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: "Client not found.",
+              type: "error",
+            }),
+          );
+        }
 
-      return redirect(
-        withNotice(request, routes.admin.clients.index.href(), {
-          text: `Deleted ${client.name} and revoked its credentials.`,
-          type: "success",
-        }),
-      );
+        await clearClientVisits(client.id);
+
+        return redirect(
+          withNotice(
+            request,
+            routes.admin.clients.detail.href({ clientId: client.id }),
+            {
+              text: `Cleared History for ${client.name}.`,
+              type: "success",
+            },
+          ),
+        );
+      },
+    },
+
+    delete: {
+      middleware: [requireConsoleAdmin()],
+      async handler({ params, request }) {
+        let client = await deleteClient(params.clientId);
+
+        if (!client) {
+          return redirect(
+            withNotice(request, routes.admin.clients.index.href(), {
+              text: "Client not found.",
+              type: "error",
+            }),
+          );
+        }
+
+        connectionRegistry.disconnectClient(client.id);
+        await deleteClientScreenshot(client.id);
+
+        return redirect(
+          withNotice(request, routes.admin.clients.index.href(), {
+            text: `Deleted ${client.name} and revoked its credentials.`,
+            type: "success",
+          }),
+        );
+      },
     },
 
     async applyDns({ get, params, request }) {
@@ -549,14 +538,7 @@ export const adminClients = {
 } satisfies Controller<typeof routes.admin.clients, AppContext>;
 
 export const adminScreenshots = {
-  middleware: [
-    requireAuth<AdminIdentity>({
-      onFailure() {
-        return redirect(routes.auth.login.index.href());
-      },
-    }),
-    requireAdmin(),
-  ],
+  middleware: requireConsoleAccount(),
   actions: {
     async client({ params, request }) {
       let client = await getClient(params.clientId);
@@ -597,17 +579,10 @@ export const adminScreenshots = {
 } satisfies Controller<typeof routes.admin.screenshots, AppContext>;
 
 export const adminGroups = {
-  middleware: [
-    requireAuth<AdminIdentity>({
-      onFailure() {
-        return redirect(routes.auth.login.index.href());
-      },
-    }),
-    requireAdmin(),
-  ],
+  middleware: requireConsoleAccount(),
   actions: {
     async index({ get, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let [allClients, groupsWithMembers] = await Promise.all([
         listClients(),
         listGroupsWithMembers(),
@@ -615,7 +590,7 @@ export const adminGroups = {
 
       return render(
         <GroupsPage
-          adminName={identity.user.name}
+          viewer={viewerFrom(identity)}
           allClients={allClients}
           groups={groupsWithMembers}
           notice={getNotice(new URL(request.url))}
@@ -624,82 +599,81 @@ export const adminGroups = {
       );
     },
 
-    async create({ get, request }) {
-      let parsed = s.parseSafe(groupSchema, get(FormData));
-      if (!parsed.success) {
-        return redirect(
-          withNotice(request, routes.admin.groups.index.href(), {
-            text: parsed.issues[0]?.message ?? "Invalid group payload.",
-            type: "error",
-          }),
-        );
-      }
-
-      let formData = get(FormData);
-      let selectedClientIds = formData.getAll("clientId").map(String);
-
-      try {
-        await createGroup({
-          clientIds: selectedClientIds,
-          description: parsed.value.description,
-          name: parsed.value.name,
-        });
-      } catch (error) {
-        if (error instanceof GroupNameConflictError) {
+    create: {
+      middleware: [requireConsoleAdmin()],
+      async handler({ get, request }) {
+        let parsed = s.parseSafe(groupSchema, get(FormData));
+        if (!parsed.success) {
           return redirect(
             withNotice(request, routes.admin.groups.index.href(), {
-              text: error.message,
+              text: parsed.issues[0]?.message ?? "Invalid group payload.",
               type: "error",
             }),
           );
         }
 
-        throw error;
-      }
+        let formData = get(FormData);
+        let selectedClientIds = formData.getAll("clientId").map(String);
 
-      return redirect(
-        withNotice(request, routes.admin.groups.index.href(), {
-          text: "Group created.",
-          type: "success",
-        }),
-      );
-    },
+        try {
+          await createGroup({
+            clientIds: selectedClientIds,
+            description: parsed.value.description,
+            name: parsed.value.name,
+          });
+        } catch (error) {
+          if (error instanceof GroupNameConflictError) {
+            return redirect(
+              withNotice(request, routes.admin.groups.index.href(), {
+                text: error.message,
+                type: "error",
+              }),
+            );
+          }
 
-    async members({ get, params, request }) {
-      let selectedClientIds = get(FormData).getAll("clientId").map(String);
-      let group = await replaceGroupMembers(params.groupId, selectedClientIds);
+          throw error;
+        }
 
-      if (!group) {
         return redirect(
           withNotice(request, routes.admin.groups.index.href(), {
-            text: "Group not found.",
-            type: "error",
+            text: "Group created.",
+            type: "success",
           }),
         );
-      }
+      },
+    },
 
-      return redirect(
-        withNotice(request, routes.admin.groups.index.href(), {
-          text: `Updated members for ${group.name}.`,
-          type: "success",
-        }),
-      );
+    members: {
+      middleware: [requireConsoleAdmin()],
+      async handler({ get, params, request }) {
+        let selectedClientIds = get(FormData).getAll("clientId").map(String);
+        let group = await replaceGroupMembers(params.groupId, selectedClientIds);
+
+        if (!group) {
+          return redirect(
+            withNotice(request, routes.admin.groups.index.href(), {
+              text: "Group not found.",
+              type: "error",
+            }),
+          );
+        }
+
+        return redirect(
+          withNotice(request, routes.admin.groups.index.href(), {
+            text: `Updated members for ${group.name}.`,
+            type: "success",
+          }),
+        );
+      },
     },
   },
 } satisfies Controller<typeof routes.admin.groups, AppContext>;
 
 export const adminHistory = {
-  middleware: [
-    requireAuth<AdminIdentity>({
-      onFailure() {
-        return redirect(routes.auth.login.index.href());
-      },
-    }),
-    requireAdmin(),
-  ],
+  middleware: requireConsoleAccount(),
   actions: {
     async index({ get, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let url = new URL(request.url);
       let client = url.searchParams.get("client")?.trim() ?? "";
       let user = url.searchParams.get("user")?.trim() ?? "";
@@ -720,7 +694,7 @@ export const adminHistory = {
 
       return render(
         <HistoryPage
-          adminName={identity.user.name}
+          viewer={viewerFrom(identity)}
           filterOptions={filterOptions}
           history={history}
           notice={getNotice(url)}
@@ -731,43 +705,39 @@ export const adminHistory = {
       );
     },
 
-    async delete({ get, params, request }) {
-      let returnUrl = safeAdminReturnTo(
-        get(FormData).get("returnTo"),
-        routes.admin.history.index.href(),
-      );
-      let visit = await deleteVisit(params.visitId);
-      if (!visit) {
+    delete: {
+      middleware: [requireConsoleAdmin()],
+      async handler({ get, params, request }) {
+        let returnUrl = safeAdminReturnTo(
+          get(FormData).get("returnTo"),
+          routes.admin.history.index.href(),
+        );
+        let visit = await deleteVisit(params.visitId);
+        if (!visit) {
+          return redirect(
+            withNotice(request, returnUrl, {
+              text: "Visit not found.",
+              type: "error",
+            }),
+          );
+        }
+
         return redirect(
           withNotice(request, returnUrl, {
-            text: "Visit not found.",
-            type: "error",
+            text: "Visit deleted.",
+            type: "success",
           }),
         );
-      }
-
-      return redirect(
-        withNotice(request, returnUrl, {
-          text: "Visit deleted.",
-          type: "success",
-        }),
-      );
+      },
     },
   },
 } satisfies Controller<typeof routes.admin.history, AppContext>;
 
 export const adminMessages = {
-  middleware: [
-    requireAuth<AdminIdentity>({
-      onFailure() {
-        return redirect(routes.auth.login.index.href());
-      },
-    }),
-    requireAdmin(),
-  ],
+  middleware: requireConsoleAccount(),
   actions: {
     async compose({ get, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let dashboardUrl = routes.admin.index.href();
       let parsed = s.parseSafe(composeSchema, get(FormData));
       if (!parsed.success) {
@@ -795,14 +765,14 @@ export const adminMessages = {
           let result = await dispatchTextMessageToClient({
             clientId: id,
             content: parsed.value.content,
-            senderAdminUserId: identity.user.id,
+            senderUserId: identity.user.id,
           });
           notice = deliveryNotice(result);
         } else {
           let result = await dispatchTextMessageToGroup({
             content: parsed.value.content,
             groupId: id,
-            senderAdminUserId: identity.user.id,
+            senderUserId: identity.user.id,
           });
           notice = deliveryNotice(result);
         }
@@ -820,7 +790,7 @@ export const adminMessages = {
     },
 
     async client({ get, params, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let formData = get(FormData);
       let returnUrl = safeAdminReturnTo(formData.get("returnTo"), routes.admin.clients.index.href());
       let parsed = s.parseSafe(messageSchema, formData);
@@ -837,7 +807,7 @@ export const adminMessages = {
         let result = await dispatchTextMessageToClient({
           clientId: params.clientId,
           content: parsed.value.content,
-          senderAdminUserId: identity.user.id,
+          senderUserId: identity.user.id,
         });
 
         return redirect(
@@ -858,7 +828,7 @@ export const adminMessages = {
     },
 
     async group({ get, params, request }) {
-      let identity = getCurrentAdminIdentity({ get });
+      let identity = getConsoleViewer({ get });
       let parsed = s.parseSafe(messageSchema, get(FormData));
       if (!parsed.success) {
         return redirect(
@@ -873,7 +843,7 @@ export const adminMessages = {
         let result = await dispatchTextMessageToGroup({
           content: parsed.value.content,
           groupId: params.groupId,
-          senderAdminUserId: identity.user.id,
+          senderUserId: identity.user.id,
         });
 
         return redirect(

@@ -25,7 +25,8 @@ import {
   adminSettingsDnsProfiles,
 } from "./controllers/admin/settings/controller.tsx";
 import { api, apiClients } from "./controllers/api/controller.ts";
-import { auth, authLogin, authSetup } from "./controllers/auth/controller.tsx";
+import { adminSettingsAccounts } from "./controllers/admin/settings/accounts/controller.tsx";
+import { auth, authInvite, authLogin, authSetup } from "./controllers/auth/controller.tsx";
 import { home } from "./controllers/home.tsx";
 import { loadAuth } from "./middleware/auth.ts";
 import { loadDatabase } from "./middleware/database.ts";
@@ -87,6 +88,7 @@ router.map(routes.home, home);
 router.map(routes.auth, auth);
 router.map(routes.auth.login, authLogin);
 router.map(routes.auth.setup, authSetup);
+router.map(routes.auth.invite, authInvite);
 router.map(routes.admin, admin);
 router.map(routes.admin.clients, adminClients);
 router.map(routes.admin.groups, adminGroups);
@@ -95,6 +97,7 @@ router.map(routes.admin.messages, adminMessages);
 router.map(routes.admin.screenshots, adminScreenshots);
 router.map(routes.admin.settings, adminSettings);
 router.map(routes.admin.settings.dnsProfiles, adminSettingsDnsProfiles);
+router.map(routes.admin.settings.accounts, adminSettingsAccounts);
 router.map(routes.api, api);
 router.map(routes.api.clients, apiClients);
 router.get(

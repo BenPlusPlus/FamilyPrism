@@ -4,8 +4,20 @@ import { createPrismAuth, replacePrismAuth } from '../app/data/auth.ts'
 import { replaceDatabase } from '../app/data/database.ts'
 
 const TEST_TABLES = [
-  `create table admin_users (
+  `create table console_accounts (
     user_id text primary key,
+    role text not null check (role in ('admin', 'parent')),
+    created_at text not null default (datetime('now')),
+    updated_at text not null default (datetime('now'))
+  )`,
+  `create table console_invitations (
+    id text primary key,
+    token_hash text not null unique,
+    email text not null unique,
+    name text not null,
+    role text not null check (role in ('admin', 'parent')),
+    invited_by_user_id text,
+    expires_at text not null,
     created_at text not null default (datetime('now')),
     updated_at text not null default (datetime('now'))
   )`,
@@ -93,7 +105,7 @@ const TEST_TABLES = [
   )`,
   `create table messages (
     id text primary key,
-    sender_admin_user_id text not null,
+    sender_user_id text,
     target_type text not null,
     target_id text not null,
     content text not null,
