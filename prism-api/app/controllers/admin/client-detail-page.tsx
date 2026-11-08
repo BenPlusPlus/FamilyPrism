@@ -18,6 +18,7 @@ import { AdminShell } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import { VisitLog } from "../../ui/visit-log.tsx";
 import type { Notice } from "../../utils/notice.ts";
+import { formatDateTime } from "../../utils/time-zone.ts";
 
 const DNS_STATUS_LABEL: Record<DnsDirectiveStatus, string> = {
   applied: "Applied",
@@ -25,13 +26,6 @@ const DNS_STATUS_LABEL: Record<DnsDirectiveStatus, string> = {
   failed: "Failed",
   pending: "Queued until the PC connects",
 };
-
-function formatTime(value: string | number | Date) {
-  return new Date(value).toLocaleString("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
 
 export function ClientDetailPage(
   handle: Handle<{
@@ -44,6 +38,7 @@ export function ClientDetailPage(
     overlayCapable: boolean;
     overlayMinVersion: string;
     pinnedVersion: string | null;
+    timeZone: string;
     visits: HistoryVisit[];
   }>,
 ) {
@@ -58,8 +53,10 @@ export function ClientDetailPage(
       overlayCapable,
       overlayMinVersion,
       pinnedVersion,
+      timeZone,
       visits,
     } = handle.props;
+    let formatTime = (value: string | number | Date) => formatDateTime(value, timeZone);
     let detailHref = routes.admin.clients.detail.href({ clientId: client.id });
     let screenshotUrl = routes.admin.clients.screenshot.href({ clientId: client.id });
     let screenshotSrc = client.last_screenshot_at
@@ -123,6 +120,7 @@ export function ClientDetailPage(
                   clientId: client.id,
                 })}
                 data-screenshot-src={screenshotUrl}
+                data-time-zone={timeZone}
                 data-empty-copy={screenshotEmptyCopy}
               >
                 <div class="screen-empty" data-screenshot-empty>
@@ -259,7 +257,7 @@ export function ClientDetailPage(
                   <strong>No Visits yet.</strong>
                 </p>
               ) : (
-                <VisitLog visits={visits} dayHeading="h3" foldRepeats />
+                <VisitLog visits={visits} timeZone={timeZone} dayHeading="h3" foldRepeats />
               )}
             </section>
 

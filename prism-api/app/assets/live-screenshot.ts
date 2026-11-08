@@ -15,11 +15,14 @@ type PendingCapture = {
 let pending: PendingCapture | null = null
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
-function formatCapturedAt(value: string) {
-  return new Date(value).toLocaleString('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
+// Match the server-rendered caption: the household zone, not this browser's.
+function formatCapturedAt(value: string, timeZone: string | undefined) {
+  let options: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' }
+  try {
+    return new Date(value).toLocaleString('en-US', { ...options, timeZone })
+  } catch {
+    return new Date(value).toLocaleString('en-US', options)
+  }
 }
 
 function withCaptureQuery(src: string, capturedAt: string) {
@@ -59,7 +62,7 @@ function applyScreenshot(root: HTMLElement, capturedAt: string) {
   }
 
   let src = withCaptureQuery(srcBase, capturedAt)
-  let capturedLabel = formatCapturedAt(capturedAt)
+  let capturedLabel = formatCapturedAt(capturedAt, root.dataset.timeZone)
   let clientName = root.dataset.clientName ?? 'this PC'
 
   for (let image of root.querySelectorAll<HTMLImageElement>('[data-screenshot-image]')) {

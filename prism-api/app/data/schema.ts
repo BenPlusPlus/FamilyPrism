@@ -175,6 +175,7 @@ export const householdSettings = table({
   columns: {
     id: c.varchar(255).notNull().primaryKey(),
     visit_retention_days: c.integer().notNull(),
+    time_zone: c.varchar(64).notNull(),
   },
   timestamps: {
     createdAt: 'created_at',

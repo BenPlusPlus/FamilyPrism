@@ -113,6 +113,7 @@ const TEST_TABLES = [
   `create table household_settings (
     id text primary key,
     visit_retention_days integer not null,
+    time_zone text not null default 'UTC',
     created_at text not null default (datetime('now')),
     updated_at text not null default (datetime('now'))
   )`,

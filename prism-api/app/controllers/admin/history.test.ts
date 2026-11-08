@@ -182,7 +182,9 @@ test('History groups Visits under day headings and tags each with its Client', a
 
   let { text } = await readHistory(cookie)
   let today = text.indexOf('<span>Today</span>')
-  let earlierDay = text.indexOf(`<span>${earlier.toLocaleDateString('en-US', { weekday: 'long' })}</span>`)
+  // A new household's zone is UTC, whatever zone the server or test machine runs in.
+  let earlierWeekday = earlier.toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long' })
+  let earlierDay = text.indexOf(`<span>${earlierWeekday}</span>`)
   assert.ok(today > -1, 'expected a Today heading')
   assert.ok(earlierDay > today, 'expected the earlier day heading after Today')
   assert.ok(text.indexOf('Current page') > today && text.indexOf('Current page') < earlierDay)
@@ -601,4 +603,62 @@ test('unregistering a Client removes its Visits from History', async () => {
   let { text } = await readHistory(cookie)
   assert.doesNotMatch(text, /gone\.example/)
   assert.match(text, /No Visits yet/)
+})
+
+async function saveTimeZone(cookie: string, timeZone: string) {
+  let response = await router.fetch(
+    formRequest(routes.admin.settings.timeZone.href(), { timeZone }, { headers: { cookie } }),
+  )
+  assert.equal(response.status, 302)
+  let settings = await router.fetch(
+    jsonRequest(response.headers.get('location') ?? '', { headers: { cookie } }),
+  )
+  return settings.text()
+}
+
+function todayHeadingDate(text: string) {
+  let match = text.match(
+    /<span>Today<\/span>\s*<time[^>]*datetime="(\d{4}-\d{2}-\d{2})"/,
+  )
+  assert.ok(match, 'expected a Today heading')
+  return match[1]
+}
+
+test('History and Client detail put Today on the calendar day of the household time zone', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let client = await registerClient('Kitchen PC')
+  assert.equal(
+    (await postVisits(client, [visitPayload({ visitTime: new Date(Date.now() - 1_000).toISOString() })]))
+      .status,
+    204,
+  )
+
+  // UTC+14 and UTC-11 are always on different calendar days, so the heading's
+  // date has to come from the household zone rather than the server's clock.
+  assert.match(await saveTimeZone(cookie, 'Pacific/Kiritimati'), /Time zone saved\./)
+  let aheadHistory = todayHeadingDate((await readHistory(cookie)).text)
+  let aheadDetail = todayHeadingDate((await readClientDetail(cookie, client.clientId)).text)
+
+  assert.match(await saveTimeZone(cookie, 'Pacific/Pago_Pago'), /Time zone saved\./)
+  let behindHistory = todayHeadingDate((await readHistory(cookie)).text)
+  let behindDetail = todayHeadingDate((await readClientDetail(cookie, client.clientId)).text)
+
+  let dayAfter = (key: string) =>
+    new Date(Date.parse(`${key}T00:00:00.000Z`) + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  assert.equal(aheadHistory, dayAfter(behindHistory))
+  assert.equal(aheadDetail, aheadHistory)
+  assert.equal(behindDetail, behindHistory)
+})
+
+test('Settings saves the household time zone by its canonical name and rejects unknown zones', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+
+  let saved = await saveTimeZone(cookie, 'america/denver')
+  assert.match(saved, /<option value="America\/Denver" selected/)
+
+  let rejected = await saveTimeZone(cookie, 'Mars/Olympus_Mons')
+  assert.match(rejected, /Choose a time zone from the list\./)
+  assert.match(rejected, /<option value="America\/Denver" selected/)
 })

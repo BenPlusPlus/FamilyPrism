@@ -44,6 +44,7 @@ export const routes = route({
     settings: route("settings", {
       index: get("/"),
       visitRetention: post("visit-retention"),
+      timeZone: post("time-zone"),
       dnsProfiles: route("dns-profiles", {
         index: get("/"),
         create: post("/"),

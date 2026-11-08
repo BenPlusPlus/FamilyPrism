@@ -4,57 +4,53 @@ import type { HistoryVisit } from "../data/visits.ts";
 import { routes } from "../routes.ts";
 import { Icon } from "./icons.tsx";
 import { TagChip } from "./key-tag.tsx";
+import {
+  calendarDayKey,
+  formatClockTime,
+  formatMonthDay,
+  formatWeekday,
+  previousDayKey,
+} from "../utils/time-zone.ts";
 
-interface VisitDay {
+export interface VisitDay {
+  /** `YYYY-MM-DD` in the household time zone. */
   key: string;
-  date: Date;
+  /** "Today", "Yesterday", or the weekday. */
+  name: string;
+  /** "Nov 7", with the year when it isn't the current one. */
+  date: string;
   visits: HistoryVisit[];
 }
 
-function dayKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate(),
-  ).padStart(2, "0")}`;
-}
-
-// Visits arrive newest first, so consecutive runs share a day.
-function groupByDay(visits: HistoryVisit[]) {
+// Visits arrive newest first, so consecutive runs share a day. Days are the
+// household's calendar days, not the server's.
+export function groupVisitsByDay(visits: HistoryVisit[], now: Date, timeZone: string) {
+  let todayKey = calendarDayKey(now, timeZone);
+  let yesterdayKey = previousDayKey(todayKey);
+  let currentYear = todayKey.slice(0, 4);
   let days: VisitDay[] = [];
   for (let visit of visits) {
-    let date = new Date(visit.visitedAt);
-    let key = dayKey(date);
+    let visitedAt = new Date(visit.visitedAt);
+    let key = calendarDayKey(visitedAt, timeZone);
     let current = days.at(-1);
     if (current && current.key === key) {
       current.visits.push(visit);
-    } else {
-      days.push({ key, date, visits: [visit] });
+      continue;
     }
+
+    days.push({
+      key,
+      name:
+        key === todayKey
+          ? "Today"
+          : key === yesterdayKey
+            ? "Yesterday"
+            : formatWeekday(visitedAt, timeZone),
+      date: formatMonthDay(visitedAt, timeZone, key.slice(0, 4) !== currentYear),
+      visits: [visit],
+    });
   }
   return days;
-}
-
-function dayName(date: Date, now: Date) {
-  let yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  let key = dayKey(date);
-  if (key === dayKey(now)) return "Today";
-  if (key === dayKey(yesterday)) return "Yesterday";
-  return date.toLocaleDateString("en-US", { weekday: "long" });
-}
-
-function dayDate(date: Date, now: Date) {
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-  });
-}
-
-function visitTime(value: string) {
-  return new Date(value).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 interface VisitEntry {
@@ -119,6 +115,8 @@ function BrowserFact(handle: Handle<{ value: string }>) {
 export function VisitLog(
   handle: Handle<{
     visits: HistoryVisit[];
+    /** Household IANA time zone that days and times are shown in. */
+    timeZone: string;
     /** Show which Client each Visit came from (off on a Client's own page). */
     showClient?: boolean;
     /** Heading level for the day dividers, so they sit under the page's outline. */
@@ -133,6 +131,7 @@ export function VisitLog(
   return () => {
     let {
       visits,
+      timeZone,
       showClient = false,
       dayHeading = "h2",
       foldRepeats = false,
@@ -156,12 +155,12 @@ export function VisitLog(
             {sharedBrowser !== null ? <BrowserFact value={sharedBrowser} /> : null}
           </p>
         ) : null}
-        {groupByDay(visits).map((day) => (
+        {groupVisitsByDay(visits, now, timeZone).map((day) => (
           <section class="visit-day" aria-labelledby={`visit-day-${day.key}`}>
             <Heading class="visit-day-head" id={`visit-day-${day.key}`}>
-              <span>{dayName(day.date, now)}</span>
+              <span>{day.name}</span>
               <time class="visit-day-date" datetime={day.key}>
-                {dayDate(day.date, now)}
+                {day.date}
               </time>
             </Heading>
             <ol class="visits">
@@ -171,7 +170,7 @@ export function VisitLog(
               ).map(({ visit, count }) => (
                 <li class={rowClass}>
                   <time class="visit-time" datetime={visit.visitedAt}>
-                    {visitTime(visit.visitedAt)}
+                    {formatClockTime(visit.visitedAt, timeZone)}
                   </time>
                   <div class="visit-main">
                     <p class="visit-title">
