@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": "26.13.0"
+    "node": "26.13.1"
   },
   "dependencies": {
     "better-auth": "1.7.21",
