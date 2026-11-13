@@ -1,12 +1,10 @@
 import type { Controller } from "remix/router";
-import { Auth, requireAuth } from "remix/middleware/auth";
 import * as s from "remix/data-schema";
 import * as f from "remix/data-schema/form-data";
 import { maxLength, minLength } from "remix/data-schema/checks";
 import { redirect } from "remix/response/redirect";
 import type { Handle } from "remix/component";
 
-import type { AdminIdentity } from "../../../data/auth.ts";
 import {
   createDnsProfile,
   deleteDnsProfile,
@@ -27,11 +25,15 @@ import {
   MIN_VISIT_RETENTION_DAYS,
   setVisitRetentionDays,
 } from "../../../data/visits.ts";
-import { requireAdmin } from "../../../middleware/admin.ts";
+import {
+  getConsoleViewer,
+  requireConsoleAccount,
+  requireConsoleAdmin,
+} from "../../../middleware/console.ts";
 import type { AppContext } from "../../../router.ts";
 import { routes } from "../../../routes.ts";
 import { Icon } from "../../../ui/icons.tsx";
-import { AdminShell } from "../../../ui/layout.tsx";
+import { AdminShell, viewerFrom, type Viewer } from "../../../ui/layout.tsx";
 import { NoticeBar } from "../../../ui/notice.tsx";
 import { getNotice, withNotice, type Notice } from "../../../utils/notice.ts";
 import { render } from "../../../utils/render.tsx";
@@ -43,18 +45,10 @@ let dnsProfileSchema = f.object({
   secondaryIp: f.field(s.string().pipe(maxLength(45))),
 });
 
-let adminSettingsMiddleware = [
-  requireAuth<AdminIdentity>({
-    onFailure() {
-      return redirect(routes.auth.login.index.href());
-    },
-  }),
-  requireAdmin(),
-];
+export const adminSettingsMiddleware = [...requireConsoleAccount(), requireConsoleAdmin()];
 
-function adminName(get: AppContext["get"]) {
-  let auth = get(Auth);
-  return auth.ok ? (auth.identity as AdminIdentity).user.name : "";
+function viewer(get: AppContext["get"]) {
+  return viewerFrom(getConsoleViewer({ get }));
 }
 
 function settingsIndexHref() {
@@ -98,7 +92,7 @@ export const adminSettings = {
 
       return render(
         <SettingsIndexPage
-          adminName={adminName(get)}
+          viewer={viewer(get)}
           notice={getNotice(new URL(request.url))}
           timeZone={timeZone}
           visitRetentionDays={visitRetentionDays}
@@ -165,7 +159,7 @@ export const adminSettingsDnsProfiles = {
 
       return render(
         <DnsProfilesPage
-          adminName={adminName(get)}
+          viewer={viewer(get)}
           notice={getNotice(new URL(request.url))}
           profiles={profiles}
         />,
@@ -248,14 +242,14 @@ export const adminSettingsDnsProfiles = {
 
 function SettingsIndexPage(
   handle: Handle<{
-    adminName: string;
+    viewer: Viewer;
     notice: Notice | null;
     timeZone: string;
     visitRetentionDays: number;
   }>,
 ) {
   return () => (
-    <AdminShell active="dns" title="Settings" adminName={handle.props.adminName}>
+    <AdminShell active="dns" title="Settings" viewer={handle.props.viewer}>
       <header class="page-head">
         <div>
           <h1>Settings</h1>
@@ -326,6 +320,15 @@ function SettingsIndexPage(
       <section class="panel">
         <ul class="rows">
           <li>
+            <a class="row-link" href={routes.admin.settings.accounts.index.href()}>
+              Accounts
+              <Icon name="chevron" />
+            </a>
+            <span class="muted">
+              Who can sign in to the console, and whether they're an admin or a parent.
+            </span>
+          </li>
+          <li>
             <a class="row-link" href={dnsProfilesIndexHref()}>
               DNS profiles
               <Icon name="chevron" />
@@ -391,16 +394,16 @@ function DnsProfileFields(
 
 function DnsProfilesPage(
   handle: Handle<{
-    adminName: string;
+    viewer: Viewer;
     notice: Notice | null;
     profiles: Awaited<ReturnType<typeof listDnsProfiles>>;
   }>,
 ) {
   return () => {
-    let { adminName, notice, profiles } = handle.props;
+    let { viewer, notice, profiles } = handle.props;
 
     return (
-      <AdminShell active="dns" title="DNS profiles" adminName={adminName}>
+      <AdminShell active="dns" title="DNS profiles" viewer={viewer}>
         <header class="page-head">
           <div>
             <h1>DNS profiles</h1>

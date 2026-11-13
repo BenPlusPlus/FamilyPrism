@@ -4,7 +4,7 @@ import type { HistoryList, VisitBrowser } from "../../data/visits.ts";
 import { VISIT_BROWSERS } from "../../data/visits.ts";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
-import { AdminShell } from "../../ui/layout.tsx";
+import { AdminShell, type Viewer } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import { VisitLog } from "../../ui/visit-log.tsx";
 import type { Notice } from "../../utils/notice.ts";
@@ -37,7 +37,7 @@ function historyHref(
 
 export function HistoryPage(
   handle: Handle<{
-    adminName: string;
+    viewer: Viewer;
     filterOptions: {
       browsers: VisitBrowser[];
       clients: { id: string; name: string }[];
@@ -50,7 +50,7 @@ export function HistoryPage(
   }>,
 ) {
   return () => {
-    let { adminName, filterOptions, history, notice, query, timeZone } = handle.props;
+    let { viewer, filterOptions, history, notice, query, timeZone } = handle.props;
     let { page, pageCount, total, visits } = history;
     let filtered = Boolean(query.browser || query.client || query.q || query.user);
     let lede =
@@ -69,7 +69,7 @@ export function HistoryPage(
     );
 
     return (
-      <AdminShell active="history" title="History" adminName={adminName}>
+      <AdminShell active="history" title="History" viewer={viewer}>
         <header class="page-head">
           <div>
             <h1>History</h1>
@@ -162,7 +162,11 @@ export function HistoryPage(
                 visits={visits}
                 timeZone={timeZone}
                 showClient={!query.client}
-                deleteHref={(visit) => routes.admin.history.delete.href({ visitId: visit.id })}
+                deleteHref={
+                  viewer.role === "admin"
+                    ? (visit) => routes.admin.history.delete.href({ visitId: visit.id })
+                    : undefined
+                }
                 returnTo={historyHref(query, page)}
               />
               {total > visits.length || page > 1 ? (

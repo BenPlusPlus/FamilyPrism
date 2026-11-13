@@ -5,7 +5,7 @@ import type { ClientVersionView } from "../../data/client-package.ts";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
 import { TagChip } from "../../ui/key-tag.tsx";
-import { AdminShell } from "../../ui/layout.tsx";
+import { AdminShell, type Viewer } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
 import type { Notice } from "../../utils/notice.ts";
 
@@ -14,17 +14,17 @@ export type ClientRow = Awaited<ReturnType<typeof listClientsWithGroups>>[number
 
 export function ClientsPage(
   handle: Handle<{
-    adminName: string;
+    viewer: Viewer;
     clients: ClientRow[];
     notice: Notice | null;
   }>,
 ) {
   return () => {
-    let { adminName, clients, notice } = handle.props;
+    let { viewer, clients, notice } = handle.props;
     let home = clients.filter((client) => client.connected).length;
 
     return (
-      <AdminShell active="clients" title="Clients" adminName={adminName}>
+      <AdminShell active="clients" title="Clients" viewer={viewer}>
         <header class="page-head">
           <div>
             <h1>Clients</h1>

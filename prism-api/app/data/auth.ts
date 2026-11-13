@@ -3,7 +3,7 @@ import type { Pool } from 'pg'
 
 import { getEnv } from '../config/env.ts'
 import { expandLoopbackTrustedOrigins } from '../config/trusted-origins.ts'
-import { isAdminUser } from './admin-users.ts'
+import { getConsoleRole, type ConsoleRole } from './console-accounts.ts'
 import { pool } from './database.ts'
 
 export function createPrismAuth(database?: Pool) {
@@ -32,11 +32,14 @@ export function replacePrismAuth(next: ReturnType<typeof createPrismAuth>) {
 
 export type BetterAuthSession = Awaited<ReturnType<typeof prismAuth.api.getSession>>
 export type SessionData = NonNullable<BetterAuthSession>
-export type AdminIdentity = SessionData & {
-  isAdmin: boolean
+/** A signed-in person. `role` is null when they have no console account. */
+export type ConsoleIdentity = SessionData & {
+  role: ConsoleRole | null
 }
 
-export async function getAdminIdentityFromRequest(request: Request): Promise<AdminIdentity | null> {
+export async function getConsoleIdentityFromRequest(
+  request: Request,
+): Promise<ConsoleIdentity | null> {
   let session = await prismAuth.api.getSession({
     headers: request.headers,
   })
@@ -47,7 +50,7 @@ export async function getAdminIdentityFromRequest(request: Request): Promise<Adm
 
   return {
     ...session,
-    isAdmin: await isAdminUser(session.user.id),
+    role: await getConsoleRole(session.user.id),
   }
 }
 

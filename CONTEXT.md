@@ -52,12 +52,24 @@ _Avoid_: regular user, limited user, kid, child (as a privilege)
 A local account that can elevate on the PC.
 _Avoid_: admin (alone), parent (as a privilege)
 
+**Console account**:
+A person who signs into the FamilyPrism web console. Every Console account is either a Console admin or a Parent.
+_Avoid_: user (alone), login
+
 **Console admin**:
-A person who signs into the FamilyPrism web console.
+A Console account that manages the household: Settings, DNS profiles, Accounts, Groups, History collection, and deleting History or Clients. The first account is always a Console admin, and the last one can't be demoted or removed.
 _Avoid_: admin (alone) when a Windows account is meant
 
+**Parent**:
+A Console account for day-to-day parental control: it can message, screenshot, and change DNS on Clients, and read History, but can't change household settings or delete anything.
+_Avoid_: parent (as a Windows privilege), viewer, limited admin
+
+**Console invite**:
+A one-time link a Console admin creates to add a Console account with a chosen role. It expires after 7 days; inviting the same email again replaces it.
+_Avoid_: signup link, registration (that's for Clients)
+
 **DNS profile**:
-A named pair of DNS servers (primary IPv4, optional secondary) that a Console admin can apply to a Client.
+A named pair of DNS servers (primary IPv4, optional secondary) that a Console admin manages and any Console account can apply to a Client.
 _Avoid_: DNS server list, resolver config
 
 **DNS directive**:

@@ -1,8 +1,8 @@
 import { createAction } from "remix/router";
 import type { Handle } from "remix/component";
 
-import { adminExists } from "../data/admin-users.ts";
-import { getAdminIdentityFromRequest } from "../data/auth.ts";
+import { getConsoleIdentityFromRequest } from "../data/auth.ts";
+import { consoleAccountExists } from "../data/console-accounts.ts";
 import type { AppContext } from "../router.ts";
 import { routes } from "../routes.ts";
 import { BrandMark } from "../ui/icons.tsx";
@@ -12,24 +12,24 @@ import { render } from "../utils/render.tsx";
 export const home = createAction<typeof routes.home, AppContext>(routes.home, {
   async handler({ request }) {
     let [hasAdminUser, identity] = await Promise.all([
-      adminExists(),
-      getAdminIdentityFromRequest(request),
+      consoleAccountExists(),
+      getConsoleIdentityFromRequest(request),
     ]);
 
     return render(
       <HomePage
         hasAdminUser={hasAdminUser}
-        isAdmin={identity?.isAdmin ?? false}
+        hasConsoleAccess={Boolean(identity?.role)}
       />,
       request,
     );
   },
 });
 
-function HomePage(handle: Handle<{ hasAdminUser: boolean; isAdmin: boolean }>) {
+function HomePage(handle: Handle<{ hasAdminUser: boolean; hasConsoleAccess: boolean }>) {
   return () => {
-    let { hasAdminUser, isAdmin } = handle.props;
-    let cta = isAdmin
+    let { hasAdminUser, hasConsoleAccess } = handle.props;
+    let cta = hasConsoleAccess
       ? { href: routes.admin.index.href(), label: "Open the rack" }
       : hasAdminUser
         ? { href: routes.auth.login.index.href(), label: "Sign in" }
