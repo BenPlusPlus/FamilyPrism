@@ -401,7 +401,7 @@ function LoginPage(handle: Handle<{ email: string; errors: string[] }>) {
     <SoloShell
       title="Sign in"
       heading="Every family PC, on one rack."
-      lede="See who's home, message a screen, and keep DNS settings in line from your phone or desk."
+      lede="See who's home, message a screen, and switch the internet off or filter it from your phone or desk."
     >
       <h2>Sign in</h2>
       <ErrorList title="Couldn't sign you in" errors={handle.props.errors} />

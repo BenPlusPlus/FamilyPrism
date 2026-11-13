@@ -53,7 +53,7 @@ function HomePage(handle: Handle<{ hasAdminUser: boolean; hasConsoleAccess: bool
             <p class="lead">
               This server keeps a live connection to each registered family PC, so
               an admin can see who's home, send a message to a screen, take a
-              screenshot, or switch DNS settings.
+              screenshot, or change a PC's internet profile.
             </p>
           </main>
 

@@ -67,6 +67,7 @@ test("registry sends apply-dns overlay commands with a deadline and standing DNS
 
   registry.register("client-1", socket);
   let delivered = registry.sendApplyDnsCommand("client-1", {
+    blockInternet: false,
     commandId: "dns-2",
     expiresAt: "2026-03-01T12:15:00.000Z",
     primaryIp: "8.8.8.8",
@@ -75,6 +76,7 @@ test("registry sends apply-dns overlay commands with a deadline and standing DNS
     restoreCommandId: "restore-2",
     secondaryIp: "8.8.4.4",
     standing: {
+      blockInternet: false,
       primaryIp: "1.1.1.1",
       profileName: "School",
       resetToDhcp: false,
@@ -85,6 +87,7 @@ test("registry sends apply-dns overlay commands with a deadline and standing DNS
 
   assert.equal(delivered, true);
   assert.deepEqual(JSON.parse(sent[0]), {
+    blockInternet: false,
     commandId: "dns-2",
     expiresAt: "2026-03-01T12:15:00.000Z",
     primaryIp: "8.8.8.8",
@@ -93,6 +96,7 @@ test("registry sends apply-dns overlay commands with a deadline and standing DNS
     restoreCommandId: "restore-2",
     secondaryIp: "8.8.4.4",
     standing: {
+      blockInternet: false,
       primaryIp: "1.1.1.1",
       profileName: "School",
       resetToDhcp: false,
@@ -108,6 +112,7 @@ test("registry sends apply-dns commands to connected clients", () => {
 
   registry.register("client-1", socket);
   let delivered = registry.sendApplyDnsCommand("client-1", {
+    blockInternet: false,
     commandId: "dns-1",
     primaryIp: "1.1.1.1",
     profileName: "Cloudflare",
@@ -118,6 +123,7 @@ test("registry sends apply-dns commands to connected clients", () => {
 
   assert.equal(delivered, true);
   assert.deepEqual(JSON.parse(sent[0]), {
+    blockInternet: false,
     commandId: "dns-1",
     primaryIp: "1.1.1.1",
     profileName: "Cloudflare",

@@ -13,9 +13,11 @@ internal sealed record DnsOverlayPersistedState(
     DateTimeOffset ExpiresAtUtc,
     long RemainingMs,
     long LastTickMs,
-    bool StandingRestored = false)
+    bool StandingRestored = false,
+    bool BlockInternet = false,
+    bool StandingBlockInternet = false)
 {
-    public bool HasStandingProfile => !string.IsNullOrWhiteSpace(StandingPrimaryIp);
+    public bool HasStandingProfile => !StandingBlockInternet && !string.IsNullOrWhiteSpace(StandingPrimaryIp);
 }
 
 internal static class DnsOverlayStateStore
@@ -57,6 +59,8 @@ internal static class DnsOverlayStateStore
             standing?.SecondaryIp,
             command.ExpiresAt ?? DateTimeOffset.UtcNow,
             (long)Math.Max(0, remaining.TotalMilliseconds),
-            nowTickMs);
+            nowTickMs,
+            BlockInternet: command.BlockInternet,
+            StandingBlockInternet: standing?.BlockInternet == true);
     }
 }

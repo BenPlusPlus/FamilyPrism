@@ -13,7 +13,7 @@ The interactive FamilyPrism process that runs in a signed-in user's Windows sess
 _Avoid_: agent, prismagent (as a spoken name), tray app, tray agent
 
 **Service**:
-The FamilyPrism Windows service that runs as SYSTEM in Session 0. It owns the websocket, DNS directives, auto-update, and the Watchdog.
+The FamilyPrism Windows service that runs as SYSTEM in Session 0. It owns the websocket, DNS directives (including the No internet firewall rules), auto-update, and the Watchdog.
 _Avoid_: agent, background agent, prismsvc (as a spoken name)
 
 **Watchdog**:
@@ -57,31 +57,39 @@ A person who signs into the FamilyPrism web console. Every Console account is ei
 _Avoid_: user (alone), login
 
 **Console admin**:
-A Console account that manages the household: Settings, DNS profiles, Accounts, Groups, History collection, and deleting History or Clients. The first account is always a Console admin, and the last one can't be demoted or removed.
+A Console account that manages the household: Settings, Internet profiles, Accounts, Groups, History collection, and deleting History or Clients. The first account is always a Console admin, and the last one can't be demoted or removed.
 _Avoid_: admin (alone) when a Windows account is meant
 
 **Parent**:
-A Console account for day-to-day parental control: it can message, screenshot, and change DNS on Clients, and read History, but can't change household settings or delete anything.
+A Console account for day-to-day parental control: it can message, screenshot, and change a Client's Internet profile, and read History, but can't change household settings or delete anything.
 _Avoid_: parent (as a Windows privilege), viewer, limited admin
 
 **Console invite**:
 A one-time link a Console admin creates to add a Console account with a chosen role. It expires after 7 days; inviting the same email again replaces it.
 _Avoid_: signup link, registration (that's for Clients)
 
+**Internet profile**:
+What a Console account applies to a Client to control its internet: the built-in No internet, or a DNS profile. The console says Internet profile everywhere; DNS is only shown as server addresses.
+_Avoid_: DNS profile (in console copy), internet mode, filter
+
 **DNS profile**:
-A named pair of DNS servers (primary IPv4, optional secondary) that a Console admin manages and any Console account can apply to a Client.
+A named pair of DNS servers (primary IPv4, optional secondary) that a Console admin manages and any Console account can apply to a Client. In the console it is an Internet profile; code keeps the `dns` names.
 _Avoid_: DNS server list, resolver config
 
+**No internet**:
+The built-in Internet profile. The Service blocks everything except the local network and the FamilyPrism server with Windows Firewall, and leaves DNS alone. It is listed first in the picker, is not stored in `dns_profiles`, and can't be edited or deleted. Its DNS directive kind is `block`.
+_Avoid_: zero internet, offline mode, internet block (in console copy), kill switch
+
 **DNS directive**:
-An instruction to a Client to apply a DNS profile or reset to automatic (DHCP).
+An instruction to a Client to apply a DNS profile, apply No internet, or reset to automatic (DHCP).
 _Avoid_: DNS command (in product language), DNS policy
 
 **Standing DNS**:
-The last indefinite DNS directive on a Client: a profile applied with no time limit, or reset to automatic. If FamilyPrism has never issued an indefinite directive, standing DNS is whatever Windows already had.
+The last indefinite DNS directive on a Client: a profile (including No internet) applied with no time limit, or reset to automatic. If FamilyPrism has never issued an indefinite directive, standing DNS is whatever Windows already had.
 _Avoid_: original profile, previous profile, default DNS
 
 **DNS overlay**:
-A DNS profile in effect on a Client for a limited time, after which standing DNS is restored. An overlay that fails to apply, or that expires before apply, never took effect.
+An Internet profile in effect on a Client for a limited time, after which standing DNS is restored. An overlay that fails to apply, or that expires before apply, never took effect.
 _Avoid_: temporary profile, DNS timeout, DNS session, DNS lease
 
 **DNS time limit**:

@@ -7,11 +7,14 @@ export type DnsDirectiveStatus = 'pending' | 'delivered' | 'applied' | 'failed'
 
 export const DNS_OVERLAY_MIN_CLIENT_VERSION = '0.1.6'
 
+/** First Client release whose Service can turn No internet on and off. */
+export const NO_INTERNET_MIN_CLIENT_VERSION = '0.1.10'
+
 export const DNS_OVERLAY_PRESET_MINUTES = [5, 15, 30, 60] as const
 
 export type DnsOverlayPresetMinutes = (typeof DNS_OVERLAY_PRESET_MINUTES)[number]
 
-export type DnsStandingKind = 'profile' | 'reset'
+export type DnsStandingKind = 'profile' | 'reset' | 'block'
 
 export interface DnsStandingSnapshot {
   completedAt: string | null
@@ -50,6 +53,15 @@ export function clientSupportsDnsOverlay(lastSeenVersion: string | null | undefi
   }
 
   return compareClientVersions(version, DNS_OVERLAY_MIN_CLIENT_VERSION) >= 0
+}
+
+export function clientSupportsNoInternet(lastSeenVersion: string | null | undefined) {
+  let version = normalizeClientVersion(lastSeenVersion)
+  if (!version) {
+    return false
+  }
+
+  return compareClientVersions(version, NO_INTERNET_MIN_CLIENT_VERSION) >= 0
 }
 
 export function parseDnsOverlayMinutes(value: string | null | undefined) {

@@ -14,7 +14,7 @@ internal enum DnsOverlayRestoreOutcome
     /// <summary>No network adapter was up to restore (for example, Wi-Fi still reconnecting after wake).</summary>
     AdaptersNotReady,
 
-    /// <summary>Writing standing DNS to an adapter failed. The restore is retried.</summary>
+    /// <summary>Writing standing DNS to an adapter, or turning No internet on or off, failed. The restore is retried.</summary>
     Failed
 }
 
@@ -35,6 +35,7 @@ internal sealed class DnsOverlayRestorer
     internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(1);
 
     private readonly DnsConfigurationService dnsConfigurationService;
+    private readonly InternetBlockService internetBlock;
     private readonly Action<string, Exception?>? logError;
     private readonly string? statePath;
 
@@ -46,10 +47,12 @@ internal sealed class DnsOverlayRestorer
 
     public DnsOverlayRestorer(
         DnsConfigurationService dnsConfigurationService,
+        InternetBlockService internetBlock,
         Action<string, Exception?>? logError = null,
         string? statePath = null)
     {
         this.dnsConfigurationService = dnsConfigurationService;
+        this.internetBlock = internetBlock;
         this.logError = logError;
         this.statePath = statePath;
     }
@@ -76,15 +79,13 @@ internal sealed class DnsOverlayRestorer
         var appliedNow = false;
         if (!state.StandingRestored)
         {
-            var result = state.HasStandingProfile
-                ? dnsConfigurationService.Apply(state.StandingPrimaryIp!, state.StandingSecondaryIp)
-                : dnsConfigurationService.ResetToDhcp();
+            var result = await ApplyStandingAsync(state, cancellationToken);
 
             if (!result.Succeeded)
             {
                 ScheduleRetry(nowTickMs);
 
-                if (result.AdapterResults.Count == 0)
+                if (result.AdaptersNotReady)
                 {
                     return new DnsOverlayRestoreResult(
                         DnsOverlayRestoreOutcome.AdaptersNotReady,
@@ -126,6 +127,32 @@ internal sealed class DnsOverlayRestorer
         ResetRetry();
         return new DnsOverlayRestoreResult(DnsOverlayRestoreOutcome.Restored, appliedNow);
     }
+
+    private async Task<StandingApplyResult> ApplyStandingAsync(
+        DnsOverlayPersistedState state,
+        CancellationToken cancellationToken)
+    {
+        if (state.StandingBlockInternet)
+        {
+            // DNS is left as the overlay set it; nothing but the server is reachable anyway.
+            var blocked = await internetBlock.EnableAsync(cancellationToken);
+            return new StandingApplyResult(blocked.Succeeded, AdaptersNotReady: false, blocked.Error);
+        }
+
+        var dns = state.HasStandingProfile
+            ? dnsConfigurationService.Apply(state.StandingPrimaryIp!, state.StandingSecondaryIp)
+            : dnsConfigurationService.ResetToDhcp();
+
+        if (!dns.Succeeded)
+        {
+            return new StandingApplyResult(false, dns.AdapterResults.Count == 0, dns.Error);
+        }
+
+        var lifted = internetBlock.Disable();
+        return new StandingApplyResult(lifted.Succeeded, AdaptersNotReady: false, lifted.Error);
+    }
+
+    private sealed record StandingApplyResult(bool Succeeded, bool AdaptersNotReady, string? Error);
 
     private async Task<bool> TryReportAsync(
         Func<DnsDirectiveResult, CancellationToken, Task> report,

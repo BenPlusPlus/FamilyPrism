@@ -4,9 +4,15 @@ internal static class DnsProfileNotice
 {
     public const string AutomaticProfileName = "Automatic";
     public const string WindowsDefaultProfileName = "Windows default";
+    public const string NoInternetProfileName = "No internet";
 
-    public static string Name(bool resetToDhcp, string? profileName)
+    public static string Name(bool resetToDhcp, string? profileName, bool blockInternet = false)
     {
+        if (blockInternet)
+        {
+            return NoInternetProfileName;
+        }
+
         if (resetToDhcp || string.IsNullOrWhiteSpace(profileName))
         {
             return AutomaticProfileName;
@@ -17,18 +23,23 @@ internal static class DnsProfileNotice
 
     public static string NameForCommand(ApplyDnsCommand command)
     {
-        return Name(command.ResetToDhcp, command.ProfileName);
+        return Name(command.ResetToDhcp, command.ProfileName, command.BlockInternet);
     }
 
     public static string NameForStanding(ApplyDnsStanding? standing)
     {
         return standing is null
             ? WindowsDefaultProfileName
-            : Name(standing.ResetToDhcp, standing.ProfileName);
+            : Name(standing.ResetToDhcp, standing.ProfileName, standing.BlockInternet);
     }
 
     public static string NameForOverlayStanding(DnsOverlayPersistedState state)
     {
+        if (state.StandingBlockInternet)
+        {
+            return NoInternetProfileName;
+        }
+
         return state.HasStandingProfile
             ? Name(resetToDhcp: false, state.StandingProfileName)
             : AutomaticProfileName;

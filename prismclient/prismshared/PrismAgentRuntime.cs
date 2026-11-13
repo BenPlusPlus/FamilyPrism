@@ -14,6 +14,7 @@ public sealed class PrismAgentRuntime
     private readonly PrismApiClient apiClient;
     private readonly DnsConfigurationService dnsConfigurationService;
     private readonly DnsOverlayRestorer overlayRestorer;
+    private readonly InternetBlockService internetBlock;
     private readonly ClientUpdateCoordinator updateCoordinator;
     private readonly TrayWatchdog trayWatchdog;
     private readonly string agentVersion = GetAssemblyVersion();
@@ -28,6 +29,9 @@ public sealed class PrismAgentRuntime
 
     /// <summary>How often the service looks for a check-for-updates request from the tray.</summary>
     internal static readonly TimeSpan UpdateRequestPollInterval = TimeSpan.FromSeconds(2);
+
+    /// <summary>How often No internet looks up the server and DNS servers again.</summary>
+    internal static readonly TimeSpan InternetBlockRefreshInterval = TimeSpan.FromMinutes(1);
 
     public PrismAgentRuntime(
         string hostMode,
@@ -44,7 +48,8 @@ public sealed class PrismAgentRuntime
         this.logError = logError;
         this.apiClient = apiClient ?? new PrismApiClient();
         this.dnsConfigurationService = dnsConfigurationService ?? new DnsConfigurationService();
-        overlayRestorer = new DnsOverlayRestorer(this.dnsConfigurationService, logError);
+        internetBlock = new InternetBlockService(logError: logError);
+        overlayRestorer = new DnsOverlayRestorer(this.dnsConfigurationService, internetBlock, logError);
         this.updateCoordinator = updateCoordinator
             ?? ClientUpdateCoordinator.CreateDefault(
                 hostMode,
@@ -66,6 +71,7 @@ public sealed class PrismAgentRuntime
         var screenshotUploads = RunPendingScreenshotUploadsAsync(periodicCts.Token);
         var visitCollection = VisitCollector.RunAsync(apiClient, logInformation, logError, periodicCts.Token);
         var overlayWatch = RunDnsOverlayWatchAsync(periodicCts.Token);
+        var internetBlockRefresh = RunInternetBlockRefreshAsync(periodicCts.Token);
 
         try
         {
@@ -196,6 +202,14 @@ public sealed class PrismAgentRuntime
             try
             {
                 await overlayWatch;
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            try
+            {
+                await internetBlockRefresh;
             }
             catch (OperationCanceledException)
             {
@@ -603,6 +617,53 @@ public sealed class PrismAgentRuntime
         }
     }
 
+    private async Task RunInternetBlockRefreshAsync(CancellationToken cancellationToken)
+    {
+        var reconciled = false;
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await dnsGate.WaitAsync(cancellationToken);
+                try
+                {
+                    // The first pass makes the firewall match the saved state; later passes only
+                    // follow server and DNS server address changes while No internet is on.
+                    var result = reconciled
+                        ? await internetBlock.RefreshAsync(cancellationToken)
+                        : await internetBlock.ReconcileAsync(cancellationToken);
+                    reconciled = reconciled || result.Succeeded;
+
+                    if (!result.Succeeded)
+                    {
+                        logError?.Invoke($"No internet could not be brought up to date. {result.Error}", null);
+                    }
+                }
+                finally
+                {
+                    dnsGate.Release();
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                logError?.Invoke("The Family Prism No internet refresh failed.", ex);
+            }
+
+            try
+            {
+                await Task.Delay(InternetBlockRefreshInterval, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+        }
+    }
+
     private async Task TickDnsOverlayAsync(CancellationToken cancellationToken)
     {
         await dnsGate.WaitAsync(cancellationToken);
@@ -687,7 +748,11 @@ public sealed class PrismAgentRuntime
                             LastTickMs = Environment.TickCount64
                         });
 
-                        if (!command.ResetToDhcp && !string.IsNullOrWhiteSpace(command.PrimaryIp))
+                        if (command.BlockInternet)
+                        {
+                            await internetBlock.EnableAsync(cancellationToken);
+                        }
+                        else if (!command.ResetToDhcp && !string.IsNullOrWhiteSpace(command.PrimaryIp))
                         {
                             dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
                         }
@@ -749,21 +814,7 @@ public sealed class PrismAgentRuntime
         TimeSpan remaining,
         CancellationToken cancellationToken)
     {
-        DnsConfigurationApplyResult result;
-
-        if (command.ResetToDhcp)
-        {
-            result = dnsConfigurationService.ResetToDhcp();
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(command.PrimaryIp))
-            {
-                throw new InvalidOperationException("The DNS command did not include a primary DNS server.");
-            }
-
-            result = dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
-        }
+        var result = await ApplyInternetProfileAsync(command, cancellationToken);
 
         if (persistOverlay && result.Succeeded)
         {
@@ -792,6 +843,39 @@ public sealed class PrismAgentRuntime
             lastError: result.Error,
             lastDnsNoticeId: result.Succeeded ? command.CommandId : null,
             lastDnsNoticeText: result.Succeeded ? DnsProfileNotice.Applied(command, remaining) : null);
+    }
+
+    /// <summary>
+    /// No internet turns the firewall block on and leaves DNS alone. Any other profile writes DNS
+    /// and then lifts the block; if DNS fails the block stays, so a failure never opens the PC up.
+    /// </summary>
+    private async Task<InternetBlockResult> ApplyInternetProfileAsync(
+        ApplyDnsCommand command,
+        CancellationToken cancellationToken)
+    {
+        if (command.BlockInternet)
+        {
+            return await internetBlock.EnableAsync(cancellationToken);
+        }
+
+        DnsConfigurationApplyResult dns;
+        if (command.ResetToDhcp)
+        {
+            dns = dnsConfigurationService.ResetToDhcp();
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(command.PrimaryIp))
+            {
+                throw new InvalidOperationException("The DNS command did not include a primary DNS server.");
+            }
+
+            dns = dnsConfigurationService.Apply(command.PrimaryIp, command.SecondaryIp);
+        }
+
+        return dns.Succeeded
+            ? internetBlock.Disable()
+            : new InternetBlockResult(false, dns.Error);
     }
 
     private async Task RestoreStandingDnsAsync(
