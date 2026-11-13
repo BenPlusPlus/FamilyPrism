@@ -23,10 +23,17 @@ import {
 } from "../../data/dns-directives.ts";
 import {
   clientSupportsDnsOverlay,
+  clientSupportsNoInternet,
   DNS_OVERLAY_MIN_CLIENT_VERSION,
+  NO_INTERNET_MIN_CLIENT_VERSION,
   parseDnsOverlayMinutes,
 } from "../../data/dns-overlay.ts";
-import { getDnsProfile, listDnsProfiles } from "../../data/dns-profiles.ts";
+import {
+  getDnsProfile,
+  isNoInternetProfileId,
+  listDnsProfiles,
+  NO_INTERNET_PROFILE,
+} from "../../data/dns-profiles.ts";
 import { getHouseholdTimeZone } from "../../data/household-settings.ts";
 import {
   GroupNameConflictError,
@@ -218,6 +225,8 @@ export const adminClients = {
           connected={connectionRegistry.isClientConnected(client.id)}
           overlayCapable={clientSupportsDnsOverlay(client.last_seen_version)}
           overlayMinVersion={DNS_OVERLAY_MIN_CLIENT_VERSION}
+          noInternetCapable={clientSupportsNoInternet(client.last_seen_version)}
+          noInternetMinVersion={NO_INTERNET_MIN_CLIENT_VERSION}
           pinnedVersion={pin?.version ?? null}
           dnsProfiles={dnsProfiles}
           latestDnsState={latestDnsState}
@@ -373,17 +382,18 @@ export const adminClients = {
       if (!parsed.success) {
         return redirect(
           withNotice(request, detailUrl, {
-            text: parsed.issues[0]?.message ?? "Choose a DNS profile.",
+            text: parsed.issues[0]?.message ?? "Choose an internet profile.",
             type: "error",
           }),
         );
       }
 
-      let profile = await getDnsProfile(parsed.value.profileId);
-      if (!profile) {
+      let noInternet = isNoInternetProfileId(parsed.value.profileId);
+      let profile = noInternet ? null : await getDnsProfile(parsed.value.profileId);
+      if (!noInternet && !profile) {
         return redirect(
           withNotice(request, detailUrl, {
-            text: "DNS profile not found.",
+            text: "Internet profile not found.",
             type: "error",
           }),
         );
@@ -401,9 +411,18 @@ export const adminClients = {
         );
       }
 
-      if (durationMinutes) {
+      if (durationMinutes || noInternet) {
         let client = await getClient(params.clientId);
-        if (!clientSupportsDnsOverlay(client?.last_seen_version)) {
+        if (noInternet && !clientSupportsNoInternet(client?.last_seen_version)) {
+          return redirect(
+            withNotice(request, detailUrl, {
+              text: `${NO_INTERNET_PROFILE.name} needs client v${NO_INTERNET_MIN_CLIENT_VERSION} or newer.`,
+              type: "error",
+            }),
+          );
+        }
+
+        if (durationMinutes && !clientSupportsDnsOverlay(client?.last_seen_version)) {
           return redirect(
             withNotice(request, detailUrl, {
               text: `Time limits need client v${DNS_OVERLAY_MIN_CLIENT_VERSION} or newer.`,
@@ -414,23 +433,30 @@ export const adminClients = {
       }
 
       try {
-        let result = await issueDnsDirective({
-          clientId: params.clientId,
-          durationMinutes,
-          kind: "profile",
-          primaryIp: profile.primary_ip,
-          profileName: profile.name,
-          secondaryIp: profile.secondary_ip,
-        });
+        let result = profile
+          ? await issueDnsDirective({
+              clientId: params.clientId,
+              durationMinutes,
+              kind: "profile",
+              primaryIp: profile.primary_ip,
+              profileName: profile.name,
+              secondaryIp: profile.secondary_ip,
+            })
+          : await issueDnsDirective({
+              clientId: params.clientId,
+              durationMinutes,
+              kind: "block",
+            });
 
+        let profileName = profile?.name ?? NO_INTERNET_PROFILE.name;
         let limitLabel = durationMinutes ? ` for ${durationMinutes} minutes` : "";
         return redirect(
           withNotice(request, detailUrl, {
             text: result.delivered
-              ? `DNS profile ${profile.name} sent to client${limitLabel}.`
+              ? `${profileName} sent to this PC${limitLabel}.`
               : durationMinutes
-                ? `DNS profile ${profile.name} queued for ${durationMinutes} minutes. The time started now, even while this PC is offline.`
-                : `DNS profile ${profile.name} queued for the next client connection.`,
+                ? `${profileName} queued for ${durationMinutes} minutes. The time started now, even while this PC is offline.`
+                : `${profileName} queued for when this PC next connects.`,
             type: "success",
           }),
         );
@@ -462,8 +488,8 @@ export const adminClients = {
         return redirect(
           withNotice(request, detailUrl, {
             text: result.delivered
-              ? "DNS reset sent to client."
-              : "DNS reset queued for the next client connection.",
+              ? "Automatic sent to this PC."
+              : "Automatic queued for when this PC next connects.",
             type: "success",
           }),
         );
@@ -508,7 +534,7 @@ export const adminClients = {
 
         return redirect(
           withNotice(request, detailUrl, {
-            text: `Added ${durationMinutes} minutes to the DNS overlay.`,
+            text: `Added ${durationMinutes} minutes to the time limit.`,
             type: "success",
           }),
         );

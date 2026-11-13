@@ -19,9 +19,9 @@ import { formatDateTime } from "../../../../utils/time-zone.ts";
 
 const CONSOLE_ROLE_SUMMARY: Record<ConsoleRole, string> = {
   admin:
-    "Everything a parent can do, plus Settings, DNS profiles, Groups, Accounts, and deleting History or PCs.",
+    "Everything a parent can do, plus Settings, internet profiles, Groups, Accounts, and deleting History or PCs.",
   parent:
-    "Sees every PC and its History, takes screenshots, sends messages, and applies or resets DNS. Can't change settings or delete anything.",
+    "Sees every PC and its History, takes screenshots, sends messages, and changes a PC's internet profile. Can't change settings or delete anything.",
 };
 
 export interface CreatedInvite {

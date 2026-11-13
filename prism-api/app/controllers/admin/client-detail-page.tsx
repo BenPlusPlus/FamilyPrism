@@ -9,7 +9,7 @@ import {
   presentClientDnsState,
   type DnsDirectiveStatus,
 } from "../../data/dns-overlay.ts";
-import type { listDnsProfiles } from "../../data/dns-profiles.ts";
+import { NO_INTERNET_PROFILE, type listDnsProfiles } from "../../data/dns-profiles.ts";
 import type { HistoryVisit } from "../../data/visits.ts";
 import { routes } from "../../routes.ts";
 import { Icon } from "../../ui/icons.tsx";
@@ -27,6 +27,21 @@ const DNS_STATUS_LABEL: Record<DnsDirectiveStatus, string> = {
   pending: "Queued until the PC connects",
 };
 
+function internetProfileLabel(dns: {
+  directive_kind: string;
+  profile_name: string | null;
+}) {
+  if (dns.directive_kind === "block") {
+    return NO_INTERNET_PROFILE.name;
+  }
+
+  if (dns.directive_kind === "reset") {
+    return "Automatic";
+  }
+
+  return dns.profile_name ?? "Unnamed profile";
+}
+
 export function ClientDetailPage(
   handle: Handle<{
     viewer: Viewer;
@@ -34,6 +49,8 @@ export function ClientDetailPage(
     connected: boolean;
     dnsProfiles: Awaited<ReturnType<typeof listDnsProfiles>>;
     latestDnsState: Awaited<ReturnType<typeof getLatestDnsState>>;
+    noInternetCapable: boolean;
+    noInternetMinVersion: string;
     notice: Notice | null;
     overlayCapable: boolean;
     overlayMinVersion: string;
@@ -49,6 +66,8 @@ export function ClientDetailPage(
       connected,
       dnsProfiles,
       latestDnsState,
+      noInternetCapable,
+      noInternetMinVersion,
       notice,
       overlayCapable,
       overlayMinVersion,
@@ -68,6 +87,7 @@ export function ClientDetailPage(
     let collecting = historyCollectionEnabled(client.history_collection);
     let dns = presentClientDnsState(latestDnsState);
     let isAdmin = viewer.role === "admin";
+    let canApply = noInternetCapable || dnsProfiles.length > 0;
 
     return (
       <AdminShell active="clients" title={client.name} viewer={viewer}>
@@ -84,7 +104,7 @@ export function ClientDetailPage(
               <p>
                 {connected
                   ? "Connected now. Commands and messages arrive immediately."
-                  : "Offline. Screenshots and messages need it connected; DNS changes wait until it's back."}
+                  : "Offline. Screenshots and messages need it connected; internet profile changes wait until it's back."}
               </p>
             </div>
           </div>
@@ -341,7 +361,7 @@ export function ClientDetailPage(
 
             <section class="panel" aria-labelledby="dns-title">
               <div class="panel-head">
-                <h2 id="dns-title">DNS</h2>
+                <h2 id="dns-title">Internet</h2>
                 {dns && !dns.windowsDefault ? (
                   <span class={`stamp ${dns.status}`}>
                     {DNS_STATUS_LABEL[dns.status as DnsDirectiveStatus]}
@@ -351,15 +371,11 @@ export function ClientDetailPage(
               <div class="panel-body">
                 {dns && !dns.windowsDefault ? (
                   <dl class="facts">
-                    <dt>Last change</dt>
-                    <dd>
-                      {dns.directive_kind === "reset"
-                        ? "Reset to automatic (DHCP)"
-                        : `Profile ${dns.profile_name}`}
-                    </dd>
-                    {dns.primary_ip ? (
+                    <dt>Profile</dt>
+                    <dd>{internetProfileLabel(dns)}</dd>
+                    {dns.directive_kind === "profile" && dns.primary_ip ? (
                       <>
-                        <dt>Servers</dt>
+                        <dt>DNS servers</dt>
                         <dd class="data">
                           {dns.primary_ip}
                           {dns.secondary_ip ? `, ${dns.secondary_ip}` : ""}
@@ -382,7 +398,7 @@ export function ClientDetailPage(
                     ) : null}
                   </dl>
                 ) : (
-                  <p class="muted">Using whatever DNS Windows already had. No changes sent yet.</p>
+                  <p class="muted">Using whatever Windows already had. No changes sent yet.</p>
                 )}
 
                 {dns?.overlayActive ? (
@@ -395,7 +411,7 @@ export function ClientDetailPage(
                       {formatDnsRemaining(dns.remainingMs)}
                     </p>
                     <p class="hint" data-dns-restore-hint hidden>
-                      Standing DNS should be back. Refresh to confirm.
+                      Time is up. The previous profile should be back. Refresh to confirm.
                     </p>
                     <form
                       method="post"
@@ -419,7 +435,9 @@ export function ClientDetailPage(
                     </form>
                   </div>
                 ) : dns?.awaitingRestore ? (
-                  <p class="hint">Standing DNS should be back. Refresh to confirm.</p>
+                  <p class="hint">
+                    Time is up. {internetProfileLabel(dns)} should be back. Refresh to confirm.
+                  </p>
                 ) : null}
 
                 <form
@@ -427,18 +445,20 @@ export function ClientDetailPage(
                   action={routes.admin.clients.applyDns.href({ clientId: client.id })}
                 >
                   <label class="field">
-                    <span>Apply a profile</span>
-                    <select name="profileId" required disabled={dnsProfiles.length === 0}>
+                    <span>Apply an internet profile</span>
+                    <select name="profileId" required disabled={!canApply}>
                       <option value="">Choose a profile</option>
+                      <option value={NO_INTERNET_PROFILE.id} disabled={!noInternetCapable}>
+                        {noInternetCapable
+                          ? NO_INTERNET_PROFILE.name
+                          : `${NO_INTERNET_PROFILE.name} (needs client v${noInternetMinVersion})`}
+                      </option>
                       {dnsProfiles.map((profile) => (
-                        <option value={profile.id}>
-                          {profile.name} ({profile.primary_ip}
-                          {profile.secondary_ip ? `, ${profile.secondary_ip}` : ""})
-                        </option>
+                        <option value={profile.id}>{profile.name}</option>
                       ))}
                     </select>
                   </label>
-                  {overlayCapable && dnsProfiles.length > 0 ? (
+                  {overlayCapable && canApply ? (
                     <label class="field">
                       <span>Time limit</span>
                       <select name="durationMinutes">
@@ -452,13 +472,15 @@ export function ClientDetailPage(
                     </label>
                   ) : null}
                   <div class="form-foot">
-                    {dnsProfiles.length === 0 ? (
+                    {!canApply ? (
                       isAdmin ? (
                         <a class="hint" href={routes.admin.settings.dnsProfiles.index.href()}>
-                          Create a DNS profile first
+                          Add an internet profile in Settings
                         </a>
                       ) : (
-                        <span class="hint">No DNS profiles yet. An admin can add them in Settings.</span>
+                        <span class="hint">
+                          No internet profiles yet. An admin can add them in Settings.
+                        </span>
                       )
                     ) : overlayCapable ? (
                       <span class="hint">
@@ -470,7 +492,7 @@ export function ClientDetailPage(
                         change it.
                       </span>
                     )}
-                    <button class="btn" type="submit" disabled={dnsProfiles.length === 0}>
+                    <button class="btn" type="submit" disabled={!canApply}>
                       Apply
                     </button>
                   </div>
@@ -481,7 +503,7 @@ export function ClientDetailPage(
                   action={routes.admin.clients.resetDns.href({ clientId: client.id })}
                 >
                   <div class="form-foot">
-                    <span class="hint">Go back to the router's DNS servers.</span>
+                    <span class="hint">Use the home router's settings, with no filtering.</span>
                     <button class="btn secondary" type="submit">
                       Reset to automatic
                     </button>

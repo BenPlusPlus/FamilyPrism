@@ -11,9 +11,12 @@ public class DnsOverlayRestorerTests : IDisposable
     private readonly string directory = Path.Combine(Path.GetTempPath(), $"prism-restorer-{Guid.NewGuid():N}");
     private readonly List<FakeAdapter> adapters = [];
     private readonly List<DnsDirectiveResult> reports = [];
+    private readonly FakeInternetBlockFirewall firewall = new();
     private bool serverReachable = true;
 
     private string StatePath => Path.Combine(directory, "dns-overlay.json");
+
+    private string InternetBlockPath => Path.Combine(directory, "internet-block.json");
 
     public void Dispose()
     {
@@ -212,11 +215,85 @@ public class DnsOverlayRestorerTests : IDisposable
 
         Assert.NotNull(state);
         Assert.False(state.StandingRestored);
+        Assert.False(state.BlockInternet);
+        Assert.False(state.StandingBlockInternet);
+    }
+
+    [Fact]
+    public async Task StandingNoInternetTurnsTheBlockBackOnWithoutTouchingDns()
+    {
+        var adapter = AddAdapter();
+        var state = WriteState(Overlay() with
+        {
+            StandingBlockInternet = true,
+            StandingResetToDhcp = false,
+            StandingProfileName = null,
+            StandingPrimaryIp = null,
+            StandingSecondaryIp = null
+        });
+
+        var result = await Restorer().RestoreAsync(state, Report, nowTickMs: 0, CancellationToken.None);
+
+        Assert.Equal(DnsOverlayRestoreOutcome.Restored, result.Outcome);
+        Assert.Equal(0, adapter.Calls);
+        Assert.NotNull(firewall.Applied);
+        Assert.True(InternetBlock().IsEnabled);
+        Assert.Equal(new DnsDirectiveResult("restore-1", "applied"), Assert.Single(reports));
+    }
+
+    [Fact]
+    public async Task NoInternetOverlayEndingRestoresStandingDnsAndLiftsTheBlock()
+    {
+        var adapter = AddAdapter();
+        await InternetBlock().EnableAsync(CancellationToken.None);
+        var state = WriteState(Overlay() with { BlockInternet = true, PrimaryIp = null, SecondaryIp = null });
+
+        var result = await Restorer().RestoreAsync(state, Report, nowTickMs: 0, CancellationToken.None);
+
+        Assert.Equal(DnsOverlayRestoreOutcome.Restored, result.Outcome);
+        Assert.Equal(["1.1.1.1", "1.0.0.1"], adapter.LastServers!);
+        Assert.Null(firewall.Applied);
+        Assert.False(InternetBlock().IsEnabled);
+    }
+
+    [Fact]
+    public async Task BlockThatCannotBeLiftedIsRetriedAndNotReportedAsRestored()
+    {
+        AddAdapter();
+        await InternetBlock().EnableAsync(CancellationToken.None);
+        firewall.Fail = true;
+        var restorer = Restorer();
+        var state = WriteState(Overlay() with { BlockInternet = true });
+
+        var failed = await restorer.RestoreAsync(state, Report, nowTickMs: 0, CancellationToken.None);
+
+        Assert.Equal(DnsOverlayRestoreOutcome.Failed, failed.Outcome);
+        Assert.Equal("failed", Assert.Single(reports).Status);
+        Assert.NotNull(DnsOverlayStateStore.Read(StatePath));
+
+        firewall.Fail = false;
+        var restored = await restorer.RestoreAsync(state, Report, nowTickMs: RetryMs, CancellationToken.None);
+
+        Assert.Equal(DnsOverlayRestoreOutcome.Restored, restored.Outcome);
+        Assert.Null(firewall.Applied);
     }
 
     private DnsOverlayRestorer Restorer()
     {
-        return new DnsOverlayRestorer(new DnsConfigurationService(() => adapters), statePath: StatePath);
+        return new DnsOverlayRestorer(
+            new DnsConfigurationService(() => adapters),
+            InternetBlock(),
+            statePath: StatePath);
+    }
+
+    private InternetBlockService InternetBlock()
+    {
+        return new InternetBlockService(
+            firewall,
+            new FakeResolverAddressSource(),
+            (_, _) => Task.FromResult(new[] { System.Net.IPAddress.Parse("34.1.2.3") }),
+            () => "https://prism.example.com/",
+            statePath: InternetBlockPath);
     }
 
     private Task Report(DnsDirectiveResult result, CancellationToken cancellationToken)

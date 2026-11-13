@@ -146,6 +146,18 @@ begin
   ExecHidden(ExpandConstant('{sys}\sc.exe'), 'delete {#MyServiceName}');
 end;
 
+// Names match WindowsInternetBlockFirewall in prismshared. Without this, uninstalling while
+// No internet is on would leave the PC with no internet and nothing to lift the block.
+procedure RemoveNoInternetFirewallRules;
+begin
+  ExecHidden(ExpandConstant('{sys}\netsh.exe'),
+    'advfirewall firewall delete rule name="Family Prism No Internet"');
+  ExecHidden(ExpandConstant('{sys}\netsh.exe'),
+    'advfirewall firewall delete rule name="Family Prism No Internet (DNS servers, TCP)"');
+  ExecHidden(ExpandConstant('{sys}\netsh.exe'),
+    'advfirewall firewall delete rule name="Family Prism No Internet (DNS servers, UDP)"');
+end;
+
 function InitializeSetup: Boolean;
 begin
   Dependency_ForceX64 := True;
@@ -176,5 +188,6 @@ begin
   begin
     RemoveLogonTask;
     RemovePrismService;
+    RemoveNoInternetFirewallRules;
   end;
 end;

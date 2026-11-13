@@ -46,6 +46,8 @@ public static class PrismPaths
 
     public static string DnsOverlayPath => Path.Combine(SecureConfigDirectory, "dns-overlay.json");
 
+    public static string InternetBlockPath => Path.Combine(SecureConfigDirectory, "internet-block.json");
+
     public static string VisitCollectionPath => Path.Combine(SecureConfigDirectory, "visits.json");
 
     public static string StatusPath => Path.Combine(StateDirectory, "agent-status.json");
@@ -93,7 +95,8 @@ public sealed record ApplyDnsStanding(
     bool ResetToDhcp,
     string? ProfileName,
     string? PrimaryIp,
-    string? SecondaryIp);
+    string? SecondaryIp,
+    bool BlockInternet = false);
 
 public sealed record ApplyDnsCommand(
     string CommandId,
@@ -103,7 +106,8 @@ public sealed record ApplyDnsCommand(
     string? SecondaryIp,
     DateTimeOffset? ExpiresAt = null,
     string? RestoreCommandId = null,
-    ApplyDnsStanding? Standing = null);
+    ApplyDnsStanding? Standing = null,
+    bool BlockInternet = false);
 
 public sealed record DnsDirectiveResult(
     string CommandId,

@@ -11,6 +11,7 @@ export interface TakeScreenshotPayload {
 }
 
 export interface ApplyDnsStandingPayload {
+  blockInternet: boolean;
   primaryIp: string | null;
   profileName: string | null;
   resetToDhcp: boolean;
@@ -18,6 +19,7 @@ export interface ApplyDnsStandingPayload {
 }
 
 export interface ApplyDnsPayload {
+  blockInternet: boolean;
   commandId: string;
   expiresAt?: string | null;
   primaryIp: string | null;

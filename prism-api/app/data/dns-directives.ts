@@ -22,11 +22,12 @@ export class DnsDirectiveTargetNotFoundError extends Error {
 
 export class DnsOverlayNotActiveError extends Error {
   constructor() {
-    super('This PC does not have a DNS overlay with time remaining.')
+    super('This PC has no time limit running.')
   }
 }
 
-export type DnsDirectiveKind = 'profile' | 'reset'
+/** 'block' is the built-in No internet profile. */
+export type DnsDirectiveKind = 'profile' | 'reset' | 'block'
 export type DnsDirectiveStatus = 'pending' | 'delivered' | 'applied' | 'failed'
 export type ClientDnsStateRow = TableRow<typeof clientDnsStates>
 
@@ -47,6 +48,7 @@ function standingPayload(standing: DnsStandingSnapshot | null) {
   }
 
   return {
+    blockInternet: standing.kind === 'block',
     primaryIp: standing.primaryIp,
     profileName: standing.profileName,
     resetToDhcp: standing.kind === 'reset',
@@ -56,6 +58,7 @@ function standingPayload(standing: DnsStandingSnapshot | null) {
 
 function toPayload(snapshot: DnsDirectiveSnapshot) {
   let payload = {
+    blockInternet: snapshot.kind === 'block',
     commandId: snapshot.commandId,
     primaryIp: snapshot.primaryIp,
     profileName: snapshot.profileName,
@@ -251,7 +254,7 @@ export async function issueDnsDirective(
   database: Database = db,
 ) {
   let issuedAt = new Date()
-  let isOverlay = input.kind === 'profile' && input.durationMinutes != null
+  let isOverlay = input.kind !== 'reset' && input.durationMinutes != null
 
   return database.transaction(async (transaction) => {
     let client = await transaction.find(clients, input.clientId)

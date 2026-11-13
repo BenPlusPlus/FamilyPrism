@@ -11,6 +11,7 @@ import {
   DnsProfileNameConflictError,
   InvalidDnsProfileError,
   listDnsProfiles,
+  NO_INTERNET_PROFILE,
   updateDnsProfile,
 } from "../../../data/dns-profiles.ts";
 import {
@@ -63,7 +64,7 @@ function parseDnsProfileForm(get: AppContext["get"]) {
   let parsed = s.parseSafe(dnsProfileSchema, get(FormData));
   if (!parsed.success) {
     throw new InvalidDnsProfileError(
-      parsed.issues[0]?.message ?? "Invalid DNS profile payload.",
+      parsed.issues[0]?.message ?? "Invalid internet profile.",
     );
   }
 
@@ -182,7 +183,7 @@ export const adminSettingsDnsProfiles = {
 
       return redirect(
         withNotice(request, dnsProfilesIndexHref(), {
-          text: "DNS profile created.",
+          text: "Internet profile created.",
           type: "success",
         }),
       );
@@ -196,7 +197,7 @@ export const adminSettingsDnsProfiles = {
         if (!profile) {
           return redirect(
             withNotice(request, dnsProfilesIndexHref(), {
-              text: "DNS profile not found.",
+              text: "Internet profile not found.",
               type: "error",
             }),
           );
@@ -212,7 +213,7 @@ export const adminSettingsDnsProfiles = {
 
       return redirect(
         withNotice(request, dnsProfilesIndexHref(), {
-          text: "DNS profile updated.",
+          text: "Internet profile updated.",
           type: "success",
         }),
       );
@@ -224,7 +225,7 @@ export const adminSettingsDnsProfiles = {
       if (!profile) {
         return redirect(
           withNotice(request, dnsProfilesIndexHref(), {
-            text: "DNS profile not found.",
+            text: "Internet profile not found.",
             type: "error",
           }),
         );
@@ -232,7 +233,7 @@ export const adminSettingsDnsProfiles = {
 
       return redirect(
         withNotice(request, dnsProfilesIndexHref(), {
-          text: "DNS profile deleted.",
+          text: "Internet profile deleted.",
           type: "success",
         }),
       );
@@ -253,7 +254,7 @@ function SettingsIndexPage(
       <header class="page-head">
         <div>
           <h1>Settings</h1>
-          <p>Household controls, including DNS profiles you can apply to any PC.</p>
+          <p>Household controls, including internet profiles you can apply to any PC.</p>
         </div>
       </header>
       <NoticeBar notice={handle.props.notice} />
@@ -330,11 +331,11 @@ function SettingsIndexPage(
           </li>
           <li>
             <a class="row-link" href={dnsProfilesIndexHref()}>
-              DNS profiles
+              Internet profiles
               <Icon name="chevron" />
             </a>
             <span class="muted">
-              Named DNS server pairs, applied from a PC's page.
+              No internet, plus filtering profiles you name, applied from a PC's page.
             </span>
           </li>
         </ul>
@@ -363,7 +364,7 @@ function DnsProfileFields(
       </label>
       <div class="form-row">
         <label class="field">
-          <span>Primary server</span>
+          <span>Primary DNS server</span>
           <input
             class="mono"
             type="text"
@@ -376,7 +377,7 @@ function DnsProfileFields(
           />
         </label>
         <label class="field">
-          <span>Secondary server</span>
+          <span>Secondary DNS server</span>
           <input
             class="mono"
             type="text"
@@ -403,13 +404,14 @@ function DnsProfilesPage(
     let { viewer, notice, profiles } = handle.props;
 
     return (
-      <AdminShell active="dns" title="DNS profiles" viewer={viewer}>
+      <AdminShell active="dns" title="Internet profiles" viewer={viewer}>
         <header class="page-head">
           <div>
-            <h1>DNS profiles</h1>
+            <h1>Internet profiles</h1>
             <p>
-              Named DNS servers you can apply to a PC from its page. Editing a
-              profile doesn't change PCs it was already sent to.
+              Profiles you can apply to a PC from its page. Each one you add names a pair of DNS
+              servers, such as a family-safe filter. Editing a profile doesn't change PCs it was
+              already sent to.
             </p>
           </div>
         </header>
@@ -420,11 +422,21 @@ function DnsProfilesPage(
           <section class="panel" aria-labelledby="profiles-title">
             <div class="panel-head">
               <h2 id="profiles-title">Profiles</h2>
-              <span class="count">{profiles.length}</span>
+              <span class="count">{profiles.length + 1}</span>
             </div>
+            <article class="group">
+              <div class="group-head">
+                <h3>{NO_INTERNET_PROFILE.name}</h3>
+                <span class="muted">Built in</span>
+              </div>
+              <p class="muted">
+                Blocks the internet but keeps the home network and FamilyPrism reachable. It can't
+                be edited or deleted.
+              </p>
+            </article>
             {profiles.length === 0 ? (
               <p class="empty">
-                <strong>No profiles yet.</strong>
+                <strong>No profiles of your own yet.</strong>
                 Create one, for example a family-safe filter, then apply it from a PC's page.
               </p>
             ) : (

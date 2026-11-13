@@ -6,9 +6,22 @@ import { db } from './database.ts'
 import { dnsProfiles } from './schema.ts'
 import { generateId } from '../utils/secrets.ts'
 
+/**
+ * The built-in No internet profile. It is not a row in dns_profiles: the picker lists it first
+ * and applying it issues a 'block' directive. See docs/adr/0005-no-internet-is-a-built-in-profile.md.
+ */
+export const NO_INTERNET_PROFILE = {
+  id: 'builtin:no-internet',
+  name: 'No internet',
+} as const
+
+export function isNoInternetProfileId(profileId: string) {
+  return profileId === NO_INTERNET_PROFILE.id
+}
+
 export class DnsProfileNameConflictError extends Error {
   constructor() {
-    super('A DNS profile with that name already exists.')
+    super('An internet profile with that name already exists.')
   }
 }
 
@@ -32,7 +45,11 @@ function normalizeProfileInput(input: {
 }) {
   let name = input.name.trim()
   if (!name) {
-    throw new InvalidDnsProfileError('DNS profile name is required.')
+    throw new InvalidDnsProfileError('Internet profile name is required.')
+  }
+
+  if (name.toLowerCase() === NO_INTERNET_PROFILE.name.toLowerCase()) {
+    throw new InvalidDnsProfileError(`"${NO_INTERNET_PROFILE.name}" is built in. Choose another name.`)
   }
 
   let secondaryIp = input.secondaryIp?.trim()
