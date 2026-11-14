@@ -11,6 +11,10 @@ import {
 } from "../../data/clients.ts";
 import { serveUpdateManifest } from "../../data/client-package.ts";
 import { recordDnsDirectiveResult } from "../../data/dns-directives.ts";
+import {
+  registerRouterBridge,
+  RouterBridgeAlreadyRegisteredError,
+} from "../../data/router-bridges.ts";
 import { saveClientScreenshot } from "../../data/screenshots.ts";
 import { ingestVisits, VISIT_BROWSERS } from "../../data/visits.ts";
 import { prismAuth } from "../../data/auth.ts";
@@ -370,3 +374,52 @@ export const apiClients = {
     },
   },
 } satisfies Controller<typeof routes.api.clients, AppContext>;
+
+let bridgeRegistrationSchema = s.object({
+  bridgeName: s.string().pipe(minLength(1), maxLength(100)),
+  registrationPassword: s.string().pipe(minLength(1)),
+});
+
+/** The optional Router bridge (ADR 0007) registers with the same password as Clients. */
+export const apiBridges = {
+  actions: {
+    async register({ request }) {
+      let payload: unknown;
+      try {
+        payload = await request.json();
+      } catch {
+        return Response.json({ message: "Invalid JSON body." }, { status: 400 });
+      }
+
+      let parsed = s.parseSafe(bridgeRegistrationSchema, payload);
+      if (!parsed.success || !parsed.value.bridgeName.trim()) {
+        return Response.json(
+          {
+            issues: parsed.success ? [] : parsed.issues,
+            message: "Invalid Router bridge registration payload.",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (parsed.value.registrationPassword !== env.registrationPassword) {
+        return Response.json({ message: "Invalid registration password." }, { status: 403 });
+      }
+
+      try {
+        let { bridge, credential } = await registerRouterBridge(parsed.value.bridgeName);
+        return Response.json({
+          bridgeId: bridge.id,
+          bridgeName: bridge.name,
+          credential,
+          websocketPath: routes.bridgeWebsocket.href(),
+        });
+      } catch (error) {
+        if (error instanceof RouterBridgeAlreadyRegisteredError) {
+          return Response.json({ message: error.message }, { status: 409 });
+        }
+        throw error;
+      }
+    },
+  },
+} satisfies Controller<typeof routes.api.bridges, AppContext>;

@@ -1,6 +1,7 @@
 /**/node_modules/
 .env
 /prism-api/screenshots/
+/prism-api/.fake-bridge.json
 /prismclient/artifacts/
 
 # Impeccable scratch output (keep design.json and surfaces/)

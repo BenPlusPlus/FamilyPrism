@@ -97,7 +97,7 @@ The duration of a DNS overlay, chosen from presets of 5, 15, 30, or 60 minutes.
 _Avoid_: timeout, TTL, lease
 
 **Network device**:
-A phone, tablet, game console, or other gadget on the home network that can't run FamilyPrism, known by its MAC address. FamilyPrism controls its internet at the router, through the Router bridge.
+A phone, tablet, game console, or other gadget on the home network that can't run FamilyPrism, known by one or more MAC addresses (a console can have a wired and a Wi-Fi one). FamilyPrism controls its internet at the router, through the Router bridge, and all of its addresses are blocked or allowed together.
 _Avoid_: unmanaged client, endpoint, MAC entry, device (for a Client)
 
 **Router bridge**:
@@ -105,5 +105,5 @@ The optional FamilyPrism Windows service on an always-on PC on the home network 
 _Avoid_: master device, controller, router agent, proxy
 
 **Device access**:
-Whether a Network device is blocked or allowed at the router. Blocked means its MAC address is in the router's MAC filter table. Like DNS, it has standing access and can be changed for a DNS time limit preset, after which standing access returns.
+Whether a Network device is blocked or allowed at the router. Blocked means all of its MAC addresses are in the router's MAC filter table. Like DNS, it has standing access and can be changed for a DNS time limit preset, after which standing access returns.
 _Avoid_: enabled/disabled, Internet profile (that's for Clients), MAC filtering (as the switch name)

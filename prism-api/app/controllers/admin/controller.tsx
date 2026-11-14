@@ -35,6 +35,7 @@ import {
   NO_INTERNET_PROFILE,
 } from "../../data/dns-profiles.ts";
 import { getHouseholdTimeZone } from "../../data/household-settings.ts";
+import { loadNetworkOverview, summarizeDevices } from "../../data/network-devices.ts";
 import {
   GroupNameConflictError,
   createGroup,
@@ -152,15 +153,17 @@ export const admin = {
   actions: {
     async index({ get, request }) {
       let identity = getConsoleViewer({ get });
-      let [clients, groups] = await Promise.all([
+      let [clients, groups, network] = await Promise.all([
         listRackClients(),
         listGroupsWithMembers(),
+        identity.routerBridge ? loadNetworkOverview() : null,
       ]);
 
       return render(
         <DashboardPage
           viewer={viewerFrom(identity)}
           clients={clients}
+          devices={network ? summarizeDevices(network) : null}
           groups={groups.map((group) => ({
             id: group.id,
             memberCount: group.members.length,

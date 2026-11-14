@@ -5,6 +5,7 @@ export const routes = route({
   fonts: get("/fonts/:file"),
   home: get("/"),
   websocket: get("/ws"),
+  bridgeWebsocket: get("/ws/bridge"),
   auth: route("auth", {
     login: form("login"),
     setup: form("setup"),
@@ -34,6 +35,20 @@ export const routes = route({
       index: get("/"),
       delete: post(":visitId/delete"),
     }),
+    devices: route("devices", {
+      index: get("/"),
+      create: post("/"),
+      adopt: post("adopt"),
+      check: post("check"),
+      detail: get(":deviceId"),
+      rename: post(":deviceId/rename"),
+      access: post(":deviceId/access"),
+      extend: post(":deviceId/access/extend"),
+      endTimed: post(":deviceId/access/end"),
+      addMac: post(":deviceId/macs"),
+      removeMac: post(":deviceId/macs/remove"),
+      delete: post(":deviceId/delete"),
+    }),
     messages: route("messages", {
       compose: post("compose"),
       client: post("client/:clientId"),
@@ -53,6 +68,10 @@ export const routes = route({
         role: post(":userId/role"),
         remove: post(":userId/remove"),
       }),
+      routerBridge: route("router-bridge", {
+        index: get("/"),
+        remove: post("remove"),
+      }),
       dnsProfiles: route("dns-profiles", {
         index: get("/"),
         create: post("/"),
@@ -69,6 +88,9 @@ export const routes = route({
       visits: post(":clientId/visits"),
       dnsResult: post(":clientId/dns/result"),
       update: get(":clientId/update"),
+    }),
+    bridges: route("bridges", {
+      register: post("register"),
     }),
   }),
 });

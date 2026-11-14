@@ -5,10 +5,12 @@ import { routes } from "../routes.ts";
 import { Document } from "./document.tsx";
 import { BrandMark, Icon, type IconName } from "./icons.tsx";
 
-export type AdminSection = "home" | "clients" | "groups" | "history" | "dns";
+export type AdminSection = "home" | "clients" | "devices" | "groups" | "history" | "dns";
 
 const SECTIONS: Array<{
   adminOnly?: boolean;
+  /** Shown only once a Router bridge is registered (ADR 0007). */
+  needsRouterBridge?: boolean;
   id: AdminSection;
   label: string;
   icon: IconName;
@@ -16,6 +18,13 @@ const SECTIONS: Array<{
 }> = [
   { id: "home", label: "Home", icon: "rack", href: () => routes.admin.index.href() },
   { id: "clients", label: "Clients", icon: "monitor", href: () => routes.admin.clients.index.href() },
+  {
+    id: "devices",
+    label: "Devices",
+    icon: "device",
+    needsRouterBridge: true,
+    href: () => routes.admin.devices.index.href(),
+  },
   { id: "groups", label: "Groups", icon: "groups", href: () => routes.admin.groups.index.href() },
   { id: "history", label: "History", icon: "history", href: () => routes.admin.history.index.href() },
   {
@@ -89,10 +98,16 @@ export function SoloShell(handle: Handle<SoloShellProps>) {
 export interface Viewer {
   name: string;
   role: ConsoleRole;
+  /** A Router bridge is registered, so Network devices can be managed. */
+  routerBridge?: boolean;
 }
 
-export function viewerFrom(identity: { role: ConsoleRole; user: { name: string } }): Viewer {
-  return { name: identity.user.name, role: identity.role };
+export function viewerFrom(identity: {
+  role: ConsoleRole;
+  routerBridge?: boolean;
+  user: { name: string };
+}): Viewer {
+  return { name: identity.user.name, role: identity.role, routerBridge: identity.routerBridge === true };
 }
 
 export interface AdminShellProps {
@@ -105,7 +120,11 @@ export interface AdminShellProps {
 export function AdminShell(handle: Handle<AdminShellProps>) {
   return () => {
     let { viewer } = handle.props;
-    let sections = SECTIONS.filter((section) => !section.adminOnly || viewer.role === "admin");
+    let sections = SECTIONS.filter(
+      (section) =>
+        (!section.adminOnly || viewer.role === "admin") &&
+        (!section.needsRouterBridge || viewer.routerBridge === true),
+    );
 
     return (
       <Document title={handle.props.title}>

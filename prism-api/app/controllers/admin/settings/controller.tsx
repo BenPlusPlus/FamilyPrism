@@ -330,6 +330,15 @@ function SettingsIndexPage(
             </span>
           </li>
           <li>
+            <a class="row-link" href={routes.admin.settings.routerBridge.index.href()}>
+              Router bridge
+              <Icon name="chevron" />
+            </a>
+            <span class="muted">
+              Optional. Blocks phones, tablets, and consoles at the router.
+            </span>
+          </li>
+          <li>
             <a class="row-link" href={dnsProfilesIndexHref()}>
               Internet profiles
               <Icon name="chevron" />

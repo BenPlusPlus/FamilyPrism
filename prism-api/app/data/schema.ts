@@ -225,3 +225,58 @@ export const visits = table({
     updatedAt: 'updated_at',
   },
 })
+
+export const DEVICE_ACCESS = ['blocked', 'allowed'] as const
+
+/** The optional Router bridge (ADR 0007). At most one row. */
+export const routerBridges = table({
+  name: 'router_bridges',
+  columns: {
+    id: c.varchar(255).notNull().primaryKey(),
+    name: c.varchar(100).notNull(),
+    credential_hash: c.text().notNull(),
+    credential_salt: c.varchar(255).notNull(),
+    last_used_at: c.varchar(64).nullable(),
+    last_seen_version: c.varchar(64).nullable(),
+    router_model: c.varchar(100).nullable(),
+    last_report_at: c.varchar(64).nullable(),
+    last_reconciled_at: c.varchar(64).nullable(),
+    last_error_code: c.varchar(32).nullable(),
+    last_error: c.text().nullable(),
+    router_entries: c.text().nullable(),
+    device_errors: c.text().nullable(),
+  },
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})
+
+export const networkDevices = table({
+  name: 'network_devices',
+  columns: {
+    id: c.varchar(255).notNull().primaryKey(),
+    name: c.varchar(100).notNull().unique(),
+    standing_access: c.enum(DEVICE_ACCESS).notNull(),
+    timed_access: c.enum(DEVICE_ACCESS).nullable(),
+    timed_expires_at: c.varchar(64).nullable(),
+    access_changed_at: c.varchar(64).notNull(),
+  },
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})
+
+export const networkDeviceMacs = table({
+  name: 'network_device_macs',
+  columns: {
+    mac: c.varchar(17).notNull().primaryKey(),
+    device_id: c.varchar(255).notNull().references('network_devices', 'id').onDelete('cascade'),
+  },
+  primaryKey: 'mac',
+  timestamps: {
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+})

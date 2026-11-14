@@ -3,6 +3,7 @@ import type { Handle } from "remix/component";
 export type IconName =
   | "rack"
   | "monitor"
+  | "device"
   | "groups"
   | "dns"
   | "history"
@@ -23,6 +24,7 @@ export type IconName =
 const PATHS: Record<IconName, string[]> = {
   rack: ["M3 6h18", "M7 6v3", "M12 6v3", "M17 6v3", "M5.5 11h3v8h-3z", "M10.5 11h3v8h-3z", "M15.5 11h3v8h-3z"],
   monitor: ["M3.5 5h17v11h-17z", "M9 20h6", "M12 16v4"],
+  device: ["M6.5 3.5h11v17h-11z", "M10.5 17.5h3"],
   groups: ["M4 8l8-4 8 4-8 4z", "M4 12l8 4 8-4", "M4 16l8 4 8-4"],
   dns: ["M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z", "M3 12h18", "M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9s1.2-6.4 3.7-9z"],
   history: ["M12 8v5l3.5 2", "M12 21a9 9 0 1 0 0-18a9 9 0 1 0 0 18z"],
