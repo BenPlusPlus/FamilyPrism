@@ -39,6 +39,21 @@ export function requireConsoleAdmin(): Middleware {
   return requireRole((role) => role === "admin");
 }
 
+/** Network devices exist only once a Router bridge is registered (ADR 0007). Run after requireConsoleAccount. */
+export function requireRouterBridge(): Middleware {
+  return async (context, next) => {
+    let auth = context.get(Auth);
+    if (auth?.ok && (auth.identity as ConsoleIdentity).routerBridge) {
+      return next();
+    }
+
+    let home = new URL(routes.admin.index.href(), context.request.url);
+    home.searchParams.set("notice", "Devices need a Router bridge. An admin can set one up in Settings.");
+    home.searchParams.set("noticeType", "error");
+    return redirect(`${home.pathname}${home.search}`);
+  };
+}
+
 export function getConsoleViewer(context: Pick<AppContext, "get">): ConsoleViewer {
   let auth = context.get(Auth);
   if (!auth?.ok || !(auth.identity as ConsoleIdentity).role) {

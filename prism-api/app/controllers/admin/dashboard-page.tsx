@@ -5,6 +5,7 @@ import { Icon } from "../../ui/icons.tsx";
 import { KeyTag, TagChip, type TagClient } from "../../ui/key-tag.tsx";
 import { AdminShell, type Viewer } from "../../ui/layout.tsx";
 import { NoticeBar } from "../../ui/notice.tsx";
+import type { DevicesSummary } from "../../data/network-devices.ts";
 import type { Notice } from "../../utils/notice.ts";
 
 export type RackClient = TagClient & { connected: boolean };
@@ -34,13 +35,15 @@ export function DashboardPage(
   handle: Handle<{
     viewer: Viewer;
     clients: RackClient[];
+    /** Null when no Router bridge is registered. */
+    devices: DevicesSummary | null;
     groups: ComposeGroup[];
     notice: Notice | null;
     pinnedVersion: string | null;
   }>,
 ) {
   return () => {
-    let { viewer, clients, groups, notice, pinnedVersion } = handle.props;
+    let { viewer, clients, devices, groups, notice, pinnedVersion } = handle.props;
     let home = clients.filter((client) => client.connected);
     let ordered = [...home, ...clients.filter((client) => !client.connected)];
     let attention = clients.filter(
@@ -94,6 +97,8 @@ export function DashboardPage(
             </div>
           )}
         </section>
+
+        {devices ? <DevicesStrip summary={devices} /> : null}
 
         <div class="split">
           <section class="panel" aria-labelledby="attention-title">
@@ -181,6 +186,46 @@ export function DashboardPage(
           </section>
         </div>
       </AdminShell>
+    );
+  };
+}
+
+function devicesLine(summary: DevicesSummary) {
+  if (summary.total === 0) {
+    return "No devices yet.";
+  }
+
+  let parts = [`${summary.blocked} blocked`, `${summary.allowed} allowed`];
+  if (summary.timed > 0) {
+    parts.push(`${summary.timed} on a time limit`);
+  }
+  if (summary.waiting > 0) {
+    parts.push(`${summary.waiting} waiting for the router`);
+  }
+  if (summary.failed > 0) {
+    parts.push(`${summary.failed} couldn't be changed`);
+  }
+  return `${parts.join(", ")}.`;
+}
+
+/** Network devices at a glance; only shown once a Router bridge is registered. */
+function DevicesStrip(handle: Handle<{ summary: DevicesSummary }>) {
+  return () => {
+    let { summary } = handle.props;
+    return (
+      <section class="panel devices-strip" aria-labelledby="devices-strip-title">
+        <div class="panel-head">
+          <h2 id="devices-strip-title">Devices</h2>
+          <span class="row-flags">
+            {summary.bridgeConnected ? null : <span class="status away">Router bridge offline</span>}
+            <a class="row-link" href={routes.admin.devices.index.href()}>
+              Open
+              <Icon name="chevron" />
+            </a>
+          </span>
+        </div>
+        <p class="panel-body">{devicesLine(summary)}</p>
+      </section>
     );
   };
 }

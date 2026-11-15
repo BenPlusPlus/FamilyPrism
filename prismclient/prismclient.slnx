@@ -1,5 +1,8 @@
 <Solution>
   <Project Path="prismagent/prismagent.csproj" />
+  <Project Path="prismbridge/prismbridge.csproj" />
+  <Project Path="prismbridge.core/prismbridge.core.csproj" />
+  <Project Path="prismbridge.tests/prismbridge.tests.csproj" />
   <Project Path="prismshared/prismshared.csproj" />
   <Project Path="prismshared.tests/prismshared.tests.csproj" />
   <Project Path="prismsvc/prismsvc.csproj" />

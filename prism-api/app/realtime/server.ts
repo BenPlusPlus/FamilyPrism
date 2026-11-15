@@ -12,6 +12,7 @@ import {
 import { normalizeClientVersion } from '../data/client-package.ts'
 import { flushPendingDnsDirective } from '../data/dns-directives.ts'
 import { routes } from '../routes.ts'
+import { handleBridgeUpgrade } from './bridge-socket.ts'
 import { connectionRegistry } from './registry.ts'
 
 interface ManagedSocket extends WebSocket {
@@ -114,6 +115,11 @@ export function attachRealtimeServer(server: http.Server) {
 
   server.on('upgrade', async (request, socket, head) => {
     let requestUrl = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`)
+
+    if (requestUrl.pathname === routes.bridgeWebsocket.href()) {
+      await handleBridgeUpgrade(websocketServer, request, socket, head, rejectUpgrade)
+      return
+    }
 
     if (requestUrl.pathname !== routes.websocket.href()) {
       rejectUpgrade(socket, 404, 'Not Found')

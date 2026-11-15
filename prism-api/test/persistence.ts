@@ -145,6 +145,39 @@ const TEST_TABLES = [
   )`,
   `create unique index visits_duplicate_idx
     on visits (client_id, windows_user, browser, browser_profile, visited_at, url_hash)`,
+  `create table router_bridges (
+    id text primary key,
+    name text not null,
+    credential_hash text not null,
+    credential_salt text not null,
+    last_used_at text,
+    last_seen_version text,
+    router_model text,
+    last_report_at text,
+    last_reconciled_at text,
+    last_error_code text,
+    last_error text,
+    router_entries text,
+    device_errors text,
+    created_at text not null default (datetime('now')),
+    updated_at text not null default (datetime('now'))
+  )`,
+  `create table network_devices (
+    id text primary key,
+    name text not null unique,
+    standing_access text not null check (standing_access in ('blocked', 'allowed')),
+    timed_access text check (timed_access is null or timed_access in ('blocked', 'allowed')),
+    timed_expires_at text,
+    access_changed_at text not null,
+    created_at text not null default (datetime('now')),
+    updated_at text not null default (datetime('now'))
+  )`,
+  `create table network_device_macs (
+    mac text primary key,
+    device_id text not null references network_devices (id) on delete cascade,
+    created_at text not null default (datetime('now')),
+    updated_at text not null default (datetime('now'))
+  )`,
 ]
 
 let current: SqliteDatabase | undefined

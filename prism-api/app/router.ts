@@ -24,8 +24,10 @@ import {
   adminSettings,
   adminSettingsDnsProfiles,
 } from "./controllers/admin/settings/controller.tsx";
-import { api, apiClients } from "./controllers/api/controller.ts";
+import { api, apiBridges, apiClients } from "./controllers/api/controller.ts";
 import { adminSettingsAccounts } from "./controllers/admin/settings/accounts/controller.tsx";
+import { adminDevices } from "./controllers/admin/devices/controller.tsx";
+import { adminSettingsRouterBridge } from "./controllers/admin/settings/router-bridge/controller.tsx";
 import { auth, authInvite, authLogin, authSetup } from "./controllers/auth/controller.tsx";
 import { home } from "./controllers/home.tsx";
 import { loadAuth } from "./middleware/auth.ts";
@@ -93,14 +95,21 @@ router.map(routes.admin, admin);
 router.map(routes.admin.clients, adminClients);
 router.map(routes.admin.groups, adminGroups);
 router.map(routes.admin.history, adminHistory);
+router.map(routes.admin.devices, adminDevices);
 router.map(routes.admin.messages, adminMessages);
 router.map(routes.admin.screenshots, adminScreenshots);
 router.map(routes.admin.settings, adminSettings);
 router.map(routes.admin.settings.dnsProfiles, adminSettingsDnsProfiles);
 router.map(routes.admin.settings.accounts, adminSettingsAccounts);
+router.map(routes.admin.settings.routerBridge, adminSettingsRouterBridge);
 router.map(routes.api, api);
 router.map(routes.api.clients, apiClients);
+router.map(routes.api.bridges, apiBridges);
 router.get(
   routes.websocket,
+  () => new Response("Upgrade Required", { status: 426 }),
+);
+router.get(
+  routes.bridgeWebsocket,
   () => new Response("Upgrade Required", { status: 426 }),
 );

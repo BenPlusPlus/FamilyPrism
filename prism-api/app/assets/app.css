@@ -2107,3 +2107,119 @@ details.disclose > summary {
 .rail-foot form {
   display: flex;
 }
+
+/* ---------- Network devices (Router bridge, ADR 0007) ---------- */
+
+.stamp.device-allowed { color: var(--home); background: var(--ok-soft); }
+.stamp.device-blocked { color: var(--ink); background: var(--ground); }
+.stamp.device-waiting { color: #7a5c00; background: #fff6d6; }
+.stamp.device-failed { color: var(--danger); background: var(--danger-soft); }
+
+.device-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.device-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px 20px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line-soft);
+  font-size: var(--t-14);
+}
+
+.device-row:first-child {
+  border-top: 0;
+}
+
+.device-main,
+.device-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.device-state .hint {
+  margin: 0;
+}
+
+.device-macs {
+  color: var(--ink-2);
+  font-size: var(--t-13);
+  overflow-wrap: anywhere;
+}
+
+.device-access {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.device-access .hint {
+  max-width: 34ch;
+  text-align: right;
+}
+
+.device-timed {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.device-timed-label {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--t-13);
+}
+
+.device-adopt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  grid-column: 2 / -1;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.inline-form .field {
+  margin: 0;
+}
+
+.devices-strip .panel-body {
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .device-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .device-access,
+  .device-adopt {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+  }
+
+  .device-access .hint {
+    text-align: left;
+  }
+
+  .device-timed {
+    align-items: flex-start;
+  }
+}
