@@ -2,6 +2,24 @@
 
 How the Router bridge talks to prism-api (see ADR 0007 and ADR 0008). The router side is in [router-bridge-tl-r600vpn.md](router-bridge-tl-r600vpn.md). `prism-api/test/fake-bridge.ts` is a working example of the bridge side, with a pretend router.
 
+## Setting up the bridge PC
+
+The bridge is `prismclient/prismbridge` (logic in `prismbridge.core`). It needs an always-on Windows PC on the home network with the .NET 10 runtime, the same one the Client uses.
+
+```powershell
+# On a development machine
+dotnet publish prismclient/prismbridge -c Release -r win-x64 --self-contained false -o out/prismbridge
+
+# Copy out/prismbridge to the bridge PC, for example C:\Program Files\FamilyPrism\Bridge, then from an administrator prompt there:
+.\prismbridge setup      # signs in to the router once to check the login, then registers with the server
+.\prismbridge install    # installs and starts the "Family Prism Router Bridge" service
+.\prismbridge check      # optional: lists the router's filter table without changing it
+```
+
+The router login and the bridge's server credential are saved with DPAPI (LocalMachine) under `C:\ProgramData\FamilyPrism\Bridge\Config`, which only SYSTEM and Administrators can open. Debug builds use `%LOCALAPPDATA%\FamilyPrism\Debug\Bridge` instead and don't need elevation.
+
+If the console says the router turned down the bridge's password, the bridge has stopped signing in so it can't lock the router. Run `prismbridge router-login` with the new password; the service picks it up on its next pass, within a few minutes. `prismbridge status` shows the saved setup without secrets. To move the bridge to another PC, remove it in Settings › Router bridge, then run `setup` on the new one.
+
 ## Registration
 
 `POST /api/bridges/register` with JSON `{ "bridgeName": "...", "registrationPassword": "..." }`. It uses the same registration password as Clients.
