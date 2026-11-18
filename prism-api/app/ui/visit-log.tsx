@@ -59,6 +59,40 @@ interface VisitEntry {
   count: number;
 }
 
+/**
+ * A web address as a person reads it: the site, then the rest of the path, with
+ * `https://` dropped and escapes like `%20` shown as the characters they stand for.
+ * Anything that isn't a web address comes back whole as `rest`.
+ */
+export function splitVisitUrl(url: string) {
+  let scheme = url.match(/^https?:\/\//i);
+  if (!scheme) return { host: "", rest: url };
+
+  let text = url.slice(scheme[0].length);
+  try {
+    text = decodeURI(text);
+  } catch {
+    // A malformed escape: show the address as it was recorded.
+  }
+  let end = text.search(/[/?#]/);
+  return end === -1
+    ? { host: text, rest: "" }
+    : { host: text.slice(0, end), rest: text.slice(end) };
+}
+
+function VisitUrl(handle: Handle<{ url: string }>) {
+  return () => {
+    let { url } = handle.props;
+    let { host, rest } = splitVisitUrl(url);
+    return (
+      <span title={url} class="visit-url">
+        {host ? <span class="visit-host">{host}</span> : null}
+        {rest}
+      </span>
+    );
+  };
+}
+
 function browserLabel(visit: HistoryVisit) {
   return `${visit.browser} · ${visit.browserProfile}`;
 }
@@ -179,7 +213,7 @@ export function VisitLog(
                       </span>
                       {count > 1 ? <span class="visit-count">{count} visits</span> : null}
                     </p>
-                    <span title={visit.url} class="visit-url">{visit.url}</span>
+                    <VisitUrl url={visit.url} />
                   </div>
                   {bare ? null : (
                     <div class="visit-meta">

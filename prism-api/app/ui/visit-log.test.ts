@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import type { HistoryVisit } from '../data/visits.ts'
-import { groupVisitsByDay } from './visit-log.tsx'
+import { groupVisitsByDay, splitVisitUrl } from './visit-log.tsx'
 
 function visitAt(visitedAt: string, title = visitedAt): HistoryVisit {
   return {
@@ -95,4 +95,37 @@ test('groupVisitsByDay adds the year once the household zone has reached a new y
       ['Wednesday', 'Dec 30, 2026'],
     ],
   )
+})
+
+test('splitVisitUrl drops the scheme and splits the site from the path', () => {
+  assert.deepEqual(splitVisitUrl('https://www.youtube.com/watch?v=abc123'), {
+    host: 'www.youtube.com',
+    rest: '/watch?v=abc123',
+  })
+  assert.deepEqual(splitVisitUrl('http://example.com'), { host: 'example.com', rest: '' })
+  assert.deepEqual(splitVisitUrl('https://example.com?q=1'), { host: 'example.com', rest: '?q=1' })
+})
+
+test('splitVisitUrl shows escaped characters as text but keeps the address structure', () => {
+  assert.deepEqual(splitVisitUrl('https://en.wikipedia.org/wiki/Caf%C3%A9_au_lait'), {
+    host: 'en.wikipedia.org',
+    rest: '/wiki/Café_au_lait',
+  })
+  // Escaped separators stay escaped so the path and query read the same as the address.
+  assert.deepEqual(splitVisitUrl('https://example.com/search?q=cats%26dogs%20fun'), {
+    host: 'example.com',
+    rest: '/search?q=cats%26dogs fun',
+  })
+})
+
+test('splitVisitUrl keeps malformed escapes and non-web addresses as recorded', () => {
+  assert.deepEqual(splitVisitUrl('https://example.com/100%'), {
+    host: 'example.com',
+    rest: '/100%',
+  })
+  assert.deepEqual(splitVisitUrl('chrome://settings/'), { host: '', rest: 'chrome://settings/' })
+  assert.deepEqual(splitVisitUrl('file:///C:/Users/kid/notes.html'), {
+    host: '',
+    rest: 'file:///C:/Users/kid/notes.html',
+  })
 })

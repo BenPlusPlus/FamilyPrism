@@ -71,7 +71,7 @@ import { routes } from "../../routes.ts";
 import { getNotice, safeAdminReturnTo, withNotice, type Notice } from "../../utils/notice.ts";
 import { viewerFrom } from "../../ui/layout.tsx";
 import { render } from "../../utils/render.tsx";
-import { ClientDetailPage } from "./client-detail-page.tsx";
+import { ClientDetailPage, clientTabHref, parseClientTab } from "./client-detail-page.tsx";
 import { ClientsPage } from "./clients-page.tsx";
 import { DashboardPage } from "./dashboard-page.tsx";
 import { GroupsPage } from "./groups-page.tsx";
@@ -197,14 +197,17 @@ export const adminClients = {
 
     async detail({ get, params, request }) {
       let identity = getConsoleViewer({ get });
+      let tab = parseClientTab(new URL(request.url).searchParams.get("tab"));
       let [client, dnsProfiles, latestDnsState, recentVisits, timeZone] = await Promise.all([
         getClient(params.clientId),
         listDnsProfiles(),
         getLatestDnsState(params.clientId),
-        listHistoryPage(1, new Date(), {
-          clientId: params.clientId,
-          pageSize: CLIENT_HISTORY_LIMIT,
-        }),
+        tab === "history"
+          ? listHistoryPage(1, new Date(), {
+              clientId: params.clientId,
+              pageSize: CLIENT_HISTORY_LIMIT,
+            })
+          : null,
         getHouseholdTimeZone(),
       ]);
       if (!client) {
@@ -234,8 +237,9 @@ export const adminClients = {
           dnsProfiles={dnsProfiles}
           latestDnsState={latestDnsState}
           notice={getNotice(new URL(request.url))}
+          tab={tab}
           timeZone={timeZone}
-          visits={recentVisits.visits}
+          visits={recentVisits?.visits ?? []}
         />,
         request,
       );
@@ -276,9 +280,7 @@ export const adminClients = {
       middleware: [requireConsoleAdmin()],
       async handler({ get, params, request }) {
         let parsed = s.parseSafe(historyCollectionSchema, get(FormData));
-        let detailUrl = routes.admin.clients.detail.href({
-          clientId: params.clientId,
-        });
+        let detailUrl = clientTabHref(params.clientId, "history");
         let enabled = parsed.success
           ? parsed.value.enabled === "on"
             ? true
@@ -340,7 +342,7 @@ export const adminClients = {
         return redirect(
           withNotice(
             request,
-            routes.admin.clients.detail.href({ clientId: client.id }),
+            clientTabHref(client.id, "history"),
             {
               text: `Cleared History for ${client.name}.`,
               type: "success",
