@@ -103,9 +103,11 @@ async function readHistory(
   }
 }
 
-async function readClientDetail(cookie: string, clientId: string) {
+// Visits live on the Client page's History tab.
+async function readClientDetail(cookie: string, clientId: string, tab: 'history' | null = 'history') {
+  let href = routes.admin.clients.detail.href({ clientId })
   let response = await router.fetch(
-    jsonRequest(routes.admin.clients.detail.href({ clientId }), {
+    jsonRequest(tab ? `${href}?tab=${tab}` : href, {
       headers: { cookie },
     }),
   )
@@ -159,7 +161,11 @@ test('authenticated Client can upload Visits listed on History', async () => {
   assert.match(text, /Chrome · Default/)
   assert.match(text, /Newer page/)
   assert.match(text, /Older page/)
-  assert.match(text, /class="visit-url">https:\/\/newer\.example\//)
+  // The row reads as site then path; the full address stays in the tooltip.
+  assert.match(
+    text,
+    /title="https:\/\/newer\.example\/" class="visit-url"><span class="visit-host">newer\.example<\/span>\//,
+  )
   assert.doesNotMatch(text, /<a[^>]+href="https:\/\/newer\.example\//)
   assert.ok(text.indexOf('Newer page') < text.indexOf('Older page'))
 })
@@ -422,6 +428,37 @@ test('Client detail shows the latest 20 Visits and links to filtered History', a
   assert.match(text, /View in History/)
 })
 
+test('Client detail opens on Controls and keeps Visits on its History tab', async () => {
+  await installTestPersistence()
+  let cookie = await createFirstAdmin()
+  let kitchen = await registerClient('Kitchen PC')
+  assert.equal(
+    (await postVisits(kitchen, [visitPayload({ title: 'Kitchen page', url: 'https://kitchen.example/' })])).status,
+    204,
+  )
+
+  let controls = await readClientDetail(cookie, kitchen.clientId, null)
+  assert.equal(controls.response.status, 200)
+  assert.match(controls.text, /<a href="[^"]*" aria-current="page">\s*Controls/)
+  assert.ok(controls.text.includes(`href="/admin/clients/${kitchen.clientId}?tab=history"`))
+  assert.match(controls.text, /Send a message/)
+  assert.doesNotMatch(controls.text, /Kitchen page/)
+  assert.doesNotMatch(controls.text, /History collection/)
+
+  let history = await readClientDetail(cookie, kitchen.clientId)
+  assert.match(history.text, /<a href="[^"]*\?tab=history" aria-current="page">\s*History/)
+  assert.match(history.text, /Kitchen page/)
+  assert.doesNotMatch(history.text, /Send a message/)
+
+  // An unknown tab falls back to Controls rather than an empty page.
+  let unknown = await router.fetch(
+    jsonRequest(`${routes.admin.clients.detail.href({ clientId: kitchen.clientId })}?tab=nope`, {
+      headers: { cookie },
+    }),
+  )
+  assert.match(await unknown.text(), /Send a message/)
+})
+
 test('History row Delete removes that Visit and stays on the filtered list', async () => {
   await installTestPersistence()
   let cookie = await createFirstAdmin()
@@ -508,7 +545,7 @@ test('Client danger zone can clear that Client\'s Visits without touching others
   )
   assert.equal(cleared.status, 302)
   let clearedLocation = cleared.headers.get('location') ?? ''
-  assert.match(clearedLocation, new RegExp(`/admin/clients/${kitchen.clientId}`))
+  assert.ok(clearedLocation.startsWith(`/admin/clients/${kitchen.clientId}?tab=history&`))
   assert.match(clearedLocation, /notice=Cleared/)
 
   let kitchenAfter = await readClientDetail(cookie, kitchen.clientId)
@@ -558,7 +595,7 @@ test('Client detail History collection is on by default and off keeps existing V
     ),
   )
   assert.equal(toggled.status, 302)
-  assert.match(toggled.headers.get('location') ?? '', /notice=History\+collection\+is\+off/)
+  assert.match(toggled.headers.get('location') ?? '', /\?tab=history&notice=History\+collection\+is\+off/)
 
   assert.equal(
     (

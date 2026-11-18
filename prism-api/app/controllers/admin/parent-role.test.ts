@@ -125,6 +125,7 @@ test('a Parent can open every everyday page', async () => {
     routes.admin.index.href(),
     routes.admin.clients.index.href(),
     routes.admin.clients.detail.href({ clientId: household.client.clientId }),
+    `${routes.admin.clients.detail.href({ clientId: household.client.clientId })}?tab=history`,
     routes.admin.groups.index.href(),
     routes.admin.history.index.href(),
   ]) {
@@ -207,8 +208,11 @@ test('a Parent does not see admin-only controls that an admin does', async () =>
   let read = async (cookie: string, path: string) =>
     (await router.fetch(jsonRequest(path, { headers: { cookie } }))).text()
 
-  let adminDetail = await read(household.adminCookie, detail)
-  let parentDetail = await read(household.parentCookie, detail)
+  // The Client page splits into Controls and History tabs; check both.
+  let readDetail = async (cookie: string) =>
+    (await read(cookie, detail)) + (await read(cookie, `${detail}?tab=history`))
+  let adminDetail = await readDetail(household.adminCookie)
+  let parentDetail = await readDetail(household.parentCookie)
   for (let action of [
     routes.admin.clients.delete.href({ clientId: household.client.clientId }),
     routes.admin.clients.clearHistory.href({ clientId: household.client.clientId }),
