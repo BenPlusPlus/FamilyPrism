@@ -6,7 +6,13 @@ import { Icon } from "../../../ui/icons.tsx";
 import { AdminShell, type Viewer } from "../../../ui/layout.tsx";
 import { NoticeBar } from "../../../ui/notice.tsx";
 import type { Notice } from "../../../utils/notice.ts";
-import { AccessControls, BridgePanel, DeviceStamp } from "./device-parts.tsx";
+import {
+  AccessControls,
+  BridgePanel,
+  DeviceStamp,
+  PrivateAddressFlag,
+  TimedStatus,
+} from "./device-parts.tsx";
 
 function headline(overview: NetworkOverview) {
   let total = overview.devices.length;
@@ -32,6 +38,10 @@ export function DevicesPage(
     let { viewer, notice, overview, timeZone } = handle.props;
     let isAdmin = viewer.role === "admin";
     let returnTo = routes.admin.devices.index.href();
+    // A disconnected or failing bridge explains every other state on the page, so it leads.
+    let bridgeNeedsAttention = Boolean(
+      overview.bridge && (!overview.bridge.connected || overview.bridge.error),
+    );
 
     return (
       <AdminShell active="devices" title="Devices" viewer={viewer}>
@@ -55,7 +65,7 @@ export function DevicesPage(
 
         <NoticeBar notice={notice} />
 
-        <BridgePanel bridge={overview.bridge} timeZone={timeZone} />
+        {bridgeNeedsAttention ? <BridgePanel bridge={overview.bridge} timeZone={timeZone} /> : null}
 
         <section class="panel" aria-labelledby="devices-title">
           <div class="panel-head">
@@ -70,31 +80,39 @@ export function DevicesPage(
                 : "An admin can add devices."}
             </p>
           ) : (
-            <ul class="device-list panel-body">
-              {overview.devices.map((device) => (
-                <li class="device-row">
-                  <div class="device-main">
-                    <a class="row-link" href={routes.admin.devices.detail.href({ deviceId: device.id })}>
-                      {device.name}
-                      <Icon name="chevron" />
-                    </a>
-                    <span class="data device-macs">
-                      {device.macs.map((entry) => entry.mac).join(", ")}
-                    </span>
-                    {device.macs.some((entry) => entry.private) ? (
-                      <span class="tape warn" title="A private Wi-Fi address can change. Open the device for details.">
-                        Private address
+            <div class="panel-body">
+              <p class="hint device-list-hint">
+                Block and Allow last until you change them. A time button switches the device for
+                that long, then switches it back.
+              </p>
+              <ul class="device-list">
+                {overview.devices.map((device) => (
+                  <li class="device-row" data-dns-overlay={device.timed ? "" : undefined}>
+                    <div class="device-main">
+                      <a
+                        class="row-link"
+                        href={routes.admin.devices.detail.href({ deviceId: device.id })}
+                      >
+                        {device.name}
+                        <Icon name="chevron" />
+                      </a>
+                      <span class="data device-macs">
+                        {device.macs.map((entry) => entry.mac).join(", ")}
                       </span>
-                    ) : null}
-                  </div>
-                  <div class="device-state">
-                    <DeviceStamp device={device} />
-                    {device.status.detail ? <p class="hint">{device.status.detail}</p> : null}
-                  </div>
-                  <AccessControls device={device} returnTo={returnTo} />
-                </li>
-              ))}
-            </ul>
+                      {device.macs.some((entry) => entry.private) ? (
+                        <PrivateAddressFlag title="A private Wi-Fi address can change. Open the device for details." />
+                      ) : null}
+                    </div>
+                    <div class="device-state">
+                      <DeviceStamp device={device} />
+                      <TimedStatus device={device} />
+                      {device.status.detail ? <p class="hint">{device.status.detail}</p> : null}
+                    </div>
+                    <AccessControls device={device} returnTo={returnTo} />
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </section>
 
@@ -111,45 +129,67 @@ export function DevicesPage(
                 {isAdmin ? " Adopt one to control it from here." : " An admin can adopt them."}
               </p>
               <ul class="device-list">
-                {overview.unmanaged.map((entry) => (
-                  <li class="device-row">
-                    <div class="device-main">
-                      <strong>{entry.name}</strong>
-                      <span class="data device-macs">{entry.mac}</span>
-                    </div>
-                    {isAdmin ? (
-                      <div class="device-adopt">
-                        <form class="inline-form" method="post" action={routes.admin.devices.adopt.href()}>
-                          <input type="hidden" name="mac" value={entry.mac} />
-                          <label class="field">
-                            <span>Name</span>
-                            <input name="name" required maxlength={100} value={entry.suggestedName} />
-                          </label>
-                          <button class="btn secondary" type="submit">
-                            Adopt as new device
-                          </button>
-                        </form>
-                        {overview.devices.length > 0 ? (
-                          <form class="inline-form" method="post" action={routes.admin.devices.adopt.href()}>
-                            <input type="hidden" name="mac" value={entry.mac} />
-                            <label class="field">
-                              <span>Or add to</span>
-                              <select name="deviceId" required>
-                                <option value="">Choose a device</option>
-                                {overview.devices.map((device) => (
-                                  <option value={device.id}>{device.name}</option>
-                                ))}
-                              </select>
-                            </label>
-                            <button class="btn secondary" type="submit">
-                              Add address
-                            </button>
-                          </form>
-                        ) : null}
+                {overview.unmanaged.map((entry) => {
+                  let key = entry.mac.toLowerCase();
+                  return (
+                    <li class="device-row unmanaged">
+                      <div class="device-main">
+                        <span class="device-name">{entry.name}</span>
+                        <span class="data device-macs">{entry.mac}</span>
                       </div>
-                    ) : null}
-                  </li>
-                ))}
+                      {isAdmin ? (
+                        <div class="device-adopt">
+                          <form
+                            class="setting"
+                            method="post"
+                            action={routes.admin.devices.adopt.href()}
+                          >
+                            <input type="hidden" name="mac" value={entry.mac} />
+                            <label class="field-label" for={`adopt-name-${key}`}>
+                              Adopt as a new device
+                            </label>
+                            <div class="setting-control">
+                              <input
+                                id={`adopt-name-${key}`}
+                                type="text"
+                                name="name"
+                                required
+                                maxlength={100}
+                                value={entry.suggestedName}
+                              />
+                              <button class="btn secondary" type="submit">
+                                Adopt
+                              </button>
+                            </div>
+                          </form>
+                          {overview.devices.length > 0 ? (
+                            <form
+                              class="setting"
+                              method="post"
+                              action={routes.admin.devices.adopt.href()}
+                            >
+                              <input type="hidden" name="mac" value={entry.mac} />
+                              <label class="field-label" for={`adopt-into-${key}`}>
+                                Or add it to a device
+                              </label>
+                              <div class="setting-control">
+                                <select id={`adopt-into-${key}`} name="deviceId" required>
+                                  <option value="">Choose a device</option>
+                                  {overview.devices.map((device) => (
+                                    <option value={device.id}>{device.name}</option>
+                                  ))}
+                                </select>
+                                <button class="btn secondary" type="submit">
+                                  Add
+                                </button>
+                              </div>
+                            </form>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </section>
@@ -164,15 +204,16 @@ export function DevicesPage(
               <div class="form-row">
                 <label class="field">
                   <span>Name</span>
-                  <input name="name" required maxlength={100} placeholder="Kids' iPad" />
+                  <input type="text" name="name" required maxlength={100} placeholder="Kids' iPad" />
                 </label>
                 <label class="field">
                   <span>MAC address</span>
                   <input
+                    type="text"
                     name="mac"
                     required
                     maxlength={17}
-                    class="data"
+                    class="mono"
                     autocomplete="off"
                     spellcheck={false}
                     placeholder="3C-A9-F4-10-20-AB"
@@ -200,6 +241,8 @@ export function DevicesPage(
             </form>
           </section>
         ) : null}
+
+        {bridgeNeedsAttention ? null : <BridgePanel bridge={overview.bridge} timeZone={timeZone} />}
       </AdminShell>
     );
   };

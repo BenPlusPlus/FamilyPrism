@@ -258,94 +258,104 @@ function SettingsIndexPage(
         </div>
       </header>
       <NoticeBar notice={handle.props.notice} />
-      <section class="panel" aria-labelledby="time-zone-title">
+      <section class="panel" aria-labelledby="household-title">
         <div class="panel-head">
-          <h2 id="time-zone-title">Time zone</h2>
+          <h2 id="household-title">Household</h2>
         </div>
-        <form
-          class="panel-body"
-          method="post"
-          action={routes.admin.settings.timeZone.href()}
-        >
-          <label class="field">
-            <span>Zone</span>
-            <select name="timeZone" required>
-              {timeZoneChoices(handle.props.timeZone).map((zone) => (
-                <option value={zone} selected={zone === handle.props.timeZone}>
-                  {zone.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div class="form-foot">
-            <span class="hint">
+        <div class="panel-body">
+          <form
+            class="setting"
+            method="post"
+            action={routes.admin.settings.timeZone.href()}
+          >
+            <label class="field-label" for="setting-time-zone">
+              Time zone
+            </label>
+            <div class="setting-control">
+              <select id="setting-time-zone" name="timeZone" required>
+                {timeZoneChoices(handle.props.timeZone).map((zone) => (
+                  <option value={zone} selected={zone === handle.props.timeZone}>
+                    {zone.replaceAll("_", " ")}
+                  </option>
+                ))}
+              </select>
+              <button class="btn secondary" type="submit">
+                Save
+              </button>
+            </div>
+            <p class="hint">
               Visit times, Today and Yesterday, and other dates follow this zone.
-            </span>
-            <button class="btn" type="submit">
-              Save
-            </button>
-          </div>
-        </form>
-      </section>
-      <section class="panel" aria-labelledby="visit-retention-title">
-        <div class="panel-head">
-          <h2 id="visit-retention-title">Visit retention</h2>
-        </div>
-        <form
-          class="panel-body"
-          method="post"
-          action={routes.admin.settings.visitRetention.href()}
-        >
-          <label class="field">
-            <span>Days</span>
-            <input
-              type="number"
-              name="visitRetentionDays"
-              required
-              min={MIN_VISIT_RETENTION_DAYS}
-              max={MAX_VISIT_RETENTION_DAYS}
-              step={1}
-              value={String(handle.props.visitRetentionDays)}
-            />
-          </label>
-          <div class="form-foot">
-            <span class="hint">
+            </p>
+          </form>
+          <form
+            class="setting"
+            method="post"
+            action={routes.admin.settings.visitRetention.href()}
+          >
+            <label class="field-label" for="setting-visit-retention">
+              Visit retention
+            </label>
+            <div class="setting-control">
+              <span class="input-suffix">
+                <input
+                  id="setting-visit-retention"
+                  type="number"
+                  name="visitRetentionDays"
+                  required
+                  inputmode="numeric"
+                  min={MIN_VISIT_RETENTION_DAYS}
+                  max={MAX_VISIT_RETENTION_DAYS}
+                  step={1}
+                  value={String(handle.props.visitRetentionDays)}
+                  aria-describedby="setting-visit-retention-unit"
+                />
+                <span id="setting-visit-retention-unit">days</span>
+              </span>
+              <button class="btn secondary" type="submit">
+                Save
+              </button>
+            </div>
+            <p class="hint">
               How long to keep each Visit, counted from the visit time.
-            </span>
-            <button class="btn" type="submit">
-              Save
-            </button>
-          </div>
-        </form>
+            </p>
+          </form>
+        </div>
       </section>
-      <section class="panel">
-        <ul class="rows">
+      <section class="panel" aria-labelledby="settings-more-title">
+        <div class="panel-head">
+          <h2 id="settings-more-title">Accounts and internet</h2>
+        </div>
+        <ul class="link-rows">
           <li>
-            <a class="row-link" href={routes.admin.settings.accounts.index.href()}>
-              Accounts
+            <a href={routes.admin.settings.accounts.index.href()}>
+              <span class="link-rows-text">
+                <strong>Accounts</strong>
+                <span>
+                  Who can sign in to the console, and whether they're an admin or a parent.
+                </span>
+              </span>
               <Icon name="chevron" />
             </a>
-            <span class="muted">
-              Who can sign in to the console, and whether they're an admin or a parent.
-            </span>
           </li>
           <li>
-            <a class="row-link" href={routes.admin.settings.routerBridge.index.href()}>
-              Router bridge
+            <a href={dnsProfilesIndexHref()}>
+              <span class="link-rows-text">
+                <strong>Internet profiles</strong>
+                <span>
+                  No internet, plus filtering profiles you name, applied from a PC's page.
+                </span>
+              </span>
               <Icon name="chevron" />
             </a>
-            <span class="muted">
-              Optional. Blocks phones, tablets, and consoles at the router.
-            </span>
           </li>
           <li>
-            <a class="row-link" href={dnsProfilesIndexHref()}>
-              Internet profiles
+            <a href={routes.admin.settings.routerBridge.index.href()}>
+              <span class="link-rows-text">
+                <strong>Router bridge</strong>
+                <span>Optional. Blocks phones, tablets, and consoles at the router.</span>
+              </span>
               <Icon name="chevron" />
             </a>
-            <span class="muted">
-              No internet, plus filtering profiles you name, applied from a PC's page.
-            </span>
           </li>
         </ul>
       </section>
@@ -414,6 +424,10 @@ function DnsProfilesPage(
 
     return (
       <AdminShell active="dns" title="Internet profiles" viewer={viewer}>
+        <a class="crumb" href={settingsIndexHref()}>
+          <Icon name="back" />
+          Settings
+        </a>
         <header class="page-head">
           <div>
             <h1>Internet profiles</h1>

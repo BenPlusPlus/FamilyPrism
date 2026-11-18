@@ -277,7 +277,7 @@ A restrained slate-and-plaster frame lets six saturated tag colours and a single
 - **Rhythm:** Common steps are 4, 6, 8, 10, 12, 14, 16, 20, 24 and 28px. Panel padding is 20px, and table cells are 12px × 16px.
 - **Under 860px (phones):**
   - The rail becomes a slim sticky top bar holding the brand and "Sign out".
-  - Navigation moves to a fixed bottom tab bar (four equal tabs, padded for the safe-area inset).
+  - Navigation moves to a fixed bottom tab bar (one equal-width tab per section the viewer can see, up to six on one row, padded for the safe-area inset).
   - The page gets 104px bottom padding.
   - The rack becomes two columns.
   - Stackable tables become stacked card rows with `data-label` captions, and the whole row is the link target.
@@ -337,7 +337,7 @@ Solid, compact and plain-spoken.
 
 ### Navigation
 - **Rail:** Links are 0.9375rem / 500 in Rail Haze with 20px icons. Hover shows Raised Slate and white text. The active link (`aria-current="page"`) shows Raised Slate, white text, an inset 2px brass bar and a brass icon. The foot shows "Signed in as" above the sign-out link, divided by a slate seam. Focus outlines inside the rail are brass.
-- **Tab bar (under 860px):** A fixed slate bar with four icon-over-label tabs (Home, Clients, Groups, DNS). The active tab has white text and a brass icon.
+- **Tab bar (under 860px):** A fixed slate bar of icon-over-label tabs, one per section the viewer can see (Home, Clients, Devices when a Router bridge is registered, Groups, History, and Settings for admins). The tabs share the row in equal columns and never wrap. The active tab has white text and a brass icon.
 
 ### Key Tag (signature)
 The rack's unit. It's built from these parts:
@@ -374,6 +374,10 @@ A full-width bar with a 20px icon, 1px border and 6px radius. **Success** is a m
 - **Visit log** (History and the Client page's Visits): Visits sit under day dividers ("Today", "Yesterday", or the weekday, plus a short date) on a #f6f7f5 band. Each row has the title (600, one line) over the URL (data font, ink-3, one line, full URL in the tooltip), plus the time. Nothing wraps; long text ends in an ellipsis. If every listed Visit has the same Windows user or browser · profile, that fact is stated once in an "All N Visits:" line above the days and dropped from the rows. Otherwise each row shows it with a 16px ink-3 icon. History also shows the Client chip, unless the list is filtered to one Client. The Client page is read-only, so it folds back-to-back Visits to the same URL into one row with an "N visits" count; History keeps every Visit as its own deletable row. When the list is 760px or wider, rows run time / page / details / delete. When it's narrower, the time moves to the top right and the details go on a line underneath.
 - **Icon button:** A 40px square (44px under 860px) with an 18px icon in ink-3 and no fill. It must have an `aria-label`. Hover gives it a paper fill and a border. The danger variant (row Delete) hovers to the danger wash with brick text.
 - **Filter bar:** Client, Windows user, browser, search (with a leading search icon) and "Show matches" sit on one row when there's room. When any filter is active, a "Clear" secondary button appears.
+- **Setting:** One labelled preference per form. The label sits above, the control (capped at 420px) shares a line with a secondary "Save", and the hint goes underneath. Several settings stack in one panel, divided by hairlines. A number gets a short 96px field with its unit beside it ("30 days").
+- **Link rows:** Sub-pages listed inside a panel (Settings → Accounts, Internet profiles, Router bridge). The whole row is the link: a 600 title over a body-small ink-2 description, with a chevron on the right. Hover gives it the #f6f7f5 row fill and nudges the chevron 2px.
+- **Device rows** (Devices): name link and MAC addresses (data font), then the state stamp, then the actions. The actions are the toggle (Block is a danger button, Allow is primary) followed by secondary 5 / 15 / 30 min / 1 hr presets, all on one line. During a time limit the line becomes +5 / +15 / +30 / +1 hr and "End now", and the state column shows "Blocked for now, then allowed" over the live countdown. What the buttons do is said once above the list, not in every row. Wide screens use fixed state and action columns so the stamps line up. Below 1240px the actions drop under the name. On phones the buttons share the row in equal columns.
+- **Caution flag:** A 13px warn-ink label with a 16px alert icon (for example "Private address" on a MAC that can change). It's a caution, not a name, so it never uses tape.
 
 ### Screenshot Frame
 A 1px hairline frame with a 6px radius on a near-black backing (#101415). It has a paper caption bar giving the capture time. When there's no screenshot, a dashed 16:9 placeholder takes its place. Clicking the image or the caption's "Enlarge" opens a native `popover` lightbox on a slate scrim, with "Open original" and "Close" actions. Don't use hash or `:target` links here, because the Remix client router uses pushState and `:target` never fires.

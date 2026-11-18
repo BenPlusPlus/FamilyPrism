@@ -133,3 +133,32 @@ test('POST /api/auth/sign-up/email is not a public route', async () => {
 
   assert.equal(response.status, 404)
 })
+
+test('GET /fonts serves the bundled typefaces the document preloads', async () => {
+  await installTestPersistence()
+
+  let { response, text } = await readText(routes.auth.login.index.href())
+  let preloaded = [...text.matchAll(/href="(\/fonts\/[^"]+)"/g)].map((match) => match[1])
+  assert.ok(preloaded.length > 0)
+
+  for (let href of preloaded) {
+    let font = await router.fetch(jsonRequest(href))
+    assert.equal(font.status, 200, href)
+    assert.equal(font.headers.get('content-type'), 'font/woff2')
+  }
+
+  assert.equal(response.status, 200)
+})
+
+test('GET /fonts refuses files that are not bundled fonts', async () => {
+  let response = await router.fetch(jsonRequest('/fonts/..%2F..%2Fpackage.json'))
+  assert.equal(response.status, 404)
+})
+
+test('HTML pages render in standards mode', async () => {
+  await installTestPersistence()
+
+  let { text } = await readText(routes.auth.login.index.href())
+
+  assert.match(text, /^<!DOCTYPE html><html/)
+})

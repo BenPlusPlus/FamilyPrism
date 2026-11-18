@@ -41,3 +41,7 @@ _ReSharper*/
 .idea/
 #Nuget packages folder
 packages/
+/.github/skills
+/.claude/skills
+/.cursor/skills
+/.grok/skills

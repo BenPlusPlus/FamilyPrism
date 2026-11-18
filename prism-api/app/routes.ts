@@ -2,7 +2,7 @@ import { form, get, post, route } from "remix/routes";
 
 export const routes = route({
   assets: get("/assets/*path"),
-  fonts: get("/fonts/:file"),
+  fonts: get("/fonts/*file"),
   home: get("/"),
   websocket: get("/ws"),
   bridgeWebsocket: get("/ws/bridge"),
