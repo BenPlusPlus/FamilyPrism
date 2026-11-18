@@ -101,7 +101,7 @@ export function AccountsPage(
                 <article class="group">
                   <div class="group-head">
                     <h3>{account.name}</h3>
-                    <span class="tape">{CONSOLE_ROLE_LABEL[account.role]}</span>
+                    <span class="muted">{CONSOLE_ROLE_LABEL[account.role]}</span>
                   </div>
                   <p class="muted">{account.email}</p>
                   {account.userId === viewerUserId ? (
@@ -162,7 +162,7 @@ export function AccountsPage(
                   <article class="group">
                     <div class="group-head">
                       <h3>{invitation.name}</h3>
-                      <span class="tape">{CONSOLE_ROLE_LABEL[invitation.role]}</span>
+                      <span class="muted">{CONSOLE_ROLE_LABEL[invitation.role]}</span>
                     </div>
                     <p class="muted">
                       {invitation.email} · Expires {formatDateTime(invitation.expires_at, timeZone)}

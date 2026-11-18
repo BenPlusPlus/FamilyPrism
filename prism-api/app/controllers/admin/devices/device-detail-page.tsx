@@ -6,7 +6,15 @@ import { Icon } from "../../../ui/icons.tsx";
 import { AdminShell, type Viewer } from "../../../ui/layout.tsx";
 import { NoticeBar } from "../../../ui/notice.tsx";
 import type { Notice } from "../../../utils/notice.ts";
-import { AccessControls, BridgePanel, DeviceStamp, PrivateAddressHint } from "./device-parts.tsx";
+import {
+  AccessControls,
+  accessHint,
+  BridgePanel,
+  DeviceStamp,
+  PrivateAddressFlag,
+  PrivateAddressHint,
+  TimedStatus,
+} from "./device-parts.tsx";
 
 export function DeviceDetailPage(
   handle: Handle<{
@@ -49,9 +57,11 @@ export function DeviceDetailPage(
             <h2 id="access-title">Internet</h2>
             <DeviceStamp device={device} />
           </div>
-          <div class="panel-body">
+          <div class="panel-body device-access" data-dns-overlay={device.timed ? "" : undefined}>
+            <TimedStatus device={device} />
             {device.status.detail ? <p class="hint">{device.status.detail}</p> : null}
             <AccessControls device={device} returnTo={detailHref} />
+            <p class="hint">{accessHint(device)}</p>
           </div>
         </section>
 
@@ -65,7 +75,7 @@ export function DeviceDetailPage(
               {device.macs.map((entry) => (
                 <li>
                   <span class="data">{entry.mac}</span>
-                  <span>{entry.private ? <span class="tape warn">Private address</span> : null}</span>
+                  <span>{entry.private ? <PrivateAddressFlag /> : null}</span>
                   {isAdmin && canRemoveMac ? (
                     <form method="post" action={routes.admin.devices.removeMac.href(ids)}>
                       <input type="hidden" name="mac" value={entry.mac} />
@@ -85,10 +95,11 @@ export function DeviceDetailPage(
                 <label class="field">
                   <span>Add an address</span>
                   <input
+                    type="text"
                     name="mac"
                     required
                     maxlength={17}
-                    class="data"
+                    class="mono"
                     autocomplete="off"
                     spellcheck={false}
                     placeholder="3C-A9-F4-10-20-9E"
@@ -116,7 +127,7 @@ export function DeviceDetailPage(
             <form class="panel-body" method="post" action={routes.admin.devices.rename.href(ids)}>
               <label class="field">
                 <span>Name</span>
-                <input name="name" required maxlength={100} value={device.name} />
+                <input type="text" name="name" required maxlength={100} value={device.name} />
               </label>
               <div class="form-foot">
                 <span class="hint">The router gets a simpler version of this name.</span>

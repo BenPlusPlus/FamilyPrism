@@ -539,10 +539,12 @@ img {
   font-size: var(--t-13);
 }
 
+input:not([type]),
 input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="search"],
+input[type="number"],
 select,
 textarea {
   width: 100%;
@@ -594,6 +596,15 @@ input.mono {
   margin-top: 16px;
 }
 
+.form-foot > .hint {
+  flex: 1 1 260px;
+  max-width: 62ch;
+}
+
+.form-foot > .btn:last-child {
+  margin-left: auto;
+}
+
 .dns-overlay {
   margin-top: 16px;
   padding-top: 16px;
@@ -617,6 +628,39 @@ input.mono {
   min-height: 40px;
 }
 
+/* One labelled preference per form: control and Save on a line, hint below. */
+.setting {
+  display: grid;
+  gap: 6px;
+}
+
+.setting .hint {
+  margin: 0;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.setting-control > select {
+  flex: 0 1 420px;
+  min-width: 0;
+}
+
+.input-suffix {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: var(--t-14);
+}
+
+.input-suffix input {
+  width: 96px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -625,6 +669,11 @@ input.mono {
 
 .form-row .field + .field {
   margin-top: 0;
+}
+
+.field + .form-row,
+.form-row + .field {
+  margin-top: 14px;
 }
 
 fieldset {
@@ -1500,6 +1549,62 @@ table.grid td form {
   height: 16px;
 }
 
+/* Whole-row links to sub-pages, inside a panel. */
+.link-rows > li + li {
+  border-top: 1px solid var(--line-soft);
+}
+
+.link-rows a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  padding: 14px 20px;
+  text-decoration: none;
+  transition: background-color 140ms var(--ease-out);
+}
+
+.link-rows > li:last-child a {
+  border-radius: 0 0 calc(var(--radius-l) - 1px) calc(var(--radius-l) - 1px);
+}
+
+.link-rows a:hover {
+  background: #f6f7f5;
+}
+
+.link-rows a:focus-visible {
+  outline-offset: -2px;
+}
+
+.link-rows-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.link-rows-text strong {
+  font-weight: 600;
+}
+
+.link-rows-text span {
+  color: var(--ink-2);
+  font-size: var(--t-14);
+}
+
+.link-rows a svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--ink-3);
+  transition: color 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+.link-rows a:hover svg {
+  color: var(--ink);
+  transform: translateX(2px);
+}
+
 /* ---------- Definition lists ---------- */
 
 .facts {
@@ -1958,7 +2063,8 @@ table.grid td form {
     inset: auto 0 0 0;
     z-index: 20;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
     background: var(--rail);
     border-top: 1px solid var(--rail-line);
@@ -2115,18 +2221,18 @@ details.disclose > summary {
 .stamp.device-waiting { color: #7a5c00; background: #fff6d6; }
 .stamp.device-failed { color: var(--danger); background: var(--danger-soft); }
 
-.device-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.panel-body > .device-list-hint + .device-list {
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .device-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 12px 20px;
-  padding: 14px 0;
+  grid-template-columns: minmax(0, 1fr) 12rem 25rem;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 16px 0;
   border-top: 1px solid var(--line-soft);
   font-size: var(--t-14);
 }
@@ -2144,8 +2250,14 @@ details.disclose > summary {
   min-width: 0;
 }
 
-.device-state .hint {
+.device-state .hint,
+.device-state p {
   margin: 0;
+}
+
+.device-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .device-macs {
@@ -2154,72 +2266,129 @@ details.disclose > summary {
   overflow-wrap: anywhere;
 }
 
-.device-access {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
+/* A caution about the address, not a name: hint-sized text with the alert glyph, never tape. */
+.addr-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warn-ink);
+  font-size: var(--t-13);
+  font-weight: 600;
 }
 
-.device-access .hint {
-  max-width: 34ch;
-  text-align: right;
+.addr-flag svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: #b38900;
 }
 
 .device-timed {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  display: grid;
+  gap: 2px;
 }
 
 .device-timed-label {
-  margin: 0;
   color: var(--ink-2);
   font-size: var(--t-13);
 }
 
-.device-adopt {
+/* Toggle plus time presets, one row, never wrapping into a ragged second line. */
+.device-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  grid-column: 2 / -1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
-.inline-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.inline-form .field {
+.device-actions form {
   margin: 0;
+}
+
+.device-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.device-actions .btn {
+  padding-inline: 12px;
+}
+
+.device-access.panel-body {
+  display: grid;
+  gap: 12px;
+}
+
+.panel-body.device-access > * {
+  margin: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.device-access .device-actions {
+  justify-content: flex-start;
+}
+
+.device-row.unmanaged {
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  align-items: start;
+}
+
+.device-adopt {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px 20px;
+}
+
+.setting-control > input {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .devices-strip .panel-body {
   margin: 0;
 }
 
-@media (max-width: 860px) {
+/* Below this the fixed state and action columns would squeeze the name, so actions drop a line. */
+@media (max-width: 1240px) {
   .device-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .device-access,
-  .device-adopt {
+  .device-state {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .device-row > .device-actions {
     grid-column: 1 / -1;
-    align-items: flex-start;
+    justify-content: flex-start;
   }
 
-  .device-access .hint {
-    text-align: left;
+  .device-row.unmanaged {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  /* Equal columns so five buttons fit a phone row instead of wrapping four-plus-one. */
+  .device-actions,
+  .device-presets,
+  .device-actions > form {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 6px;
+    width: 100%;
   }
 
-  .device-timed {
-    align-items: flex-start;
+  .device-actions.timed {
+    grid-auto-columns: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .device-actions .btn {
+    width: 100%;
+    padding-inline: 4px;
   }
 }

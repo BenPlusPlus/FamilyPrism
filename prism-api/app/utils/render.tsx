@@ -33,5 +33,34 @@ export function render(node: RemixNode, request: Request, init?: ResponseInit) {
     headers.set('Content-Type', 'text/html; charset=utf-8')
   }
 
-  return new Response(stream, { ...init, headers })
+  // renderToStream starts at <html>; without a doctype every page renders in quirks mode.
+  // Frame requests get a fragment, so they stay as they are.
+  let body = request.headers.has('x-remix-target') ? stream : withDoctype(stream)
+  return new Response(body, { ...init, headers })
+}
+
+const DOCTYPE = new TextEncoder().encode('<!DOCTYPE html>')
+
+function withDoctype(stream: ReadableStream<Uint8Array>) {
+  let reader = stream.getReader()
+  let started = false
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (!started) {
+        started = true
+        controller.enqueue(DOCTYPE)
+        return
+      }
+
+      let chunk = await reader.read()
+      if (chunk.done) {
+        controller.close()
+      } else {
+        controller.enqueue(chunk.value)
+      }
+    },
+    cancel(reason) {
+      return reader.cancel(reason)
+    },
+  })
 }
