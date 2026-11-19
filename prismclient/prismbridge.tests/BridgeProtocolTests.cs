@@ -50,6 +50,7 @@ public class BridgeProtocolTests
         Assert.Equal("3C-A9-F4-10-20-AB", root.GetProperty("entries")[0].GetProperty("mac").GetString());
         Assert.Equal(["protected-mac", "table-full"], root.GetProperty("deviceErrors").EnumerateArray().Select(error => error.GetProperty("code").GetString()));
         Assert.Equal(JsonValueKind.Null, root.GetProperty("error").ValueKind);
+        Assert.False(root.GetProperty("deviceErrors")[0].TryGetProperty("message", out _));
     }
 
     [Fact]

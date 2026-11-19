@@ -45,6 +45,23 @@ test('a report that could not read the table keeps entries null', () => {
   assert.equal(message?.type === 'reconcile-report' ? message.report.entries : 'unexpected', null)
 })
 
+test('a device error with a JSON null message is kept, as the installed bridge sends', () => {
+  let message = parseBridgeMessage(
+    raw({
+      deviceErrors: [{ code: 'protected-mac', deviceId: 'd1', message: null }],
+      entries: [{ mac: '7C-BB-8A-B3-EB-73', name: 'Switch_Annalise' }],
+      error: null,
+      type: 'reconcile-report',
+    }),
+  )
+
+  assert.equal(message?.type, 'reconcile-report')
+  assert.deepEqual(message?.type === 'reconcile-report' ? message.report.deviceErrors : null, [
+    { code: 'protected-mac', deviceId: 'd1', message: null },
+  ])
+  assert.equal(message?.type === 'reconcile-report' ? message.report.error : 'unexpected', null)
+})
+
 test('unknown failure codes and oversized tables are rejected', () => {
   assert.equal(parseBridgeMessage(raw({ error: { code: 'on-fire' }, type: 'reconcile-report' })), null)
 

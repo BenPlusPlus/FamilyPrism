@@ -31,7 +31,7 @@ let reportSchema = s.object({
       s.object({
         code: s.enum_(DEVICE_ERROR_CODES),
         deviceId: s.string().pipe(minLength(1), maxLength(255)),
-        message: s.optional(s.string().pipe(maxLength(500))),
+        message: s.optional(s.nullable(s.string().pipe(maxLength(500)))),
       }),
     ),
   ),
@@ -49,7 +49,7 @@ let reportSchema = s.object({
     s.nullable(
       s.object({
         code: s.enum_(BRIDGE_ERROR_CODES),
-        message: s.optional(s.string().pipe(maxLength(500))),
+        message: s.optional(s.nullable(s.string().pipe(maxLength(500)))),
       }),
     ),
   ),
@@ -193,9 +193,15 @@ function attachBridgeSocket(bridgeId: string, name: string, websocket: WebSocket
     if (isBinary) {
       return
     }
-    void handleBridgeMessage(bridgeId, rawData).catch((error: unknown) => {
-      console.error(`Failed to handle websocket message for Router bridge ${bridgeId}.`, error)
-    })
+    void handleBridgeMessage(bridgeId, rawData)
+      .then((accepted) => {
+        if (!accepted) {
+          console.error(`Ignored a websocket message from Router bridge ${bridgeId}.`)
+        }
+      })
+      .catch((error: unknown) => {
+        console.error(`Failed to handle websocket message for Router bridge ${bridgeId}.`, error)
+      })
   })
 
   let cleanup = () => {
