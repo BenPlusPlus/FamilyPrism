@@ -165,11 +165,11 @@ public static class BridgeProtocol
             {
                 type = "reconcile-report",
                 entries = report.Entries?.Select(entry => new { name = entry.Name, mac = entry.Mac }),
-                deviceErrors = report.DeviceErrors.Select(error => new
+                deviceErrors = report.DeviceErrors.Select(error => new DeviceErrorPayload
                 {
-                    deviceId = error.DeviceId,
-                    code = error.Code,
-                    message = error.Message
+                    DeviceId = error.DeviceId,
+                    Code = error.Code,
+                    Message = error.Message,
                 }),
                 error = report.Error is null ? null : new { code = report.Error.Code, message = report.Error.Message }
             },
@@ -191,6 +191,16 @@ public static class BridgeProtocol
             .ToList();
 
         return new DesiredState(devices, payload.ServerTime - localNow, localNow);
+    }
+
+    private sealed class DeviceErrorPayload
+    {
+        public required string DeviceId { get; init; }
+
+        public required DeviceFailureCode Code { get; init; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Message { get; init; }
     }
 
     private sealed record DesiredStatePayload(List<DesiredDevicePayload>? Devices, DateTimeOffset ServerTime);
