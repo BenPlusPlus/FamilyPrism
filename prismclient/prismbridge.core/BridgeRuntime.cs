@@ -255,13 +255,24 @@ public sealed class BridgeRuntime
     }
 }
 
+/// <summary>One of this PC's network interfaces, for deciding which MAC addresses must never be blocked.</summary>
+internal readonly record struct LocalNic(OperationalStatus Status, NetworkInterfaceType Type, byte[] Address);
+
 public static class LocalMacAddresses
 {
-    /// <summary>This PC's own addresses, which the bridge never blocks (it would cut itself off).</summary>
+    /// <summary>
+    /// Addresses that would cut this PC off if blocked: interfaces that are up, and this PC's Wi-Fi
+    /// radio even when disconnected. An unplugged USB Ethernet adapter stays listed as down, and is
+    /// left out so it can be blocked when that dongle is on a console.
+    /// </summary>
     public static IReadOnlySet<string> Get() =>
-        NetworkInterface.GetAllNetworkInterfaces()
-            .Select(nic => nic.GetPhysicalAddress().GetAddressBytes())
-            .Where(bytes => bytes.Length == 6)
-            .Select(bytes => string.Join('-', bytes.Select(value => value.ToString("X2"))))
+        From(NetworkInterface.GetAllNetworkInterfaces().Select(nic =>
+            new LocalNic(nic.OperationalStatus, nic.NetworkInterfaceType, nic.GetPhysicalAddress().GetAddressBytes())));
+
+    internal static IReadOnlySet<string> From(IEnumerable<LocalNic> nics) =>
+        nics.Where(nic =>
+                nic.Address.Length == 6
+                && (nic.Status == OperationalStatus.Up || nic.Type == NetworkInterfaceType.Wireless80211))
+            .Select(nic => string.Join('-', nic.Address.Select(value => value.ToString("X2"))))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 }
