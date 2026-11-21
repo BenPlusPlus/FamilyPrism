@@ -14,7 +14,7 @@
     "node": "26.13.1"
   },
   "dependencies": {
-    "better-auth": "1.7.26",
+    "better-auth": "1.7.27",
     "dotenv": "18.0.10",
     "pg": "8.23.1",
     "remix": "3.3.0",
