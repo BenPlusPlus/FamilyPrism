@@ -122,12 +122,16 @@ internal sealed class FakeTlRouter : HttpMessageHandler
                     return Json(new { error_code = "704" });
                 }
 
-                return Json(new
+                // The real firmware encodes an empty Lua table as {}, not [].
+                JsonNode result = Entries.Count == 0
+                    ? new JsonObject()
+                    : new JsonArray(Entries.Select(entry => JsonSerializer.SerializeToNode(new { name = entry.Name, mac = entry.Mac })).ToArray());
+                return Json(new JsonObject
                 {
-                    id = 1,
-                    others = new { max_rules = MaxRules },
-                    result = Entries.Select(entry => new { name = entry.Name, mac = entry.Mac }),
-                    error_code = "0"
+                    ["id"] = 1,
+                    ["others"] = new JsonObject { ["max_rules"] = MaxRules },
+                    ["result"] = result,
+                    ["error_code"] = "0"
                 });
             case "add":
                 var parameters = data["params"]!;
@@ -171,6 +175,9 @@ internal sealed class FakeTlRouter : HttpMessageHandler
 
     private static HttpResponseMessage Json(object body) => new(HttpStatusCode.OK)
     {
-        Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "text/html")
+        Content = new StringContent(
+            body is JsonNode node ? node.ToJsonString() : JsonSerializer.Serialize(body),
+            Encoding.UTF8,
+            "text/html")
     };
 }

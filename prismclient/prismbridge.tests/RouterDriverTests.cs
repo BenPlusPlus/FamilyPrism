@@ -53,6 +53,20 @@ public class RouterDriverTests
     }
 
     [Fact]
+    public async Task DeletingTheLastEntryLeavesAnEmptyTable()
+    {
+        var router = new FakeTlRouter();
+        router.Entries.Add(new RouterEntry("Old", Unmanaged));
+
+        await using var session = await Driver(router).OpenAsync(CancellationToken.None);
+        await session.DeleteAsync(0, CancellationToken.None);
+        var table = await session.ReadTableAsync(CancellationToken.None);
+
+        Assert.Empty(table.Entries);
+        Assert.Empty(router.Entries);
+    }
+
+    [Fact]
     public async Task AWrongPasswordIsALoginFailure()
     {
         var exception = await Assert.ThrowsAsync<RouterException>(() => Driver(new FakeTlRouter(), "wrong-pass").OpenAsync(CancellationToken.None));
