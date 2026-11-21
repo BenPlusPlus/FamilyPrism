@@ -40,7 +40,7 @@ Mode: `POST /admin/mac_filter?form=mode` with `{"method":"get"}` returns `{"enab
 
 The table is at `POST /admin/mac_filter?form=mac_list`:
 
-- **Read:** `{"method":"get","params":{}}` returns `result: [{"name","mac"}, ...]` and `others.max_rules` (80). MAC addresses come back uppercase and dash-separated.
+- **Read:** `{"method":"get","params":{}}` returns `result: [{"name","mac"}, ...]` and `others.max_rules` (80). MAC addresses come back uppercase and dash-separated. An empty table is `result: {}` (Lua encodes an empty table as an object, not `[]`).
 - **Add:** `{"method":"add","params":{"index":<row count>,"old":"add","new":{"name":"...","mac":"AA-BB-CC-DD-EE-FF"},"key":"add"}}` appends a row and returns it in `result`. If you send `name` and `mac` at the top level of `params` instead, nothing is added and no error code comes back.
 - **Delete:** `{"method":"delete","params":{"key":"key-<i>","index":"<i>"}}` deletes by **0-based position**. Several positions can be joined with commas. The reply is `result: [{"index":"<i>","success":true}]`.
 - **Edit:** `{"method":"set","params":{"index":<i>,"key":"key-<i>","old":{"name","mac"},"new":{"name","mac"}}}` (read from the UI code; not tested).

@@ -105,7 +105,7 @@ public sealed class TlR600VpnDriver(
             }
 
             var list = await PostAsync("/admin/mac_filter?form=mac_list", new { method = "get", @params = new { } }, cancellationToken);
-            var entries = (list["result"]?.AsArray() ?? [])
+            var entries = AsMacList(list["result"])
                 .Select(entry => new RouterEntry(
                     entry?["name"]?.GetValue<string>() ?? string.Empty,
                     entry?["mac"]?.GetValue<string>() ?? string.Empty))
@@ -160,6 +160,15 @@ public sealed class TlR600VpnDriver(
                 http.Dispose();
             }
         }
+
+        // Firmware 4.0.3 encodes an empty Lua table as {}, not [].
+        private static IEnumerable<JsonNode?> AsMacList(JsonNode? result) => result switch
+        {
+            null => [],
+            JsonArray array => array,
+            JsonObject { Count: 0 } => [],
+            _ => throw new RouterException(BridgeFailureCode.Unexpected, "The router sent a MAC list that wasn't a list."),
+        };
 
         private async Task<JsonNode> PostAsync(
             string path,
