@@ -20,7 +20,14 @@ export function Document(handle: Handle<DocumentProps>) {
           <meta charSet="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
           <meta name="theme-color" content="#1e2b2f" />
+          {/* Installed to the home screen: the page draws under the status bar, and the
+              safe-area strip in app.css paints it the rail color behind white status text. */}
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+          <meta name="apple-mobile-web-app-title" content={DEFAULT_TITLE} />
           <title>{title ? `${title} · ${DEFAULT_TITLE}` : DEFAULT_TITLE}</title>
+          <link rel="manifest" href={routes.webAppManifest.href()} />
+          <link rel="icon" type="image/png" sizes="192x192" href={routes.icons.href({ file: 'icon-192.png' })} />
+          <link rel="apple-touch-icon" href={routes.icons.href({ file: 'apple-touch-icon.png' })} />
           <link
             rel="preload"
             href={routes.fonts.href({ file: 'archivo-latin.woff2' })}

@@ -40,6 +40,13 @@ The server expects these environment variables:
 | `REGISTRATION_PASSWORD` | Shared password required by client registration               |
 | `PORT`                  | Optional HTTP port override; defaults to `44100`              |
 
+## Installing on a phone
+
+The console is an installable web app. On iPhone or iPad, open it in Safari over HTTPS, then
+Share → Add to Home Screen; it opens full screen on `/admin` and signs in separately from Safari.
+The manifest is served at `/manifest.webmanifest`; the icons in `public/icons` are rendered from the
+brand mark by `generate-web-icons.ps1` (run it with `pwsh` if the mark changes).
+
 ## Commands
 
 ```sh

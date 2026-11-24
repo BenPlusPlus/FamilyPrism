@@ -434,7 +434,11 @@ export function ClientDetailPage(
                         {formatDnsRemaining(dns.remainingMs)}
                       </p>
                       <p class="hint" data-dns-restore-hint hidden>
-                        Time is up. The previous profile should be back. Refresh to confirm.
+                        Time is up. The previous profile should be back.{" "}
+                        <button class="btn-link" type="button" data-reload>
+                          Refresh
+                        </button>{" "}
+                        to confirm.
                       </p>
                       <form
                         method="post"
@@ -459,7 +463,11 @@ export function ClientDetailPage(
                     </div>
                   ) : dns?.awaitingRestore ? (
                     <p class="hint">
-                      Time is up. {internetProfileLabel(dns)} should be back. Refresh to confirm.
+                      Time is up. {internetProfileLabel(dns)} should be back.{" "}
+                      <button class="btn-link" type="button" data-reload>
+                        Refresh
+                      </button>{" "}
+                      to confirm.
                     </p>
                   ) : null}
 

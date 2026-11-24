@@ -3,6 +3,8 @@ import { form, get, post, route } from "remix/routes";
 export const routes = route({
   assets: get("/assets/*path"),
   fonts: get("/fonts/*file"),
+  icons: get("/icons/*file"),
+  webAppManifest: get("/manifest.webmanifest"),
   home: get("/"),
   websocket: get("/ws"),
   bridgeWebsocket: get("/ws/bridge"),
