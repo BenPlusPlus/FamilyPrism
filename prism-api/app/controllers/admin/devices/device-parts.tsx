@@ -56,7 +56,11 @@ export function TimedStatus(handle: Handle<{ device: DeviceOverview }>) {
           {formatDnsRemaining(device.timed.remainingMs)}
         </p>
         <p class="hint" data-dns-restore-hint hidden>
-          Time is up. It should be {STATE_WORD[device.standing]} again. Refresh to confirm.
+          Time is up. It should be {STATE_WORD[device.standing]} again.{" "}
+          <button class="btn-link" type="button" data-reload>
+            Refresh
+          </button>{" "}
+          to confirm.
         </p>
       </div>
     );

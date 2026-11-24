@@ -85,11 +85,25 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  padding-top: env(safe-area-inset-top);
   background: var(--ground);
   color: var(--ink);
   font: 400 var(--t-15) / 1.5 var(--font-ui);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Installed to the home screen, the page draws under the status bar (see the
+   status-bar-style meta in document.tsx). The body padding keeps content below it and
+   this strip paints it the rail color so the white status text stays readable. In a
+   browser tab the inset is 0 and none of this shows. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 30;
+  height: env(safe-area-inset-top);
+  background: var(--rail);
 }
 
 ::selection {
@@ -161,14 +175,14 @@ img {
 .shell {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: calc(100vh - env(safe-area-inset-top));
   background: linear-gradient(90deg, var(--rail) 232px, transparent 232px);
 }
 
 .rail {
   position: sticky;
-  top: 0;
-  height: 100vh;
+  top: env(safe-area-inset-top);
+  height: calc(100vh - env(safe-area-inset-top));
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -1782,6 +1796,7 @@ table.grid td form {
   max-height: none;
   margin: 0;
   padding: clamp(12px, 3vw, 40px);
+  padding-top: calc(clamp(12px, 3vw, 40px) + env(safe-area-inset-top));
   border: 0;
   background: transparent;
 }
@@ -1930,7 +1945,7 @@ table.grid td form {
 /* ---------- Auth / public ---------- */
 
 .solo {
-  min-height: 100vh;
+  min-height: calc(100vh - env(safe-area-inset-top));
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
@@ -2097,7 +2112,7 @@ table.grid td form {
 
   .rail {
     position: sticky;
-    top: 0;
+    top: env(safe-area-inset-top);
     z-index: 10;
     height: auto;
     flex-direction: row;

@@ -30,6 +30,7 @@ import { adminDevices } from "./controllers/admin/devices/controller.tsx";
 import { adminSettingsRouterBridge } from "./controllers/admin/settings/router-bridge/controller.tsx";
 import { auth, authInvite, authLogin, authSetup } from "./controllers/auth/controller.tsx";
 import { home } from "./controllers/home.tsx";
+import { webAppIconResponse, webAppManifestResponse } from "./controllers/web-app.ts";
 import { loadAuth } from "./middleware/auth.ts";
 import { loadDatabase } from "./middleware/database.ts";
 import { routes } from "./routes.ts";
@@ -85,6 +86,9 @@ router.get(routes.fonts, async ({ params }) => {
     },
   });
 });
+
+router.get(routes.icons, ({ params }) => webAppIconResponse(params.file));
+router.get(routes.webAppManifest, () => webAppManifestResponse());
 
 router.map(routes.home, home);
 router.map(routes.auth, auth);
